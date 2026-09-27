@@ -1,0 +1,72 @@
+flowchart LR
+    %% Primary Actors with Stick Figure Person Shapes
+    subgraph Actors_Left ["Internal Requester & Suppliers"]
+        EU@{ shape: person, label: "End-User /<br/>Requesting Unit" }
+        SUP@{ shape: person, label: "External<br/>Supplier" }
+    end
+
+    subgraph Actors_Right ["Procurement & Executive Authorities"]
+        PO@{ shape: person, label: "Procurement<br/>Officer / Staff" }
+        BAC@{ shape: person, label: "Bids & Awards<br/>Committee (BAC)" }
+        HoPE@{ shape: person, label: "Head of Procuring<br/>Entity (HoPE)" }
+    end
+
+    %% ProcureWise System Boundary
+    subgraph ProcureWise ["ProcureWise: BSC Institutional Procurement Boundary"]
+        
+        subgraph Subsys1 ["1. Requisition & Planning"]
+            UC1(["UC-01: Manage PPMP & Item Catalogs"])
+            UC2(["UC-02: Create & Track Purchase Request"])
+            UC3(["UC-03: Verify Compliance & Budget Gates"])
+        end
+
+        subgraph Subsys2 ["2. Canvassing & RFQ Management"]
+            UC4(["UC-04: Issue RFQ & PhilGEPS Posting"])
+            UC5(["UC-05: Submit & Encode Quotations"])
+        end
+
+        subgraph Subsys3 ["3. Evaluation & Award Formulation"]
+            UC6(["UC-06: Generate Abstract of Quotations"])
+            UC7(["UC-07: Rank MEARB Best-Value Bids"])
+            UC8(["UC-08: Approve Award & Issue PO"])
+        end
+
+        subgraph Subsys4 ["4. Delivery, Audit & PMR Monitoring"]
+            UC9(["UC-09: Inspect Delivery & Rate Supplier"])
+            UC10(["UC-10: View Analytics & Export PMR"])
+        end
+
+    end
+
+    %% Actor Associations
+    EU --- UC1
+    EU --- UC2
+    EU --- UC9
+
+    SUP --- UC5
+    SUP --- UC9
+
+    PO --- UC3
+    PO --- UC4
+    PO --- UC5
+    PO --- UC8
+    PO --- UC10
+
+    BAC --- UC6
+    BAC --- UC7
+
+    HoPE --- UC8
+    HoPE --- UC10
+
+    %% UML Stereotypes: Includes & Extends
+    UC2 -.->|&laquo;includes&raquo;| UC1
+    UC6 -.->|&laquo;includes&raquo;| UC7
+    UC8 -.->|&laquo;includes&raquo;| UC3
+
+    %% Styling for UML Appearance
+    classDef actorStyle fill:#fef3c7,stroke:#b45309,stroke-width:2px;
+    classDef ucStyle fill:#ffffff,stroke:#1e293b,stroke-width:1.5px,color:#0f172a;
+    classDef boundaryStyle fill:#f8fafc,stroke:#3b82f6,stroke-width:2px,stroke-dasharray: 4 4;
+
+    class EU,SUP,PO,BAC,HoPE actorStyle;
+    class UC1,UC2,UC3,UC4,UC5,UC6,UC7,UC8,UC9,UC10 ucStyle;
