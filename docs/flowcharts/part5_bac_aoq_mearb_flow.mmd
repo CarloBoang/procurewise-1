@@ -1,0 +1,32 @@
+graph TD
+    classDef connectorNode fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#991b1b,font-weight:bold;
+    classDef decisionNode fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+    classDef actionNode fill:#f1f5f9,stroke:#64748b,stroke-width:1px,color:#0f172a;
+    classDef dbNode fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#5b21b6;
+    classDef alertNode fill:#fef2f2,stroke:#ef4444,stroke-width:2px,color:#b91c1c;
+
+    CONN_D1(["Connector [D1]<br/>Incoming Transmitted Package"]):::connectorNode
+    BAC_BENCH["BAC Evaluation Workspace (/workflow)"]:::actionNode
+    CONN_D1 --> BAC_BENCH
+
+    BAC_BENCH --> CLK_OPEN_AOQ["BAC Clicks: 'Generate Abstract of Canvass (AOQ)'"]:::actionNode
+    CLK_OPEN_AOQ --> RENDER_AOQ["Render Annex F Abstract of Canvass Canvas<br/>Comparative Multi-Column Grid vs ABC"]:::actionNode
+    
+    RENDER_AOQ --> BID_COUNT_CHK{"Validation Gate:<br/>receivedBids.length >= 3?"}:::decisionNode
+    BID_COUNT_CHK -- "Bids < 3" --> BLK_AOQ["Flag Insufficient Quotations under SVP rules"]:::alertNode
+    BLK_AOQ --> RENDER_AOQ
+
+    BID_COUNT_CHK -- "Bids >= 3" --> CALC_LCB["System Compares Offers & Calculates Lowest Calculated Bid (LCB)"]:::actionNode
+    CALC_LCB --> CLK_MCDM["BAC Clicks: 'Calculate MCDM Best Value Engine'"]:::actionNode
+    
+    CLK_MCDM --> RUN_MEARB["Execute RA 12009 Section 43 MEARB Algorithm:<br/>Price (60%) + Delivery (20%) + Compliance (20%)"]:::actionNode
+    RUN_MEARB --> DB_MCDM[("DB: Insert/Update 'mcdm_recommendations'<br/>Ranked scoring ledger & LCRB recommendation")]:::dbNode
+
+    DB_MCDM --> CLK_DRAFT_RES["BAC Clicks: 'Draft BAC Resolution Recommending Award'"]:::actionNode
+    CLK_DRAFT_RES --> SIGN_RES["BAC Chairperson & Members Apply Digital Sign-off"]:::actionNode
+    SIGN_RES --> DB_RES[("DB: Insert 'bac_resolutions' record<br/>status: 'recommended'")]:::dbNode
+
+    DB_RES --> CLK_SUB_HOPE["BAC Clicks: 'Endorse to HoPE for Executive Approval'"]:::actionNode
+    CLK_SUB_HOPE --> DB_PR_HOPE[("DB: Update 'purchase_requests'<br/>state: 'FOR_HOPE_APPROVAL'<br/>status: 'approval_review'")]:::dbNode
+    
+    DB_PR_HOPE --> CONN_E1(["Connector [E1]<br/>Handshake to Head of Procuring Entity"]):::connectorNode

@@ -16,6 +16,41 @@ export type ProcurementRole = (typeof PROCUREMENT_ROLES)[number];
 export const USER_ROLES = ["user", ...PROCUREMENT_ROLES, "supply_officer"] as const;
 export type PersistedUserRole = (typeof USER_ROLES)[number];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Republic Act No. 12009 — New Government Procurement Act (NGPA) Framework
+// ─────────────────────────────────────────────────────────────────────────────
+export const NGPA_LAW = {
+  actNumber: "Republic Act No. 12009",
+  shortTitle: "New Government Procurement Act (NGPA)",
+  enactmentYear: 2024,
+  repealedAct: "Republic Act No. 9184 (Government Procurement Reform Act of 2003)",
+
+  /**
+   * Article I, Section 2: 8 Governing Principles of Public Procurement
+   */
+  governingPrinciples: [
+    { name: "Transparency", description: "Public disclosure of all procurement information and electronic access via PhilGEPS." },
+    { name: "Competitiveness", description: "Equal opportunity for all eligible and qualified commercial suppliers to participate." },
+    { name: "Efficiency", description: "Timely, streamlined procurement processes maximizing resource optimization." },
+    { name: "Proportionality", description: "Procurement procedures, requirements, and criteria proportional to the value, complexity, and risk." },
+    { name: "Accountability", description: "Direct responsibility of procuring entities, BAC officials, and suppliers under law." },
+    { name: "Participatory Procurement", description: "Structured participation of civic organizations, observers, and public monitoring." },
+    { name: "Sustainability", description: "Green public procurement integrating environmental, economic, and social life-cycle considerations." },
+    { name: "Professionalism", description: "Mandatory qualification, capability building, and ethical standards for procurement personnel." },
+  ],
+
+  /**
+   * Core Statutory Articles
+   */
+  articles: [
+    { article: "Article I", title: "General Provisions (Sections 1–6)", description: "Scope, definition of terms, and the 8 Governing Principles." },
+    { article: "Article II", title: "Strategic Procurement Planning (Sections 7–19)", description: "Mandatory market scoping, life-cycle cost analysis (LCCA), and fit-for-purpose planning." },
+    { article: "Article III", title: "Procurement by Electronic Means (Sections 20–25)", description: "Institutionalizes PhilGEPS as the single electronic portal tracking planning to final payment." },
+    { article: "Article IV", title: "Modes of Procurement (Sections 26–38)", description: "Competitive Bidding, Small Value Procurement, Direct Acquisition, Competitive Dialogue, and Framework Agreements." },
+    { article: "Article V", title: "Evaluation & Award — MEARB / Best Value (Section 43)", description: "Most Economically Advantageous and Responsive Bid (MEARB) evaluating quality, life-cycle cost, and multi-criteria value." },
+  ],
+} as const;
+
 export const OFFICIAL_ROLE_LABELS: Record<ProcurementRole, string> = {
   end_user: "End-User",
   procurement_officer: "Procurement Officer",

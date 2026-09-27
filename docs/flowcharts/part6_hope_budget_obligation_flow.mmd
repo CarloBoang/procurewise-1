@@ -1,0 +1,46 @@
+graph TD
+    classDef connectorNode fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#991b1b,font-weight:bold;
+    classDef decisionNode fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+    classDef actionNode fill:#f1f5f9,stroke:#64748b,stroke-width:1px,color:#0f172a;
+    classDef dbNode fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#5b21b6;
+    classDef alertNode fill:#fef2f2,stroke:#ef4444,stroke-width:2px,color:#b91c1c;
+
+    CONN_E1(["Connector [E1]<br/>Incoming BAC Endorsement"]):::connectorNode
+    HOPE_BENCH["HoPE Executive Dashboard (/approvals)"]:::actionNode
+    CONN_E1 --> HOPE_BENCH
+
+    HOPE_BENCH --> CLK_REV_HOPE["HoPE Clicks: 'Review Award Package'"]:::actionNode
+    CLK_REV_HOPE --> INSP_DOSSIER["Inspect BAC Resolution, AOQ Matrix & MEARB Scoring Breakdown"]:::actionNode
+    
+    INSP_DOSSIER --> HOPE_DEC{"HoPE Executive Award Decision"}:::decisionNode
+
+    HOPE_DEC -- "Disapproved / Clarifications" --> CLK_HOPE_REJ["HoPE Clicks: 'Return to BAC with Revision Directive'"]:::actionNode
+    CLK_HOPE_REJ --> DB_REJ_HOPE[("DB: Update 'bac_resolutions'<br/>status: 'returned', remarks: directive")]:::dbNode
+    DB_REJ_HOPE --> CONN_D1_LOOP(["Connector [D1]<br/>Route Back to BAC for Re-evaluation"]):::connectorNode
+
+    HOPE_DEC -- "Approved" --> CLK_HOPE_APP["HoPE Clicks: 'Approve Award Recommendation'"]:::actionNode
+    CLK_HOPE_APP --> INPUT_APP_NOTES["Input Approval Remarks per RA 12009"]:::actionNode
+    INPUT_APP_NOTES --> DB_APP_HOPE[("DB: Update 'purchase_requests'<br/>state: 'AWARD_APPROVED', status: 'approved'")]:::dbNode
+    DB_APP_HOPE --> DB_NOA_GEN[("DB: Authorize Notice of Award (NOA) clearance")]:::dbNode
+
+    DB_NOA_GEN --> FORK_APP{"Parallel Dispatch"}:::decisionNode
+    FORK_APP --> CONN_C2(["Connector [C2]<br/>Staff PO Drafting"]):::connectorNode
+    FORK_APP --> CONN_F1(["Connector [F1]<br/>Budget Allotment Obligation"]):::connectorNode
+
+    CONN_F1 --> BUD_BENCH["Budget Officer Allotment Desk (/budgets)"]:::actionNode
+    BUD_BENCH --> VER_FUNDS{"Budget Verification:<br/>Appropriation Balance >= Awarded Contract Amount?"}:::decisionNode
+    
+    VER_FUNDS -- "Insufficient Allotment" --> BLK_BUD["Halt: Budgetary Deficit Notification to HoPE"]:::alertNode
+    
+    VER_FUNDS -- "Sufficient Balance" --> CLK_CAF["Budget Officer Clicks: 'Certify Budget Availability & Obligate'"]:::actionNode
+    CLK_CAF --> EXEC_CAF["Execute Box B Certificate of Availability of Funds (CAF) & Input ObR No."]:::actionNode
+    EXEC_CAF --> DB_OBLIG[("DB: Insert 'budget_obligations' record<br/>Commit funds from Allotment to Obligated")]:::dbNode
+    
+    CONN_C2 --> STAFF_PO["Staff Opens Appendix 61 PO Canvas"]:::actionNode
+    STAFF_PO --> DRAFT_PO["Compile PO Terms, FOB Basco, Delivery Period & Supplier Conforme"]:::actionNode
+    
+    DB_OBLIG --> SYNC_PO{"CAF & PO Synchronized"}:::decisionNode
+    DRAFT_PO --> SYNC_PO
+    
+    SYNC_PO --> DB_PO_APPROVED[("DB: Update 'purchase_orders'<br/>state: 'PO_APPROVED'")]:::dbNode
+    DB_PO_APPROVED --> CONN_B2(["Connector [B2]<br/>Handshake to Procurement Officer Releasing"]):::connectorNode

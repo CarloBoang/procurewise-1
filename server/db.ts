@@ -859,7 +859,7 @@ export async function transmitRfqToBac(
     );
     if (!isPosted) {
       throw new Error(
-        "Under Section 54.2 of RA 9184 IRR, procurement packages with ABC exceeding ₱50,000.00 require a documented PhilGEPS posting reference number before transmittal to BAC."
+        "Under RA 12009 (NGPA) Article III / PhilGEPS electronic posting rules, procurement packages with ABC exceeding ₱50,000.00 require a documented PhilGEPS posting reference number before transmittal to BAC."
       );
     }
   }
@@ -2627,7 +2627,7 @@ export const DEFAULT_FORM_TEMPLATES: Record<string, { displayName: string; confi
       institutionName: "[Agency / Institution Name]",
       officeUnit: "Procurement Unit",
       headerText: "PURCHASE ORDER",
-      instructionText: "Prescribed government contract for goods and services delivery under RA 9184.",
+      instructionText: "Prescribed government contract for goods and services delivery under RA 12009 (NGPA).",
       requiredFields: ["poNumber", "supplierId", "totalAmount", "placeOfDelivery", "deliveryTerm", "paymentTerm"],
     },
   },
@@ -3003,7 +3003,7 @@ export async function getHistoricalPriceAnalytics(
     }
   }
 
-  const decisionSupportDisclaimer = "Historical price analytics are provided as decision support only. Final quotation evaluation and supplier selection must be performed by authorized Procurement personnel in accordance with RA 9184 and BSC procurement guidelines.";
+  const decisionSupportDisclaimer = "Historical price analytics are provided as decision support only. Final quotation evaluation and supplier selection must be performed by authorized Procurement personnel in accordance with RA 12009 (NGPA) and BSC procurement guidelines.";
 
   return {
     itemDescription: input.itemDescription,

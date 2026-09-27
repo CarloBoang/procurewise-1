@@ -1,0 +1,49 @@
+graph TD
+    classDef connectorNode fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#991b1b,font-weight:bold;
+    classDef decisionNode fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+    classDef actionNode fill:#f1f5f9,stroke:#64748b,stroke-width:1px,color:#0f172a;
+    classDef dbNode fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#5b21b6;
+    classDef alertNode fill:#fef2f2,stroke:#ef4444,stroke-width:2px,color:#b91c1c;
+
+    CONN_A(["Connector [A]<br/>Incoming from Sign In"]):::connectorNode
+    CONN_A_RET(["Connector [A]<br/>Incoming Return from PO"]):::connectorNode
+
+    DASH_EU["End-User Dashboard (/workspace)"]:::actionNode
+    CONN_A --> DASH_EU
+    CONN_A_RET --> DASH_EU
+
+    DASH_EU --> CLK_NEW_PR["Click: '+ Create Purchase Request'"]:::actionNode
+    CLK_NEW_PR --> OPEN_PR_MOD["Open Purchase Request Drawer Form"]:::actionNode
+
+    OPEN_PR_MOD --> PPMP_DEC{"PPMP Source Decision"}:::decisionNode
+    PPMP_DEC -- "Select Existing" --> PPMP_LIST["Select Registered PPMP from Dropdown"]:::actionNode
+    PPMP_DEC -- "Upload Custom" --> PPMP_UPLOAD["Upload Document (PDF/Excel/Word) & Set Allocated Budget"]:::actionNode
+    PPMP_UPLOAD --> DB_PPMP[("DB: Create 'appPpmpEntry' Record & Attach Document")]:::dbNode
+    
+    PPMP_LIST --> PR_DETAILS["Fill PR Header: Purpose, Fund Cluster, Delivery Term"]:::actionNode
+    DB_PPMP --> PR_DETAILS
+
+    PR_DETAILS --> ADD_ITEMS["Click '+ Add Item Line': Input Description, Qty, Unit, Unit Cost"]:::actionNode
+    ADD_ITEMS --> SEC_511_CHK{"Real-time Section 5.1.1 Category Parser"}:::decisionNode
+    
+    SEC_511_CHK -- "Mixed Categories Detected<br/>(Office + Hardware + ICT + etc.)" --> SEC_WARN["Display Amber Section 5.1.1 Banner:<br/>Separate items or check mandatory acknowledgement"]:::alertNode
+    SEC_WARN --> ACK_BOX{"User Action?"}:::decisionNode
+    ACK_BOX -- "Split Request" --> ADD_ITEMS
+    ACK_BOX -- "Acknowledge" --> CHK_ACK["Check: [x] Acknowledge package contains mixed categories"]:::actionNode
+
+    SEC_511_CHK -- "Single Category" --> OPEN_CANVASS["Open Pre-Canvass Quotation Section"]:::actionNode
+    CHK_ACK --> OPEN_CANVASS
+
+    OPEN_CANVASS --> ATTACH_QUOTES["Upload Supplier Quotations (Price, Delivery Days, Conforme)"]:::actionNode
+    ATTACH_QUOTES --> QUOTE_COUNT{"Validation Gate:<br/>quotes.length >= 3?"}:::decisionNode
+
+    QUOTE_COUNT -- "quotes < 3" --> BLK_SUBMIT["Block Submission: Display 'Minimum 3 Quotations Required'"]:::alertNode
+    BLK_SUBMIT --> ATTACH_QUOTES
+
+    QUOTE_COUNT -- "quotes >= 3" --> EN_FWD["Enable 'Forward Package' Button"]:::actionNode
+    EN_FWD --> CLK_FWD["User Clicks: 'Forward Package to Procurement'"]:::actionNode
+    
+    CLK_FWD --> DB_PR_SAVE[("DB: Insert/Update 'purchase_requests'<br/>state: 'FOR_PO_VERIFICATION'<br/>status: 'procurement_review'")]:::dbNode
+    DB_PR_SAVE --> DB_AUDIT_1[("DB: Write 'audit_trails' record<br/>action: 'pr_forwarded_to_officer'")]:::dbNode
+    
+    DB_AUDIT_1 --> CONN_B1(["Connector [B1]<br/>Handshake to Procurement Officer"]):::connectorNode

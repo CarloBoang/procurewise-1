@@ -1,0 +1,25 @@
+graph LR
+    classDef entity fill:#1e293b,stroke:#0f172a,color:#ffffff;
+    classDef subproc fill:#e0f2fe,stroke:#0284c7,color:#0369a1;
+    classDef ds fill:#fef3c7,stroke:#d97706,color:#92400e;
+
+    BAC["BAC Committee"]:::entity
+    P51["5.1 Verify 3+ Valid Quotes"]:::subproc
+    P52["5.2 Generate Annex F AOQ Matrix"]:::subproc
+    P53["5.3 Calculate MEARB Multi-Criteria"]:::subproc
+    P54["5.4 Formulate BAC Award Resolution"]:::subproc
+
+    D_QUOTES[("D4: canvass_quotes")]:::ds
+    D_AOQ[("D7: aoq_evaluations")]:::ds
+    D_MCDM[("D8: mcdm_recommendations")]:::ds
+    D_BAC[("D9: bac_resolutions")]:::ds
+
+    D_QUOTES --> P51
+    P51 --> P52
+    BAC --> P52
+    P52 --> D_AOQ
+    P52 --> P53
+    P53 --> D_MCDM
+    P53 --> P54
+    BAC --> P54
+    P54 --> D_BAC

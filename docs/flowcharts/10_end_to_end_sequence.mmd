@@ -1,0 +1,43 @@
+sequenceDiagram
+    autonumber
+    actor EU as End-User
+    actor PO as Procurement Officer
+    actor PS as Procurement Staff
+    actor SUP as Commercial Supplier
+    actor BAC as BAC Committee
+    actor HOPE as Head of Procuring Entity (HoPE)
+    actor BUD as Budget Officer
+
+    Note over EU,PO: Phase 1: Requisition & Verification
+    EU->>EU: Draft PR & Attach PPMP (Select / Upload)
+    EU->>EU: Collect 3 Pre-Canvass Supplier Quotes
+    EU->>PO: Submit PR Package (Status: procurement_review)
+    PO->>PO: Verify Section 5.1.1 Category & PPMP Match
+    alt Mixed Categories or Deficient PPMP
+        PO-->>EU: Return to End-User (Remarks attached)
+        EU->>EU: Revise Specifications / Resubmit
+    else Compliant Package
+        PO->>PS: Verify & Clear (Status: verified)
+    end
+
+    Note over PS,PO: Phase 2: PMR Logging & RFQ Canvassing
+    PS->>PS: Auto-populate PR into PMR Log
+    PS->>SUP: Dispatch Annex D RFQs (Minimum 3 vendors)
+    SUP-->>PO: Return Quotation Bids (Price, Timeline, Compliance)
+    PO->>PO: Check RA 12009 Art. III (PhilGEPS posting if ABC > ₱50k)
+    PO->>BAC: Transmit Retrieved RFQs (Transmittal Slip BAC-T-...)
+
+    Note over BAC,HOPE: Phase 3: Abstract, MEARB & Award Approval
+    BAC->>BAC: Generate Annex F Abstract of Quotations (AOQ)
+    BAC->>BAC: Execute MCDM Best Value Engine (60% Price, 20% Delivery, 20% Compliance)
+    BAC->>HOPE: Submit BAC Resolution Recommending LCRB / MEARB
+    HOPE->>HOPE: Review Resolution & Administrative Justification
+    HOPE->>BUD: Executive Approval of Award
+    BUD->>PO: Obligate Allotment Funds & Clear for PO Releasing
+
+    Note over PO,PS: Phase 4: PO Releasing, Delivery & Performance Closeout
+    PO->>SUP: Issue Appendix 61 Purchase Order (PO)
+    SUP-->>PO: Deliver Supplies & Submit Invoices
+    PO->>PO: Record Delivery Receipt & Inspection (IAR)
+    PO->>PO: Rate Supplier Evaluation Scorecard (1–5 Scale)
+    PO->>PS: Update Historical Prices & Close PMR Record

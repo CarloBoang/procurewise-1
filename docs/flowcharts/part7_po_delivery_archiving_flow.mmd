@@ -1,0 +1,42 @@
+graph TD
+    classDef connectorNode fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#991b1b,font-weight:bold;
+    classDef decisionNode fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+    classDef actionNode fill:#f1f5f9,stroke:#64748b,stroke-width:1px,color:#0f172a;
+    classDef dbNode fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#5b21b6;
+    classDef endNode fill:#1e293b,stroke:#0f172a,stroke-width:2px,color:#ffffff;
+
+    CONN_B2(["Connector [B2]<br/>Incoming Approved PO"]):::connectorNode
+    PO_BENCH["Officer Releasing Desk (/purchase-orders)"]:::actionNode
+    CONN_B2 --> PO_BENCH
+
+    PO_BENCH --> CLK_SERVE_PO["PO Clicks: 'Issue & Serve Purchase Order'"]:::actionNode
+    CLK_SERVE_PO --> SERVE_SUP["Formally Transmit PO & Notice of Award to Winning Contractor"]:::actionNode
+    SERVE_SUP --> DB_PO_REL[("DB: Update 'purchase_orders'<br/>state: 'PO_ISSUED', status: 'po_issued'")]:::dbNode
+
+    DB_PO_REL --> SUP_FULFILL["Contractor Manufactures, Packs & Ships Goods to Batanes State College"]:::actionNode
+    SUP_FULFILL --> DELIV_ARRIVE["Shipment Arrives at BSC Supply & Property Office"]:::actionNode
+
+    DELIV_ARRIVE --> CLK_REC_DELIV["PO Clicks: 'Record Delivery Receipt' (/officer/delivery-monitoring)"]:::actionNode
+    CLK_REC_DELIV --> INPUT_DR["Input Delivery Receipt (DR) No. & Log Delivery Progress (Complete / Partial)"]:::actionNode
+    INPUT_DR --> INSP_GOODS["Technical Inspection: Check delivered quantities against PR specs"]:::actionNode
+    
+    INSP_GOODS --> CHK_IAR{"Goods Acceptable?"}:::decisionNode
+    CHK_IAR -- "Rejected / Defective" --> LOG_DEFECT["Log Rejection Notice: Instruct Supplier Replacement"]:::actionNode
+    LOG_DEFECT --> SUP_FULFILL
+
+    CHK_IAR -- "Accepted" --> SIGN_IAR["Execute Inspection and Acceptance Report (IAR)"]:::actionNode
+    SIGN_IAR --> DB_DELIV[("DB: Insert 'delivery_receipts' record<br/>state: 'DELIVERED', status: 'delivered'")]:::dbNode
+
+    DB_DELIV --> EU_EVAL_NOTIF["Trigger Evaluation Request to End-User Requisitioner"]:::actionNode
+    EU_EVAL_NOTIF --> CLK_RATE_SUP["End-User / Officer Opens Supplier Goods Evaluation (/supplier-evaluations)"]:::actionNode
+    CLK_RATE_SUP --> RATE_RUBRIC["Complete Standard Evaluation Rubric:<br/>1. Quality (1–5)<br/>2. Timeliness (1–5)<br/>3. Price Competitiveness (1–5)<br/>4. Statutory Compliance (1–5)"]:::actionNode
+    
+    RATE_RUBRIC --> DB_EVAL[("DB: Insert 'supplier_evaluations' record<br/>Update Supplier Accreditation Scorecard")]:::dbNode
+    
+    DB_EVAL --> CLK_CLOSE_PMR["Staff Clicks: 'Finalize & Close PMR Entry' (/pmr)"]:::actionNode
+    CLK_CLOSE_PMR --> DB_PMR_CLOSE[("DB: Update 'pmr_entries' state: 'COMPLETED'<br/>Commit unit prices to 'historicalPrices' table")]:::dbNode
+    
+    DB_PMR_CLOSE --> RECHARTS_SYNC["Auto-trigger Linear Regression Forecasting Recalculation"]:::actionNode
+    RECHARTS_SYNC --> ARCHIVE_PKG["Archive All Digital Artifacts (PR, PPMP, RFQ, AOQ, PO, IAR, ObR)"]:::actionNode
+    
+    ARCHIVE_PKG --> END_NODE(["[END] Procurement Transaction Closed"]):::endNode

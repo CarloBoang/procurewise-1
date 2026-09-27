@@ -1,0 +1,40 @@
+graph TD
+    classDef startNode fill:#1e293b,stroke:#0f172a,stroke-width:2px,color:#ffffff;
+    classDef decisionNode fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+    classDef actionNode fill:#f1f5f9,stroke:#64748b,stroke-width:1px,color:#0f172a;
+    classDef dbNode fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#5b21b6;
+    classDef connectorNode fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#991b1b,font-weight:bold;
+
+    START(["[START] System Entry (Landing Page)"]):::startNode
+    DEC_ROLE{"User Role Type?"}:::decisionNode
+
+    START --> DEC_ROLE
+    DEC_ROLE -- "End-User (Requesting Unit)" --> REG_PAGE["Navigate to Sign Up Page (/signup)"]:::actionNode
+    REG_PAGE --> REG_INPUT["Input Full Name, Institutional Email (@bsc.edu.ph), Department & Password"]:::actionNode
+    REG_INPUT --> VAL_DOM{"Validation Check:<br/>1. Domain = @bsc.edu.ph?<br/>2. Email unique in DB?"}:::decisionNode
+    
+    VAL_DOM -- "Invalid Domain or Duplicate" --> REG_ERR["Display Validation Error Toast & Retain Form Data"]:::actionNode
+    REG_ERR --> REG_INPUT
+    
+    VAL_DOM -- "Valid Institutional Account" --> DB_USER_INS[("DB: Insert Record into 'users' table<br/>status: 'active', role: 'end_user'")]:::dbNode
+    DB_USER_INS --> REDIR_LOGIN["Redirect to Sign In Page (/login)"]:::actionNode
+
+    DEC_ROLE -- "Institutional Personnel<br/>(Officer, Staff, BAC, HoPE, Budget)" --> PRE_PROV["Institutional Accounts Pre-provisioned<br/>via Seed / System Admin"]:::actionNode
+    PRE_PROV --> LOGIN_PAGE["Navigate to Sign In Page (/login)"]:::actionNode
+    REDIR_LOGIN --> LOGIN_PAGE
+
+    LOGIN_PAGE --> LOGIN_INPUT["User Enters Email & Password"]:::actionNode
+    LOGIN_INPUT --> AUTH_CHK{"Verify Credentials against 'users' table"}:::decisionNode
+    
+    AUTH_CHK -- "Invalid Credentials" --> LOGIN_ERR["Show Auth Error Alert & Increment Failed Count"]:::actionNode
+    LOGIN_ERR --> LOGIN_INPUT
+    
+    AUTH_CHK -- "Authenticated" --> SESS_INIT["Initialize JWT Session & Load Role Permissions"]:::actionNode
+    SESS_INIT --> DISPATCH{"System Role Dispatcher"}:::decisionNode
+
+    DISPATCH -- "role: 'end_user'" --> CONN_A(["Connector [A]<br/>End-User Workspace"]):::connectorNode
+    DISPATCH -- "role: 'procurement_officer'" --> CONN_B(["Connector [B]<br/>Officer Management Hub"]):::connectorNode
+    DISPATCH -- "role: 'procurement_staff'" --> CONN_C(["Connector [C]<br/>Staff Operations Desk"]):::connectorNode
+    DISPATCH -- "role: 'bac' / 'bac_secretariat'" --> CONN_D(["Connector [D]<br/>BAC Committee Center"]):::connectorNode
+    DISPATCH -- "role: 'hope'" --> CONN_E(["Connector [E]<br/>Executive Approval Desk"]):::connectorNode
+    DISPATCH -- "role: 'budget_officer'" --> CONN_F(["Connector [F]<br/>Budget Allotment Desk"]):::connectorNode

@@ -1,0 +1,8 @@
+flowchart TD
+    L7["7.1 Budget Officer Login (/login)"] --> BUD_PG["7.2 Open: /budgets"]
+    BUD_PG --> B_OBR["7.3 Locate Approved PR in 'Pending Obligation' Queue"]
+    B_OBR --> VER_BAL["7.4 Verify Remaining Budget Balance >= Awarded Contract Sum"]
+    VER_BAL --> B_OBLIG["7.5 Click: 'Certify Budget Availability & Obligate'"]
+    B_OBLIG --> OBR_IN["7.6 Enter Obligation Request (ObR) Number & Fund Cluster"]
+    OBR_IN --> CONF_OBR["7.7 Click: 'Confirm Obligation'"]
+    CONF_OBR --> H7["Funds Committed -> Unlocks Purchase Order Release"]

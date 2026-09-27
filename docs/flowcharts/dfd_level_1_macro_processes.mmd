@@ -1,0 +1,98 @@
+graph TD
+    classDef entity fill:#1e293b,stroke:#0f172a,stroke-width:2px,color:#ffffff;
+    classDef process fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0369a1;
+    classDef datastore fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+
+    E_USER["External Entity:<br/>End-User (Requisitioner)"]:::entity
+    E_PO["External Entity:<br/>Procurement Officer"]:::entity
+    E_STAFF["External Entity:<br/>Procurement Staff"]:::entity
+    E_SUP["External Entity:<br/>Commercial Suppliers"]:::entity
+    E_BAC["External Entity:<br/>BAC Secretariat / Committee"]:::entity
+    E_HOPE["External Entity:<br/>Head of Procuring Entity (HoPE)"]:::entity
+    E_BUD["External Entity:<br/>Budget Officer"]:::entity
+
+    P1["1.0<br/>Authentication &<br/>Role Dispatch"]:::process
+    P2["2.0<br/>Requisition &<br/>Pre-Canvass Package"]:::process
+    P3["3.0<br/>Compliance Verification<br/>(Section 5.1.1)"]:::process
+    P4["4.0<br/>RFQ Canvassing &<br/>PhilGEPS Tracking"]:::process
+    P5["5.0<br/>AOQ Evaluation &<br/>MEARB Best Value"]:::process
+    P6["6.0<br/>Executive Award &<br/>Budget Obligation"]:::process
+    P7["7.0<br/>Contract Execution,<br/>Delivery & Closeout"]:::process
+
+    D_USERS[("D1: users")]:::datastore
+    D_PPMP[("D2: ppmp_records")]:::datastore
+    D_PR[("D3: purchase_requests")]:::datastore
+    D_QUOTES[("D4: canvass_quotes")]:::datastore
+    D_PMR[("D5: pmr_registry")]:::datastore
+    D_RFQ[("D6: rfq_registry")]:::datastore
+    D_AOQ[("D7: aoq_evaluations")]:::datastore
+    D_MCDM[("D8: mcdm_recommendations")]:::datastore
+    D_BAC[("D9: bac_resolutions")]:::datastore
+    D_BUD[("D10: budget_obligations")]:::datastore
+    D_PO[("D11: purchase_orders")]:::datastore
+    D_DELIV[("D12: delivery_receipts")]:::datastore
+    D_EVAL[("D13: supplier_evaluations")]:::datastore
+    D_PRICES[("D14: historical_prices")]:::datastore
+    D_AUDIT[("D15: audit_trail")]:::datastore
+
+    E_USER -- "1. Registration / Login Data" --> P1
+    E_PO -- "1. Login Credentials" --> P1
+    E_STAFF -- "1. Login Credentials" --> P1
+    E_BAC -- "1. Login Credentials" --> P1
+    E_HOPE -- "1. Login Credentials" --> P1
+    E_BUD -- "1. Login Credentials" --> P1
+    P1 <--> D_USERS
+    P1 -- "Audit Login" --> D_AUDIT
+
+    E_USER -- "2. Item Specs, PPMP File, 3 Quotes" --> P2
+    P2 <--> D_PPMP
+    P2 --> D_PR
+    P2 --> D_QUOTES
+    P2 --> D_AUDIT
+
+    P2 -- "Package for Verification" --> P3
+    E_PO -- "3. Section 5.1.1 Clearance / Return" --> P3
+    P3 <--> D_PR
+    P3 -- "Revision Alert" --> E_USER
+    P3 --> D_AUDIT
+
+    P3 -- "Verified PR" --> P4
+    E_STAFF -- "4. PMR Record & RFQ Setup" --> P4
+    P4 --> D_PMR
+    P4 --> D_RFQ
+    P4 -- "Annex D RFQs" --> E_SUP
+    E_SUP -- "Completed Bids" --> P4
+    E_PO -- "PhilGEPS Post Reference" --> P4
+    P4 --> D_QUOTES
+    P4 --> D_AUDIT
+
+    P4 -- "Transmitted Canvass" --> P5
+    E_BAC -- "5. Canvass Opening & Signatures" --> P5
+    P5 <--> D_QUOTES
+    P5 --> D_AOQ
+    P5 --> D_MCDM
+    P5 --> D_BAC
+    P5 --> D_AUDIT
+
+    P5 -- "Endorsed Resolution" --> P6
+    E_HOPE -- "6. Award Approval Decision" --> P6
+    P6 <--> D_BAC
+    P6 --> D_PR
+    P6 -- "Notice of Award" --> E_BUD
+    E_BUD -- "6. CAF Sign-off & ObR" --> P6
+    P6 --> D_BUD
+    P6 --> D_PO
+    P6 --> D_AUDIT
+
+    P6 -- "Obligated PO" --> P7
+    E_PO -- "7. Issue PO & Log Delivery" --> P7
+    P7 --> D_PO
+    P7 -- "PO Document" --> E_SUP
+    E_SUP -- "Physical Goods & Invoices" --> P7
+    P7 --> D_DELIV
+    E_USER -- "7. Supplier Scorecard" --> P7
+    P7 --> D_EVAL
+    E_STAFF -- "PMR Closeout" --> P7
+    P7 --> D_PMR
+    P7 --> D_PRICES
+    P7 --> D_AUDIT

@@ -2954,7 +2954,7 @@ var DEFAULT_FORM_TEMPLATES = {
       institutionName: "Batanes State College",
       officeUnit: "Procurement Unit",
       headerText: "PURCHASE ORDER",
-      instructionText: "Prescribed government contract for goods and services delivery under RA 9184.",
+      instructionText: "Prescribed government contract for goods and services delivery under RA 12009 (NGPA).",
       requiredFields: ["poNumber", "supplierId", "totalAmount", "placeOfDelivery", "deliveryTerm", "paymentTerm"]
     }
   },
@@ -3254,7 +3254,7 @@ async function getHistoricalPriceAnalytics(input, options) {
       warnings.push(`Variance notice: Proposed unit price differs by ${variancePct > 0 ? "+" : ""}${variancePct}% from historical average (${averagePrice.toFixed(2)}).`);
     }
   }
-  const decisionSupportDisclaimer = "Historical price analytics are provided as decision support only. Final quotation evaluation and supplier selection must be performed by authorized Procurement personnel in accordance with RA 9184 and BSC procurement guidelines.";
+  const decisionSupportDisclaimer = "Historical price analytics are provided as decision support only. Final quotation evaluation and supplier selection must be performed by authorized Procurement personnel in accordance with RA 12009 (NGPA) and BSC procurement guidelines.";
   return {
     itemDescription: input.itemDescription,
     unit: input.unit || (points[0]?.unit ?? "unit"),
@@ -3565,7 +3565,7 @@ var SUPPORTED_FORM_TEMPLATES = {
     key: "purchase_request",
     code: "PR",
     displayName: "Purchase Request (Appendix 60)",
-    regulatoryStandard: "GAM for SUCs / RA 9184 Appendix 60",
+    regulatoryStandard: "GAM for SUCs / RA 12009 (NGPA) Appendix 60",
     category: "Requisition",
     description: "Official government purchase request for supplies, materials, and equipment requisitions.",
     sampleFileName: "Purchase_Request_Template.xlsx",
@@ -3595,7 +3595,7 @@ var SUPPORTED_FORM_TEMPLATES = {
     key: "rfq",
     code: "RFQ",
     displayName: "Request for Quotation (Official Annex D)",
-    regulatoryStandard: "RA 9184 IRR Annex D",
+    regulatoryStandard: "RA 12009 (NGPA) Annex D",
     category: "Canvass & Market Scoping",
     description: "Prescribed request for quotation sent to eligible commercial suppliers for price sounding.",
     sampleFileName: "Request_For_Quotation_Template.xlsx",
@@ -3626,7 +3626,7 @@ var SUPPORTED_FORM_TEMPLATES = {
     key: "abstract_of_quotations",
     code: "AOQ",
     displayName: "Abstract of Quotations / Canvass (Annex F)",
-    regulatoryStandard: "RA 9184 IRR Annex F",
+    regulatoryStandard: "RA 12009 (NGPA) Annex F",
     category: "BAC Evaluation & Award",
     description: "Official comparison matrix evaluating commercial quotations to establish the lowest calculated bid.",
     sampleFileName: "Abstract_Of_Quotations_Template.xlsx",
@@ -3660,7 +3660,7 @@ var SUPPORTED_FORM_TEMPLATES = {
     key: "purchase_order",
     code: "PO",
     displayName: "Purchase Order (Appendix 61)",
-    regulatoryStandard: "GAM for SUCs / RA 9184 Appendix 61",
+    regulatoryStandard: "GAM for SUCs / RA 12009 (NGPA) Appendix 61",
     category: "Contract & Award",
     description: "Prescribed government contract binding the institution and awarded supplier for goods delivery.",
     sampleFileName: "Purchase_Order_Template.xlsx",
@@ -3672,7 +3672,7 @@ var SUPPORTED_FORM_TEMPLATES = {
       { token: "{{supplier_address}}", label: "Supplier Address", example: "National Road, San Antonio, Basco, Batanes", description: "Contractor official address" },
       { token: "{{tin_no}}", label: "TIN", example: "123-456-789-000", description: "Taxpayer Identification Number" },
       { token: "{{philgeps_no}}", label: "PhilGEPS Registration No.", example: "2024-89312", description: "PhilGEPS merchant identification" },
-      { token: "{{procurement_mode}}", label: "Mode of Procurement", example: "NP-53.9 Small Value Procurement", description: "RA 9184 statutory method" },
+      { token: "{{procurement_mode}}", label: "Mode of Procurement", example: "Small Value Procurement", description: "RA 12009 (NGPA) statutory method" },
       { token: "{{place_of_delivery}}", label: "Place of Delivery", example: "Batanes State College Supply Office", description: "Physical delivery destination" },
       { token: "{{delivery_date}}", label: "Delivery Date", example: "Within 15 days upon receipt of NTP/PO", description: "Expected delivery deadline" },
       { token: "{{delivery_term}}", label: "Delivery Term", example: "FOB Destination", description: "Shipping and risk transfer term" },
@@ -3806,7 +3806,7 @@ function getSampleFormData(key) {
         supplier_address: "National Road, San Antonio, Basco, Batanes",
         tin_no: "123-456-789-000",
         philgeps_no: "2024-89312",
-        procurement_mode: "NP-53.9 Small Value Procurement (RA 9184)",
+        procurement_mode: "Small Value Procurement (RA 12009 / NGPA)",
         place_of_delivery: "Batanes State College Supply Office, San Antonio, Basco",
         delivery_date: "Within 15 days upon receipt of PO",
         delivery_term: "FOB Destination",

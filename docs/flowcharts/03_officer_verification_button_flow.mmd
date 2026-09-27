@@ -1,0 +1,12 @@
+flowchart TD
+    L2["2.1 Officer Login (/login)"] --> OV["2.2 Open: /officer/pr-verifications"]
+    OV --> B3["2.3 Click: 'Review & Verify' on Incoming PR"]
+    B3 --> VMOD["2.4 Review Modal: Inspect PPMP & Section 5.1.1 Categories"]
+    VMOD --> DEC2{"2.5 Officer Compliance Decision"}
+    DEC2 -- "Non-compliant / Mixed Items" --> B_RET["Click: 'Return to End-User for Revision'"]
+    B_RET --> REM["Select Pre-defined Reason or Enter Remarks"]
+    REM --> CONF_RET["Click: 'Confirm Return' -> Status: returned"]
+    CONF_RET --> END_NOTIF["End-User receives notification alert to revise"]
+    DEC2 -- "Compliant Package" --> CHK_CONF["Check: [x] Confirm Section 5.1.1 Segregation"]
+    CHK_CONF --> B_VER["Click: 'Verify & Clear PR'"]
+    B_VER --> H2["Status: verified -> Handed off to Procurement Staff"]

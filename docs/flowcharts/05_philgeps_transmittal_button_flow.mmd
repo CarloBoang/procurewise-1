@@ -1,0 +1,12 @@
+flowchart TD
+    L4["4.1 Officer Opens /officer/rfqs"] --> RET["4.2 Retrieve Supplier Bids & Click: '+ Add Quotation'"]
+    RET --> BID_IN["4.3 Enter Supplier Name, Bid Price, Days & Compliance"]
+    BID_IN --> PG_CHK{"4.4 System Check: ABC > ₱50,000.00? (RA 12009 Art. III)"}
+    PG_CHK -- "Yes (> ₱50k) & No PhilGEPS" --> BLK["Transmittal Blocked by PhilGEPS Guard Banner"]
+    BLK --> B_PG["4.5 Click: 'Document PhilGEPS Posting Reference Now'"]
+    B_PG --> PG_MOD["Enter PhilGEPS Reference No. & 3-Day Posting Dates"]
+    PG_MOD --> PG_SAVE["Click: 'Save PhilGEPS Reference' -> Guard Cleared"]
+    PG_SAVE --> B_TX["4.6 Click: 'Transmit RFQ Package to BAC'"]
+    PG_CHK -- "No (≤ ₱50k) or Already Posted" --> B_TX
+    B_TX --> TX_CONF["4.7 Click: 'Confirm Transmittal' -> Code: BAC-T-2026-XXXX"]
+    TX_CONF --> H4["Status: Transmitted to BAC Secretariat"]

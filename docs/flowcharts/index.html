@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Batanes State College: ProcureWise Workflow & DFD Gallery</title>
+  <style>
+    :root {
+      --primary: #7b1e1e;
+      --primary-dark: #611818;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 40px 20px;
+    }
+    .header {
+      max-width: 1200px;
+      margin: 0 auto 40px auto;
+      text-align: center;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      background: #fee2e2;
+      color: #991b1b;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 32px;
+      font-weight: 800;
+      color: var(--primary);
+      margin: 0 0 10px 0;
+    }
+    p.subtitle {
+      font-size: 15px;
+      color: var(--text-muted);
+      max-width: 750px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+    .grid {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05);
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      background: #fafaf9;
+    }
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 0;
+    }
+    .card-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin: 4px 0 0 0;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-png {
+      background: var(--primary);
+      color: white;
+    }
+    .btn-png:hover {
+      background: var(--primary-dark);
+    }
+    .btn-svg {
+      background: white;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+    }
+    .btn-svg:hover {
+      background: #f1f5f9;
+    }
+    .card-body {
+      padding: 30px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #ffffff;
+      overflow-x: auto;
+    }
+    .card-body img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="badge">RA 12009 (NGPA) Official Architecture</div>
+    <h1>ProcureWise: System Workflow & DFD Image Gallery</h1>
+    <p class="subtitle">Complete, modular workflow sub-diagrams connected via standard connectors ([A] to [F]) and Data Flow Diagrams (Level 1 & Level 2), rendered in high-resolution PNG (300 DPI) and scalable vector SVG.</p>
+  </div>
+
+  <div class="grid">
+    
+    <div class="card" id="part1_entry_auth_flow">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Part 1: Entry, Identity & Authentication Flow</h2>
+          <p class="card-desc">Start node, End-User self-registration with @bsc.edu.ph validation vs. pre-provisioned institutional login, role dispatcher, and routing to Connectors [A] through [F].</p>
+        </div>
+        <div class="actions">
+          <a href="part1_entry_auth_flow.png" download="part1_entry_auth_flow.png" class="btn btn-png">⬇ Download PNG (300 DPI)</a>
+          <a href="part1_entry_auth_flow.svg" download="part1_entry_auth_flow.svg" class="btn btn-svg">⬇ Download SVG (Vector)</a>
+        </div>
+      </div>
+      <div class="card-body">
+        <a href="part1_entry_auth_flow.png" target="_blank" title="Click to view full size">
+          <img src="part1_entry_auth_flow.svg" alt="Part 1: Entry, Identity & Authentication Flow" />
+        </a>
+      </div>
+    </div>
+
+
+    <div class="card" id="part2_end_user_requisition_flow">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Part 2: End-User Requisition & Pre-Canvass Flow (Connector [A])</h2>
+          <p class="card-desc">Requisition form, custom PPMP upload, Section 5.1.1 real-time classification, minimum 3 quotes gate, and package forwarding to Connector [B1].</p>
+        </div>
+        <div class="actions">
+          <a href="part2_end_user_requisition_flow.png" download="part2_end_user_requisition_flow.png" class="btn btn-png">⬇ Download PNG (300 DPI)</a>
+          <a href="part2_end_user_requisition_flow.svg" download="part2_end_user_requisition_flow.svg" class="btn btn-svg">⬇ Download SVG (Vector)</a>
+        </div>
+      </div>
+      <div class="card-body">
+        <a href="part2_end_user_requisition_flow.png" target="_blank" title="Click to view full size">
+          <img src="part2_end_user_requisition_flow.svg" alt="Part 2: End-User Requisition & Pre-Canvass Flow (Connector [A])" />
+        </a>
+      </div>
+    </div>
+
+
+    <div class="card" id="part3_officer_verification_flow">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Part 3: Procurement Officer Verification & Compliance Flow (Connector [B1])</h2>
+          <p class="card-desc">Inspection of PR package, category segregation under Section 5.1.1, Return loop to [A] vs. Verify and Forward to Connector [C1].</p>
+        </div>
+        <div class="actions">
+          <a href="part3_officer_verification_flow.png" download="part3_officer_verification_flow.png" class="btn btn-png">⬇ Download PNG (300 DPI)</a>
+          <a href="part3_officer_verification_flow.svg" download="part3_officer_verification_flow.svg" class="btn btn-svg">⬇ Download SVG (Vector)</a>
+        </div>
+      </div>
+      <div class="card-body">
+        <a href="part3_officer_verification_flow.png" target="_blank" title="Click to view full size">
+          <img src="part3_officer_verification_flow.svg" alt="Part 3: Procurement Officer Verification & Compliance Flow (Connector [B1])" />
+        </a>
+      </div>
+    </div>
+
+
+    <div class="card" id="part4_staff_pmr_rfq_flow">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Part 4: Staff Recording, RFQ & BAC Endorsement Flow (Connector [C1])</h2>
+          <p class="card-desc">PMR logging, Annex D RFQ preparation, commercial vendor distribution, PhilGEPS posting guard (>= ₱50k ABC), and transmittal to Connector [D1].</p>
+        </div>
+        <div class="actions">
+          <a href="part4_staff_pmr_rfq_flow.png" download="part4_staff_pmr_rfq_flow.png" class="btn btn-png">⬇ Download PNG (300 DPI)</a>
+          <a href="part4_staff_pmr_rfq_flow.svg" download="part4_staff_pmr_rfq_flow.svg" class="btn btn-svg">⬇ Download SVG (Vector)</a>
+        </div>
+      </div>
+      <div class="card-body">
+        <a href="part4_staff_pmr_rfq_flow.png" target="_blank" title="Click to view full size">
+          <img src="part4_staff_pmr_rfq_flow.svg" alt="Part 4: Staff Recording, RFQ & BAC Endorsement Flow (Connector [C1])" />
+        </a>
+      </div>
+    </div>
+
+
+    <div class="card" id="part5_bac_aoq_mearb_flow">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Part 5: BAC Evaluation, AOQ & Award Endorsement Flow (Connector [D1])</h2>
+          <p class="card-desc">Compilation of received quotes, Annex F AOQ, 3+ bids verification, RA 12009 Section 43 MEARB algorithm, BAC Resolution, and endorsement to Connector [E1].</p>
+        </div>
+        <div class="actions">
+          <a href="part5_bac_aoq_mearb_flow.png" download="part5_bac_aoq_mearb_flow.png" class="btn btn-png">⬇ Download PNG (300 DPI)</a>
+          <a href="part5_bac_aoq_mearb_flow.svg" download="part5_bac_aoq_mearb_flow.svg" class="btn btn-svg">⬇ Download SVG (Vector)</a>
+        </div>
+      </div>
+      <div class="card-body">
+        <a href="part5_bac_aoq_mearb_flow.png" target="_blank" title="Click to view full size">
+          <img src="part5_bac_aoq_mearb_flow.svg" alt="Part 5: BAC Evaluation, AOQ & Award Endorsement Flow (Connector [D1])" />
+        </a>
+      </div>
+    </div>
+
+
+    <div class="card" id="part6_hope_budget_obligation_flow">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Part 6: HoPE Approval & Budget Obligation Flow (Connectors [E1], [C2], [F1])</h2>
+          <p class="card-desc">Presidential review, rejection loop vs approval, parallel handoff to Staff PO drafting [C2] and Budget Officer CAF execution [F1], leading to Connector [B2].</p>
+        </div>
+        <div class="actions">
+          <a href="part6_hope_budget_obligation_flow.png" download="part6_hope_budget_obligation_flow.png" class="btn btn-png">⬇ Download PNG (300 DPI)</a>
+          <a href="part6_hope_budget_obligation_flow.svg" download="part6_hope_budget_obligation_flow.svg" class="btn btn-svg">⬇ Download SVG (Vector)</a>
+        </div>
+      </div>
+      <div class="card-body">
+        <a href="part6_hope_budget_obligation_flow.png" target="_blank" title="Click to view full size">
+          <img src="part6_hope_budget_obligation_flow.svg" alt="Part 6: HoPE Approval & Budget Obligation Flow (Connectors [E1], [C2], [F1])" />
+        </a>
+      </div>
+    </div>
+
+
+    <div class="card" id="part7_po_delivery_archiving_flow">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">Part 7: PO Releasing, Delivery & Archiving Flow (Connector [B2])</h2>
+          <p class="card-desc">PO contract issuance, shipping, goods receipt & inspection (IAR), End-User supplier scorecard rating, PMR close-out, and forecasting sync to Terminal Node [END].</p>
+        </div>
+        <div class="actions">
+          <a href="part7_po_delivery_archiving_flow.png" download="part7_po_delivery_archiving_flow.png" class="btn btn-png">⬇ Download PNG (300 DPI)</a>
+          <a href="part7_po_delivery_archiving_flow.svg" download="part7_po_delivery_archiving_flow.svg" class="btn btn-svg">⬇ Download SVG (Vector)</a>
+        </div>
+      </div>
+      <div class="card-body">
+        <a href="part7_po_delivery_archiving_flow.png" target="_blank" title="Click to view full size">
+          <img src="part7_po_delivery_archiving_flow.svg" alt="Part 7: PO Releasing, Delivery & Archiving Flow (Connector [B2])" />
+        </a>
+      </div>
+    </div>
+
+
+    <div class="card" id="dfd_level_1_macro_processes">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">DFD Level 1: System Macro-Processes</h2>
+          <p class="card-desc">High-level data flow diagram showing external entities (End-User, Officer, Staff, BAC, HoPE, Budget Officer, Suppliers), 7 macro-processes, and 15 persistent data stores.</p>
+        </div>
+        <div class="actions">
+          <a href="dfd_level_1_macro_processes.png" download="dfd_level_1_macro_processes.png" class="btn btn-png">⬇ Download PNG (300 DPI)</a>
+          <a href="dfd_level_1_macro_processes.svg" download="dfd_level_1_macro_processes.svg" class="btn btn-svg">⬇ Download SVG (Vector)</a>
+        </div>
+      </div>
+      <div class="card-body">
+        <a href="dfd_level_1_macro_processes.png" target="_blank" title="Click to view full size">
+          <img src="dfd_level_1_macro_processes.svg" alt="DFD Level 1: System Macro-Processes" />
+        </a>
+      </div>
+    </div>
+
+
+    <div class="card" id="dfd_level_2_process_2_requisition">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">DFD Level 2: Sub-Process 2.0 (PR & Pre-Canvass Creation)</h2>
+          <p class="card-desc">Detailed decomposition of Process 2.0: PPMP selection/upload, line item parsing, 3-quote validation, and package assembly.</p>
+        </div>
+        <div class="actions">
+          <a href="dfd_level_2_process_2_requisition.png" download="dfd_level_2_process_2_requisition.png" class="btn btn-png">⬇ Download PNG (300 DPI)</a>
+          <a href="dfd_level_2_process_2_requisition.svg" download="dfd_level_2_process_2_requisition.svg" class="btn btn-svg">⬇ Download SVG (Vector)</a>
+        </div>
+      </div>
+      <div class="card-body">
+        <a href="dfd_level_2_process_2_requisition.png" target="_blank" title="Click to view full size">
+          <img src="dfd_level_2_process_2_requisition.svg" alt="DFD Level 2: Sub-Process 2.0 (PR & Pre-Canvass Creation)" />
+        </a>
+      </div>
+    </div>
+
+
+    <div class="card" id="dfd_level_2_process_5_mearb">
+      <div class="card-header">
+        <div>
+          <h2 class="card-title">DFD Level 2: Sub-Process 5.0 (AOQ Evaluation & MEARB Scoring)</h2>
+          <p class="card-desc">Detailed decomposition of Process 5.0: quote threshold validation, AOQ generation, RA 12009 Section 43 MEARB score calculation, and resolution drafting.</p>
+        </div>
+        <div class="actions">
+          <a href="dfd_level_2_process_5_mearb.png" download="dfd_level_2_process_5_mearb.png" class="btn btn-png">⬇ Download PNG (300 DPI)</a>
+          <a href="dfd_level_2_process_5_mearb.svg" download="dfd_level_2_process_5_mearb.svg" class="btn btn-svg">⬇ Download SVG (Vector)</a>
+        </div>
+      </div>
+      <div class="card-body">
+        <a href="dfd_level_2_process_5_mearb.png" target="_blank" title="Click to view full size">
+          <img src="dfd_level_2_process_5_mearb.svg" alt="DFD Level 2: Sub-Process 5.0 (AOQ Evaluation & MEARB Scoring)" />
+        </a>
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>

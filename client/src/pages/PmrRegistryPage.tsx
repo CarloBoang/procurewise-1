@@ -785,7 +785,7 @@ export function PmrRegistryPage() {
               Official Procurement Tracking Slip
             </DialogTitle>
             <DialogDescription>
-              Government Procurement Reform Act (RA 9184) official routing &amp; tracking slip.
+              New Government Procurement Act (RA 12009) official routing &amp; tracking slip.
             </DialogDescription>
           </DialogHeader>
 

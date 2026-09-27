@@ -1,0 +1,11 @@
+flowchart TD
+    L6["6.1 HoPE Login (/login)"] --> APP_PG["6.2 Open: /approvals"]
+    APP_PG --> B_REV["6.3 Click: 'Review Package' on Pending Award"]
+    B_REV --> MOD_EXP["6.4 Inspect AOQ Matrix, MCDM Rationale & BAC Resolution"]
+    MOD_EXP --> DEC3{"6.5 Executive Decision Gate"}
+    DEC3 -- "Disapprove / Questions" --> B_RET_BAC["Click: 'Return to BAC with Remarks'"]
+    B_RET_BAC --> H_BAC["Returns to BAC for Re-evaluation"]
+    DEC3 -- "Approve Award" --> B_APP_HOPE["Click: 'Approve Award Recommendation'"]
+    B_APP_HOPE --> REM_APP["Enter Approval Remarks & Conforme"]
+    REM_APP --> CONF_APP["Click: 'Confirm Executive Approval'"]
+    CONF_APP --> H6["Status: approved -> Notice of Award (NOA) Cleared"]

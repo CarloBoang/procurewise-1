@@ -704,9 +704,9 @@ export function OfficerRfqDistributionPage({
                   <div className="flex items-start gap-2">
                     <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-semibold">RA 9184 IRR Section 54.2 Compliance Guard</p>
+                      <p className="font-semibold">RA 12009 (NGPA) Article III / PhilGEPS Electronic Posting Compliance Guard</p>
                       <p className="mt-0.5 text-[11px] leading-relaxed">
-                        This procurement package has an ABC of <strong>{formatMoney(prEstimate)}</strong> (exceeding ₱50,000.00). Section 54.2 mandates a documented PhilGEPS posting reference number before transmittal to the BAC Secretariat.
+                        This procurement package has an ABC of <strong>{formatMoney(prEstimate)}</strong> (exceeding ₱50,000.00). RA 12009 Article III (Procurement by Electronic Means) mandates a documented PhilGEPS posting reference number before transmittal to the BAC Secretariat.
                       </p>
                     </div>
                   </div>

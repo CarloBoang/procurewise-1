@@ -429,7 +429,7 @@ describe("Automated End-to-End Procurement Lifecycle & Workflow Audit", () => {
         {
           preCanvassId: 601,
           decision: "approved",
-          remarks: "Approved for contract issuance and PO generation per RA 9184 Section 37.",
+          remarks: "Approved for contract issuance and PO generation per RA 12009 (NGPA).",
         },
         hope,
         { db: fake.db as never, recordAudit: fake.recordAudit }
@@ -563,7 +563,7 @@ describe("Automated End-to-End Procurement Lifecycle & Workflow Audit", () => {
           recordAudit: fakeBlocked.recordAudit,
         })
       ).rejects.toThrow(
-        "Under Section 54.2 of RA 9184 IRR, procurement packages with ABC exceeding ₱50,000.00 require a documented PhilGEPS posting reference number before transmittal to BAC."
+        "Under RA 12009 (NGPA) Article III / PhilGEPS electronic posting rules, procurement packages with ABC exceeding ₱50,000.00 require a documented PhilGEPS posting reference number before transmittal to BAC."
       );
 
       // Case 2: Package > ₱50,000 WITH PhilGEPS posting -> ALLOWED

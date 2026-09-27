@@ -60,7 +60,7 @@ const FIVE_CORE_FORMS: FormTabInfo[] = [
     key: "rfq",
     name: "Request for Quotation (RFQ)",
     shortCode: "Annex D",
-    standard: "R.A. 9184 Standard",
+    standard: "R.A. 12009 (NGPA) Standard",
     isLandscape: false,
     color: "#1d4ed8",
     description: "Market canvass document with deadline, general terms & conditions, delivery terms, and vendor quotation grid.",
@@ -783,7 +783,7 @@ export default function FormTemplatesPage() {
                     <th className="py-3 px-4">Field Name</th>
                     <th className="py-3 px-4">Category</th>
                     <th className="py-3 px-4">Runtime Example Value</th>
-                    <th className="py-3 px-4">COA / R.A. 9184 Guidelines</th>
+                    <th className="py-3 px-4">COA / R.A. 12009 (NGPA) Guidelines</th>
                     <th className="py-3 px-4 text-center">Action</th>
                   </tr>
                 </thead>

@@ -104,7 +104,7 @@ export function HelpSupportDialog({ open, onOpenChange }: HelpSupportDialogProps
             }`}
           >
             <Scale className="h-3.5 w-3.5" />
-            <span>RA 9184 Guidelines</span>
+            <span>RA 12009 (NGPA) Guidelines</span>
           </button>
           <button
             type="button"
@@ -209,40 +209,68 @@ export function HelpSupportDialog({ open, onOpenChange }: HelpSupportDialogProps
           </div>
         )}
 
-        {/* TAB 2: RA 9184 GUIDELINES */}
+        {/* TAB 2: RA 12009 (NGPA) GUIDELINES */}
         {activeTab === "guidelines" && (
           <div className="mt-4 space-y-4 text-xs text-foreground">
             <div className="rounded-xl border border-blue-200 dark:border-blue-900/40 bg-blue-50/70 dark:bg-blue-950/20 p-4 space-y-2">
               <div className="flex items-center gap-2">
                 <Scale className="h-4 w-4 text-blue-700 dark:text-blue-400" />
                 <h4 className="font-bold text-blue-950 dark:text-blue-200 text-xs">
-                  R.A. 9184 Revised Implementing Rules and Regulations (IRR)
+                  Republic Act No. 12009 — New Government Procurement Act (NGPA)
                 </h4>
               </div>
               <p className="text-[11px] leading-relaxed text-blue-900/90 dark:text-blue-200/90">
-                All procurement activities of Batanes State College must strictly adhere to the provisions of Republic Act No. 9184 (Government Procurement Reform Act) and its 2016 Revised IRR.
+                All procurement activities of Batanes State College strictly adhere to Republic Act No. 12009 (New Government Procurement Act) and its official Implementing Rules and Regulations (IRR), which modernizes Philippine public procurement, introduces fit-for-purpose modalities, and repeals RA 9184.
               </p>
+            </div>
+
+            {/* 8 Governing Principles (Article I) */}
+            <div className="rounded-xl border border-border p-3.5 space-y-2 bg-card">
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-foreground">Article I: 8 Governing Principles (Section 2)</p>
+                <span className="text-[10px] rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 px-2 py-0.5 font-medium">Core Mandate</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Public procurement is anchored on eight fundamental principles governing all stages:
+              </p>
+              <div className="grid grid-cols-2 gap-1.5 pt-1 text-[11px]">
+                <div className="rounded bg-muted/60 p-1.5"><span className="font-semibold text-foreground">1. Transparency:</span> Electronic PhilGEPS disclosure.</div>
+                <div className="rounded bg-muted/60 p-1.5"><span className="font-semibold text-foreground">2. Competitiveness:</span> Equal opportunity for suppliers.</div>
+                <div className="rounded bg-muted/60 p-1.5"><span className="font-semibold text-foreground">3. Efficiency:</span> Streamlined process &amp; resource optimization.</div>
+                <div className="rounded bg-muted/60 p-1.5"><span className="font-semibold text-foreground">4. Proportionality:</span> Rules scaled to risk and contract value.</div>
+                <div className="rounded bg-muted/60 p-1.5"><span className="font-semibold text-foreground">5. Accountability:</span> Strict civil, criminal &amp; admin responsibility.</div>
+                <div className="rounded bg-muted/60 p-1.5"><span className="font-semibold text-foreground">6. Participatory:</span> Civic observers &amp; open monitoring.</div>
+                <div className="rounded bg-muted/60 p-1.5"><span className="font-semibold text-foreground">7. Sustainability:</span> Green procurement &amp; life-cycle impacts.</div>
+                <div className="rounded bg-muted/60 p-1.5"><span className="font-semibold text-foreground">8. Professionalism:</span> Mandatory capability standards.</div>
+              </div>
             </div>
 
             <div className="space-y-3">
               <div className="rounded-xl border border-border p-3.5 space-y-1.5 bg-card">
-                <p className="font-semibold text-foreground">Section 48: Alternative Methods of Procurement</p>
+                <p className="font-semibold text-foreground">Article II: Strategic Procurement Planning &amp; Market Scoping (Sections 7–19)</p>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Resort to alternative methods (e.g. Shopping, Small Value Procurement, Direct Contracting) is permitted only in highly exceptional cases provided under Rule XVI to promote economy and efficiency. Splitting of contracts to evade public bidding thresholds is strictly prohibited.
+                  Requires fit-for-purpose planning, early market scoping, and Life-Cycle Cost Analysis (LCCA) prior to PPMP finalization. Procuring entities must align requisitions with verified institutional needs, preventing arbitrary procurement and contract splitting.
                 </p>
               </div>
 
               <div className="rounded-xl border border-border p-3.5 space-y-1.5 bg-card">
-                <p className="font-semibold text-foreground">Section 53.9: Small Value Procurement (SVP)</p>
+                <p className="font-semibold text-foreground">Article III: Procurement by Electronic Means &amp; PhilGEPS (Sections 20–25)</p>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  For State Universities and Colleges (SUCs), the threshold for Small Value Procurement is up to Php 1,000,000.00. Quotations from at least three (3) suppliers of known qualifications must be validated, and RFQs with ABC exceeding Php 50,000.00 must be posted on PhilGEPS for at least three (3) calendar days.
+                  Institutionalizes PhilGEPS as the single electronic portal tracking everything from planning down to final payment. All Small Value Procurement packages with an ABC exceeding <strong>₱50,000.00</strong> require documented PhilGEPS electronic posting before BAC transmittal.
                 </p>
               </div>
 
               <div className="rounded-xl border border-border p-3.5 space-y-1.5 bg-card">
-                <p className="font-semibold text-foreground">Section 52: Shopping</p>
+                <p className="font-semibold text-foreground">Article IV: Modernized Modes of Procurement (Sections 26–38)</p>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Applicable when there is an unforeseen contingency requiring immediate purchase (Sec. 52.1.a, threshold Php 200,000.00) or for procurement of readily available off-the-shelf goods not available in the DBM-PS (Sec. 52.1.b, threshold Php 1,000,000.00).
+                  Establishes Competitive Bidding as default, alongside modernized alternative modalities: <strong>Small Value Procurement (SVP)</strong> (validating at least 3 supplier quotations), <strong>Direct Acquisition</strong> for minor purchases, <strong>Competitive Dialogue</strong> for complex technical solutions, and Framework Agreements.
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-border p-3.5 space-y-1.5 bg-card">
+                <p className="font-semibold text-foreground">Article V: Evaluation &amp; Award — MEARB / Best Value (Section 43)</p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Formally codifies the <strong>Most Economically Advantageous and Responsive Bid (MEARB)</strong> criterion. ProcureWise implements this statutory standard through its Multi-Criteria Decision Making (MCDM) Best Value Engine, scoring quotes on price (60%), delivery timeline (20%), and statutory compliance (20%).
                 </p>
               </div>
             </div>
@@ -295,7 +323,7 @@ export function HelpSupportDialog({ open, onOpenChange }: HelpSupportDialogProps
                     >
                       <option value="system">Technical Issue / Bug</option>
                       <option value="section_5_1_1">Section 5.1.1 Category Rule</option>
-                      <option value="ra_9184">RA 9184 Compliance Question</option>
+                      <option value="ra_12009">RA 12009 (NGPA) Compliance Question</option>
                       <option value="access_role">Role Permissions &amp; Office</option>
                       <option value="form_template">Form Template Assistance</option>
                     </select>

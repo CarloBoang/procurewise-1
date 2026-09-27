@@ -1,0 +1,30 @@
+graph TD
+    classDef connectorNode fill:#fee2e2,stroke:#dc2626,stroke-width:3px,color:#991b1b,font-weight:bold;
+    classDef decisionNode fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
+    classDef actionNode fill:#f1f5f9,stroke:#64748b,stroke-width:1px,color:#0f172a;
+    classDef dbNode fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#5b21b6;
+    classDef alertNode fill:#fef2f2,stroke:#ef4444,stroke-width:2px,color:#b91c1c;
+
+    CONN_B1(["Connector [B1]<br/>Incoming Forwarded PR"]):::connectorNode
+    PO_QUEUE["Officer Verification Workbench (/officer/pr-verifications)"]:::actionNode
+    CONN_B1 --> PO_QUEUE
+
+    PO_QUEUE --> CLK_REV["PO Clicks: 'Review & Verify' on Pending PR Row"]:::actionNode
+    CLK_REV --> OPEN_VER_MOD["Load Verification Modal: PR Metadata, Line Items & Attached PPMP"]:::actionNode
+    
+    OPEN_VER_MOD --> COMPL_EVAL{"Section 5.1.1 Compliance Check:<br/>Are items strictly segregated into single category<br/>(Office, Hardware, ICT, Printing, or Food)?"}:::decisionNode
+
+    COMPL_EVAL -- "No (Mixed Categories / Insufficient Specs)" --> CLK_RETURN["PO Clicks: 'Return to End-User for Revision'"]:::actionNode
+    CLK_RETURN --> INPUT_REMARKS["Input Mandatory Revision Remarks (Select preset or enter details)"]:::actionNode
+    INPUT_REMARKS --> DB_PR_RET[("DB: Update 'purchase_requests'<br/>state: 'RETURNED_FOR_REVISION'<br/>status: 'returned'")]:::dbNode
+    DB_PR_RET --> DB_AUDIT_RET[("DB: Write 'audit_trails'<br/>action: 'pr_returned_for_revision'")]:::dbNode
+    DB_AUDIT_RET --> NOTIF_EU["Emit High-Priority Notification to End-User"]:::actionNode
+    NOTIF_EU --> CONN_A_LOOP(["Connector [A]<br/>Route Back to End-User for Correction"]):::connectorNode
+
+    COMPL_EVAL -- "Yes (Segregated & Valid)" --> CHK_VER_TOGGLE["PO Checks: [x] Confirm Section 5.1.1 Category Segregation"]:::actionNode
+    CHK_VER_TOGGLE --> CLK_VER_FWD["PO Clicks: 'Verify & Clear PR'"]:::actionNode
+    
+    CLK_VER_FWD --> DB_PR_VER[("DB: Update 'purchase_requests'<br/>state: 'VERIFIED_FOR_PMR'<br/>status: 'procurement_review'")]:::dbNode
+    DB_PR_VER --> DB_AUDIT_VER[("DB: Write 'audit_trails'<br/>action: 'pr_verified_under_section_511'")]:::dbNode
+    
+    DB_AUDIT_VER --> CONN_C1(["Connector [C1]<br/>Handshake to Procurement Staff"]):::connectorNode

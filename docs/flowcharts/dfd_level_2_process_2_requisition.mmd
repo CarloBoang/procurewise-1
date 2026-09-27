@@ -1,0 +1,26 @@
+graph LR
+    classDef entity fill:#1e293b,stroke:#0f172a,color:#ffffff;
+    classDef subproc fill:#e0f2fe,stroke:#0284c7,color:#0369a1;
+    classDef ds fill:#fef3c7,stroke:#d97706,color:#92400e;
+
+    EU["End-User"]:::entity
+    P21["2.1 Select/Upload PPMP"]:::subproc
+    P22["2.2 Parse Line Items (Sec 5.1.1)"]:::subproc
+    P23["2.3 Attach Minimum 3 Quotations"]:::subproc
+    P24["2.4 Assemble & Seal Package"]:::subproc
+
+    D_PPMP[("D2: ppmp_records")]:::ds
+    D_PR[("D3: purchase_requests")]:::ds
+    D_QUOTES[("D4: canvass_quotes")]:::ds
+    D_AUDIT[("D15: audit_trail")]:::ds
+
+    EU --> P21
+    P21 --> D_PPMP
+    P21 --> P22
+    EU --> P22
+    P22 --> P23
+    EU --> P23
+    P23 --> D_QUOTES
+    P23 --> P24
+    P24 --> D_PR
+    P24 --> D_AUDIT

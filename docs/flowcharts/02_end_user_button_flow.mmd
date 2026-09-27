@@ -1,0 +1,15 @@
+flowchart TD
+    L["1.1 Login (/login)"] --> W["1.2 Lands on /workspace"]
+    W --> B1["1.3 Click: 'Create Purchase Request'"]
+    B1 --> D1{"1.4 PPMP Selection Decision"}
+    D1 -- "Select Existing" --> PPMP_SEL["Choose from Registered PPMP Dropdown"]
+    D1 -- "Upload Custom" --> PPMP_UPL["Upload PDF/Excel/Word & Enter Budget"]
+    PPMP_SEL --> ITM["1.5 Enter Line Items & Specs"]
+    PPMP_UPL --> ITM
+    ITM --> CLS{"1.6 Section 5.1.1 Category Check"}
+    CLS -- "Mixed Categories" --> ACK["Alert: Check Acknowledge Box or Split Items"]
+    CLS -- "Single Category" --> QUO["1.7 Click: 'Open Pre-Canvass Workspace'"]
+    ACK --> QUO
+    QUO --> Q3["Attach Minimum 3 Supplier Quotations"]
+    Q3 --> B2["1.8 Click: 'Forward Package to Procurement'"]
+    B2 --> H1["Package Status: procurement_review (Handed off to Officer)"]

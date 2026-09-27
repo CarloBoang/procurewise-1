@@ -839,7 +839,7 @@ function EndUserPersonalDashboard({
                     <span>Official BAC / Committee Remarks</span>
                   </div>
                   <p className="mt-2 rounded border border-[#fbd3d3] bg-white p-2.5 text-xs font-semibold italic text-[#771515] dark:border-[#522121] dark:bg-[#1a0c0c] dark:text-[#fca5a5]">
-                    &ldquo;{selectedPrForModal.latestRejectionReason || "The request could not proceed due to budgetary or specification constraints under RA 9184 guidelines."}&rdquo;
+                    &ldquo;{selectedPrForModal.latestRejectionReason || "The request could not proceed due to budgetary or specification constraints under RA 12009 (NGPA) guidelines."}&rdquo;
                   </p>
                   <div className="mt-3 text-[11px] leading-4 text-[#8b1e1e] dark:text-[#fca5a5]">
                     <p className="font-bold">Guidance &amp; Next Steps:</p>

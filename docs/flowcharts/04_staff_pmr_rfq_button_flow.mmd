@@ -1,0 +1,9 @@
+flowchart TD
+    L3["3.1 Staff Login (/login)"] --> PMR["3.2 Open: /staff/pmr-recording"]
+    PMR --> B_LOG["3.3 Click: 'Record to PMR' on Verified PR"]
+    B_LOG --> CONF_PMR["3.4 Click: 'Confirm PMR Entry' (Auto-populates metadata)"]
+    CONF_PMR --> B_RFQ["3.5 Click: 'Prepare RFQ' -> Opens Official Annex D Canvas"]
+    B_RFQ --> RFQ_SET["3.6 Set Deadline & Terms (15 Days / Basco Supply Office)"]
+    RFQ_SET --> B_GEN["3.7 Click: 'Generate Annex D RFQ'"]
+    B_GEN --> B_DIST["3.8 Click: 'Distribute to Suppliers' -> Select 3+ Vendors"]
+    B_DIST --> H3["RFQ Status: canvass -> Dispatched to Commercial Market"]

@@ -1,0 +1,10 @@
+flowchart TD
+    L5["5.1 BAC Login (/login)"] --> WF["5.2 Open: /workflow (BAC Workspace)"]
+    WF --> B_AOQ["5.3 Click: 'Generate Abstract of Canvass (AOQ)'"]
+    B_AOQ --> CANV["5.4 View Multi-Bidder Matrix vs ABC (Annex F Canvas)"]
+    CANV --> B_MCDM["5.5 Click: 'Calculate MCDM Best Value'"]
+    B_MCDM --> SCOR["5.6 System executes MEARB Scorecard (60% Price + 20% Deliv + 20% Comp)"]
+    SCOR --> RES["5.7 Click: 'Draft BAC Resolution Recommending Award'"]
+    RES --> SIGN_BAC["5.8 BAC Chairperson & Members Apply Digital Signatures"]
+    SIGN_BAC --> B_SUB_HOPE["5.9 Click: 'Submit Resolution to HoPE for Executive Approval'"]
+    B_SUB_HOPE --> H5["Status: approval_review (Handed off to HoPE)"]

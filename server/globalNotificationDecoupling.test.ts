@@ -25,11 +25,11 @@ describe("Global Notification Architecture Decoupling across All Roles", () => {
       expect(helpSupportDialogSource).toContain("Section 5.1.1 Category Segregation Rule");
       expect(helpSupportDialogSource).toContain("Official Procedure 5 Workflow Stages");
 
-      // RA 9184 guidelines
-      expect(helpSupportDialogSource).toContain("RA 9184 Guidelines");
-      expect(helpSupportDialogSource).toContain("Alternative Methods of Procurement");
+      // RA 12009 (NGPA) guidelines
+      expect(helpSupportDialogSource).toContain("RA 12009 (NGPA) Guidelines");
+      expect(helpSupportDialogSource).toContain("8 Governing Principles");
       expect(helpSupportDialogSource).toContain("Small Value Procurement (SVP)");
-      expect(helpSupportDialogSource).toContain("Shopping");
+      expect(helpSupportDialogSource).toContain("Procurement by Electronic Means");
 
       // Support tickets
       expect(helpSupportDialogSource).toContain("Support Tickets");
