@@ -7,7 +7,7 @@ import { OfficeSelect } from "@/components/OfficeSelect";
 import { trpc } from "@/lib/trpc";
 import { OFFICIAL_ROLE_LABELS, normalizeProcurementRole, type ProcurementRole, type PersistedUserRole } from "../../../shared/procurementRules";
 import {
-  Archive, Bell, BookOpenText, Boxes, ChevronDown, ChevronLeft, ChevronRight,
+  Archive, Bell, BookOpenCheck, BookOpenText, Boxes, ChevronDown, ChevronLeft, ChevronRight,
   ClipboardList, FileCheck2, FileSearch, FileSpreadsheet, FileText,
   LayoutDashboard, LifeBuoy, LineChart, LoaderCircle, LogOut, Menu,
   Moon, PackageSearch, Paperclip, ReceiptText, Scale, Search,
@@ -48,6 +48,34 @@ const navigation: Array<{
     category: "workspace",
   },
   {
+    label: "PR Verification",
+    path: "/officer/pr-verification",
+    icon: FileCheck2,
+    roles: ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "admin"],
+    category: "workspace",
+  },
+  {
+    label: "RFQ Distribution & PhilGEPS",
+    path: "/officer/rfq-distribution",
+    icon: Send,
+    roles: ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "admin"],
+    category: "workspace",
+  },
+  {
+    label: "Notice & PO Releasing",
+    path: "/officer/releasing",
+    icon: FileText,
+    roles: ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "admin"],
+    category: "processing",
+  },
+  {
+    label: "Delivery Monitoring",
+    path: "/officer/delivery-monitoring",
+    icon: Boxes,
+    roles: ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "admin"],
+    category: "processing",
+  },
+  {
     label: "Procurement Catalog",
     path: "/catalog",
     icon: PackageSearch,
@@ -66,23 +94,29 @@ const navigation: Array<{
     label: "PPMP & Purchase Requests",
     path: "/purchase-requests",
     icon: ClipboardList,
-    // Visible to End-User, PO, Staff, HoPE, and Admin (hidden from BAC and Budget Officer)
-    roles: [
-      "end_user",
-      "procurement_officer",
-      "procurement_officer_i",
-      "procurement_officer_ii",
-      "procurement_staff",
-      "hope",
-      "admin",
-    ],
+    // Strictly End-User only; completely hidden and blocked for Procurement Staff, PO, BAC, Budget Officer, and HoPE
+    roles: ["end_user", "admin"],
+    category: "workspace",
+  },
+  {
+    label: "PMR Registry",
+    path: "/pmr-registry",
+    icon: BookOpenCheck,
+    roles: ["procurement_staff", "procurement_officer", "procurement_officer_i", "procurement_officer_ii", "admin"],
+    category: "workspace",
+  },
+  {
+    label: "RFQ Management",
+    path: "/rfq-management",
+    icon: FileSpreadsheet,
+    roles: ["procurement_staff", "procurement_officer", "procurement_officer_i", "procurement_officer_ii", "admin"],
     category: "workspace",
   },
   {
     label: "Suppliers",
     path: "/suppliers",
     icon: UsersRound,
-    roles: ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "procurement_staff", "admin"],
+    roles: ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "admin"],
     category: "workspace",
   },
   {
@@ -131,7 +165,7 @@ const navigation: Array<{
     label: "Supplier Evaluation Form",
     path: "/supplier-evaluation-form",
     icon: Star,
-    roles: ["end_user", "procurement_officer", "procurement_officer_i", "procurement_officer_ii", "procurement_staff", "admin"],
+    roles: ["end_user", "procurement_officer", "procurement_officer_i", "procurement_officer_ii", "admin"],
     category: "processing",
   },
   {
@@ -143,7 +177,6 @@ const navigation: Array<{
       "procurement_officer",
       "procurement_officer_i",
       "procurement_officer_ii",
-      "procurement_staff",
       "bac",
       "bac_secretariat",
       "hope",
@@ -187,7 +220,7 @@ const navigation: Array<{
     label: "Historical PMR",
     path: "/pmr-history",
     icon: ReceiptText,
-    roles: ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "procurement_staff", "supplier_contractor", "admin"],
+    roles: ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "supplier_contractor", "admin"],
     category: "reports",
   },
 
@@ -301,28 +334,61 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     ? (currentRole === "hope" ? "HoPE (College President)" : OFFICIAL_ROLE_LABELS[currentRole] ?? OFFICIAL_ROLE_LABELS[normalizeProcurementRole(rawRole)] ?? "End-User")
     : OFFICIAL_ROLE_LABELS.end_user;
 
-  // Strict role filter per Section 5 specification
+  // Strict role filter per Section 5 specification & Procurement Staff scoping
   const allVisible = navigation.filter((item) => {
     if (currentRole === "admin") return true;
+    if (currentRole === "procurement_staff") {
+      const allowedStaffPaths = [
+        "/dashboard",
+        "/pmr-registry",
+        "/rfq-management",
+        "/officer/transmittals",
+        "/officer/notices",
+        "/purchase-orders",
+        "/form-templates",
+      ];
+      return allowedStaffPaths.includes(item.path);
+    }
+    const isOfficer = currentRole === "procurement_officer" || currentRole === "procurement_officer_i" || currentRole === "procurement_officer_ii" || rawRole === "supply_officer";
+    if (isOfficer) {
+      const allowedOfficerPaths = [
+        "/dashboard",
+        "/officer/pr-verification",
+        "/officer/rfq-distribution",
+        "/officer/releasing",
+        "/officer/delivery-monitoring",
+        "/form-templates",
+      ];
+      return allowedOfficerPaths.includes(item.path);
+    }
+    // Block non-End-Users from PPMP-linked PRs
+    if (item.path === "/purchase-requests" && currentRole !== "end_user") {
+      return false;
+    }
     return item.roles.includes(currentRole);
   });
 
   // Apply role-specific descriptive label overrides
   const getLabel = (item: (typeof navigation)[0]) => {
     if (currentRole === "end_user") {
+      if (item.path === "/purchase-requests") return "PPMP-linked Purchase Requests";
       if (item.path === "/analytics") return "My Analytics";
       if (item.path === "/audit") return "My Audit Trail";
     }
-    if (currentRole === "procurement_officer" || currentRole === "procurement_officer_i" || currentRole === "procurement_officer_ii") {
-      if (item.path === "/purchase-requests") return "PPMP & Purchase Requests (Verification & Review)";
-      if (item.path === "/form-templates") return "Forms Hub (Excel)";
+    if (currentRole === "procurement_officer" || currentRole === "procurement_officer_i" || currentRole === "procurement_officer_ii" || rawRole === "supply_officer") {
+      if (item.path === "/form-templates") return "Documents / Forms Hub";
     }
     if (currentRole === "procurement_staff") {
-      if (item.path === "/form-templates") return "Forms Hub (Excel)";
+      if (item.path === "/dashboard") return "Overview";
+      if (item.path === "/pmr-registry") return "PMR Registry";
+      if (item.path === "/rfq-management") return "RFQ Management";
+      if (item.path === "/officer/transmittals") return "BAC Forwarding / Transmittals";
+      if (item.path === "/officer/notices") return "Letters of Notice";
+      if (item.path === "/purchase-orders") return "Purchase Orders";
+      if (item.path === "/form-templates") return "Documents & Forms Hub";
     }
     if (currentRole === "hope") {
       if (item.path === "/dashboard") return "Overview (Executive metrics & sign-off)";
-      if (item.path === "/purchase-requests") return "PPMP & Purchase Requests (Resolutions approval)";
       if (item.path === "/purchase-orders") return "Abstracts, PO & PMR (Award & contract signing)";
     }
     if (currentRole === "bac" || currentRole === "bac_secretariat") {
@@ -535,7 +601,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* ── DESKTOP SIDEBAR ─────────────────────────────────────────────── */}
         <aside
           className={[
-            "sidebar-rail hidden lg:flex flex-col min-h-screen shrink-0 border-r transition-colors duration-200 print:hidden overflow-x-hidden",
+            "sidebar-rail hidden lg:flex flex-col min-h-screen shrink-0 border-r transition-colors duration-200 print:hidden no-print overflow-x-hidden",
             "bg-white dark:bg-[#0c1322] border-slate-200 dark:border-slate-800/80 text-slate-800 dark:text-slate-200",
             isCollapsed ? "w-[72px]" : "w-[292px]",
           ].join(" ")}

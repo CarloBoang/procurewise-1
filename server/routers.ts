@@ -2,7 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { systemRouter } from "./_core/systemRouter";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { acknowledgeBacTransmittal, addPreCanvassQuote, addSupplierQuotation, advancePurchaseRequest, approveQuotationAbstract, archiveTestRecordPackage, cleanupArchivedTestRecordPackage, createAbstractOfCanvass, createAppPpmpEntry, createBacTransmittal, createBudgetAllotment, createLetterOfNotice, createMcdmRecommendation, createObjectOfExpenditure, createOffice, createPreCanvass, createProcurementDocument, createPurchaseOrder, createPurchaseOrderFromPreCanvass, createPurchaseRequest, createPurchaseRequestSignatory, createQuotationAbstract, createRfqFromPreCanvass, createRfqFromPurchaseRequest, createSupplier, createSupplierEvaluation, createSupplierEvaluationForm, createSupplierTag, decideAbstractOfCanvass, getBestValuePolicy, getBestValuePolicyHistory, getBudgetUtilization, getProcurementCatalogItem, getProcurementDashboard, getProcurementForecast, getPublicPurchaseRequestTracking, getPurchaseRequestDetail, getSupplierTagData, getWorkspaceSetup, listAdminTestRecordPackages, listBacTransmittals, listEligibleSupplierEvaluationOrders, listLettersOfNotice, listPendingSupplierEvaluationApprovals, listProcurementCatalogCodeFamilies, listProcurementCatalogFavorites, listProcurementCatalogItems, listProcurementCatalogSavedItems, listPurchaseRequestSignatories, listPurchaseRequests, listSupplierEvaluations, listSupplierEvaluationsForEndUser, listUserProfiles, listWorkflowNotifications, logPmr, markWorkflowNotificationRead, notifyRoles, recordDelivery, recordHistoricalPrice, recordPreCanvassResubmission, requestAbstractCorrection, requestPreCanvassCorrection, requestPurchaseOrderCorrection, replaceProcurementCatalogSavedItems, resubmitAbstract, resubmitPurchaseOrder, saveBestValuePolicy, setProcurementCatalogFavorite, clearProcurementCatalogSavedItems, setSupplierTags, signSupplierEvaluation, submitPreCanvass, updateProcurementSettings, updateSupplierEvaluation, updateUserProcurementRole, updateUserOffice, updateMyOffice } from "./db";
+import { acknowledgeBacTransmittal, addPreCanvassQuote, addSupplierQuotation, advancePurchaseRequest, approveQuotationAbstract, archiveTestRecordPackage, cleanupArchivedTestRecordPackage, createAbstractOfCanvass, createAppPpmpEntry, createBacTransmittal, createBudgetAllotment, createLetterOfNotice, createMcdmRecommendation, createObjectOfExpenditure, createOffice, createPreCanvass, createProcurementDocument, createPurchaseOrder, createPurchaseOrderFromPreCanvass, createPurchaseRequest, createPurchaseRequestSignatory, createQuotationAbstract, createRfqFromPreCanvass, createRfqFromPurchaseRequest, createSupplier, createSupplierEvaluation, createSupplierEvaluationForm, createSupplierTag, decideAbstractOfCanvass, getBestValuePolicy, getBestValuePolicyHistory, getBudgetUtilization, getProcurementCatalogItem, getProcurementDashboard, getProcurementForecast, getPublicPurchaseRequestTracking, getPurchaseRequestDetail, getSupplierTagData, getWorkspaceSetup, listAdminTestRecordPackages, listBacTransmittals, listDeliveryMonitoring, listEligibleSupplierEvaluationOrders, listLettersOfNotice, listOfficerPrVerifications, listOfficerPurchaseOrders, listPendingSupplierEvaluationApprovals, listPhilgepsPostings, listProcurementCatalogCodeFamilies, listProcurementCatalogFavorites, listProcurementCatalogItems, listProcurementCatalogSavedItems, listPurchaseRequestSignatories, listPurchaseRequests, listRfqDistributions, listSupplierEvaluations, listSupplierEvaluationsForEndUser, listUserProfiles, listWorkflowNotifications, logPmr, markWorkflowNotificationRead, notifyRoles, recordDelivery, recordHistoricalPrice, recordInspectionMilestone, recordPhilgepsPosting, recordPreCanvassResubmission, recordPurchaseRequestToPmr, releasePurchaseOrder, requestAbstractCorrection, requestPreCanvassCorrection, requestPurchaseOrderCorrection, replaceProcurementCatalogSavedItems, resubmitAbstract, resubmitPurchaseOrder, returnPurchaseRequestForRevision, saveBestValuePolicy, serveLetterOfNotice, setProcurementCatalogFavorite, clearProcurementCatalogSavedItems, setSupplierTags, signSupplierEvaluation, submitPreCanvass, transmitRfqToBac, updateProcurementSettings, updateRfqDistribution, updateSupplierEvaluation, updateUserProcurementRole, updateUserOffice, updateMyOffice, verifyPurchaseRequestPackage } from "./db";
 import { activateFormTemplate, assignPurchaseRequestOfficer, assignRfqNumber, getActiveFormTemplate, getEndUserPerformanceAnalytics, getHistoricalPriceAnalytics, getHistoricalPmrSummary, getPmrStatus, getPurchaseRequestHistory, listAuditTrails, listFormTemplates, listHistoricalPmrRecords, rejectPreCanvass, rejectPurchaseRequest, rejectRfq, restoreFormTemplateVersion, resubmitPurchaseRequest, returnPurchaseRequestForCorrection, saveFormTemplateDraft } from "./db";
 import { getSupabaseRealtimePublicConfig, publishProcurementRealtimeUpdate } from "./supabaseRealtime";
 import { getNextPrStatus, normalizeProcurementRole, roleCanAct, type ProcurementRole } from "../shared/procurementRules";
@@ -163,6 +163,35 @@ export const appRouter = router({
       pmrStatus: protectedProcedure.input(z.object({
         purchaseRequestId: z.number().int().positive(),
       })).query(({ input }) => getPmrStatus(input.purchaseRequestId)),
+      verifyPackage: protectedProcedure.input(z.object({
+        purchaseRequestId: z.number().int().positive(),
+        categorySegregationVerified: z.boolean().optional(),
+      })).mutation(async ({ ctx, input }) => {
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+        const result = await verifyPurchaseRequestPackage(input.purchaseRequestId, ctx.user, { categorySegregationVerified: input.categorySegregationVerified });
+        void publishProcurementRealtimeUpdate("purchase_request");
+        return result;
+      }),
+      returnForRevision: protectedProcedure.input(z.object({
+        purchaseRequestId: z.number().int().positive(),
+        reason: z.string().min(5).max(1000),
+        remarks: z.string().max(1000).optional(),
+      })).mutation(async ({ ctx, input }) => {
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+        const result = await returnPurchaseRequestForRevision(input, ctx.user);
+        void publishProcurementRealtimeUpdate("purchase_request");
+        return result;
+      }),
+      recordPmr: protectedProcedure.input(z.object({
+        purchaseRequestId: z.number().int().positive(),
+        pmrReferenceNumber: z.string().max(80).optional(),
+        remarks: z.string().max(1000).optional(),
+      })).mutation(async ({ ctx, input }) => {
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_staff", "admin"]);
+        const result = await recordPurchaseRequestToPmr(input, ctx.user);
+        void publishProcurementRealtimeUpdate("purchase_request");
+        return result;
+      }),
     }),
     preCanvasses: router({
       create: protectedProcedure.input(z.object({ purchaseRequestId: z.number().int().positive(), approvedBudget: z.number().positive().optional(), quotationDeadline: z.coerce.date().optional(), deliveryPeriodDays: z.number().int().positive().max(365).optional(), priceEvaluationMode: z.enum(["lot_basis", "per_item"]).optional() })).mutation(async ({ ctx, input }) => {
@@ -209,11 +238,8 @@ export const appRouter = router({
         return result;
       }),
       createAbstract: protectedProcedure.input(z.object({ preCanvassId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_staff", "administrative_approver", "admin"]);
         const result = await createAbstractOfCanvass(input.preCanvassId, ctx.user);
-        await notifyRoles(["administrative_approver"], { kind: "action_required", title: "Official Abstract awaiting BAC/HoPE decision", body: "Procurement Staff/BAC final canvass validation is complete and the official Abstract of Quotations is ready for BAC/HoPE review.", entityType: "pre_canvass", entityId: input.preCanvassId });
-        void publishProcurementRealtimeUpdate("pre_canvass");
-        void publishProcurementRealtimeUpdate("abstract_of_canvass");
         await notifyRoles(["administrative_approver"], { kind: "action_required", title: "Official Abstract awaiting BAC/HoPE decision", body: "Procurement Staff/BAC final canvass validation is complete and the official Abstract of Quotations is ready for BAC/HoPE review.", entityType: "pre_canvass", entityId: input.preCanvassId });
         void publishProcurementRealtimeUpdate("pre_canvass");
         void publishProcurementRealtimeUpdate("abstract_of_canvass");
@@ -228,7 +254,7 @@ export const appRouter = router({
         return result;
       }),
       issuePurchaseOrder: protectedProcedure.input(z.object({ preCanvassId: z.number().int().positive() })).mutation(async ({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
         const result = await createPurchaseOrderFromPreCanvass(input.preCanvassId, ctx.user);
         await notifyRoles(["administrative_approver"], { kind: "status_change", title: "Purchase Order issued", body: "A Purchase Order was issued from an approved Abstract of Canvass.", entityType: "purchase_order", entityId: result.id });
         return result;
@@ -246,7 +272,7 @@ export const appRouter = router({
         return createMcdmRecommendation(input.preCanvassId, ctx.user);
       }),
       createRfqFromMcdm: protectedProcedure.input(z.object({ preCanvassId: z.number().int().positive() })).mutation(({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
         return createRfqFromPreCanvass(input.preCanvassId, ctx.user);
       }),
       recordDelivery: protectedProcedure.input(z.object({ purchaseOrderId: z.number().int().positive(), receiptNumber: z.string().min(3).max(40), receivedByName: z.string().max(180).optional(), deliveryStatus: z.enum(["complete", "partial"]).optional(), signatureReference: z.string().max(1000).optional(), remarks: z.string().max(1000).optional() })).mutation(({ ctx, input }) => {
@@ -254,7 +280,7 @@ export const appRouter = router({
         return recordDelivery(input, ctx.user);
       }),
       logPmr: protectedProcedure.input(z.object({ purchaseOrderId: z.number().int().positive(), pmrNumber: z.string().min(3).max(40), remarks: z.string().max(1000).optional() })).mutation(({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
         return logPmr(input, ctx.user);
       }),
     }),
@@ -267,15 +293,15 @@ export const appRouter = router({
     }),
     rfqs: router({
       createFromPurchaseRequest: protectedProcedure.input(z.object({ purchaseRequestId: z.number().int().positive() })).mutation(({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_staff", "admin"]);
         return createRfqFromPurchaseRequest(input.purchaseRequestId, ctx.user);
       }),
       addQuotation: protectedProcedure.input(z.object({ rfqId: z.number().int().positive(), supplierId: z.number().int().positive(), totalPrice: z.number().positive(), deliveryDays: z.number().int().nonnegative(), isCompliant: z.boolean(), notes: z.string().optional() })).mutation(({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
         return addSupplierQuotation(input, ctx.user);
       }),
       generateAbstract: protectedProcedure.input(z.object({ rfqId: z.number().int().positive() })).mutation(({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_staff", "administrative_approver", "admin"]);
         return createQuotationAbstract(input.rfqId, ctx.user);
       }),
       approveAbstract: protectedProcedure.input(z.object({ rfqId: z.number().int().positive() })).mutation(({ ctx, input }) => {
@@ -283,7 +309,7 @@ export const appRouter = router({
         return approveQuotationAbstract(input.rfqId, ctx.user);
       }),
       createPurchaseOrder: protectedProcedure.input(z.object({ rfqId: z.number().int().positive() })).mutation(({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
         return createPurchaseOrder(input.rfqId, ctx.user);
       }),
       reject: protectedProcedure.input(z.object({
@@ -307,7 +333,7 @@ export const appRouter = router({
         rfqId: z.number().int().positive().optional(),
       })).mutation(async ({ ctx, input }) => {
         const role = normalizeProcurementRole(ctx.user.role);
-        assertRole(role, ["procurement_officer", "admin"]);
+        assertRole(role, ["procurement_officer", "procurement_staff", "admin"]);
         const result = await assignRfqNumber(input, ctx.user);
         void publishProcurementRealtimeUpdate("rfq");
         return result;
@@ -488,18 +514,155 @@ export const appRouter = router({
       })).query(({ input }) => getHistoricalPriceAnalytics(input)),
     }),
     historicalPmr: router({
-      summary: protectedProcedure.input(z.object({ fiscalYear: z.number().int().min(2000).max(2100).optional() }).optional()).query(({ ctx, input }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "administrative_approver", "supplier_contractor"]); return getHistoricalPmrSummary(input?.fiscalYear ?? 2025); }),
-      list: protectedProcedure.input(z.object({ fiscalYear: z.number().int().min(2000).max(2100).optional(), month: z.string().max(24).optional(), office: z.string().max(180).optional(), supplier: z.string().max(240).optional(), status: z.string().max(80).optional(), search: z.string().max(180).optional(), limit: z.number().int().min(1).max(2000).optional() }).optional()).query(({ ctx, input }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "administrative_approver", "supplier_contractor"]); return listHistoricalPmrRecords(input); }),
+      summary: protectedProcedure.input(z.object({ fiscalYear: z.number().int().min(2000).max(2100).optional() }).optional()).query(({ ctx, input }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "administrative_approver", "supplier_contractor", "admin"]); return getHistoricalPmrSummary(input?.fiscalYear ?? 2025); }),
+      list: protectedProcedure.input(z.object({ fiscalYear: z.number().int().min(2000).max(2100).optional(), month: z.string().max(24).optional(), office: z.string().max(180).optional(), supplier: z.string().max(240).optional(), status: z.string().max(80).optional(), search: z.string().max(180).optional(), limit: z.number().int().min(1).max(2000).optional() }).optional()).query(({ ctx, input }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "administrative_approver", "supplier_contractor", "admin"]); return listHistoricalPmrRecords(input); }),
     }),
     officer: router({
+      prVerification: router({
+        list: protectedProcedure.query(({ ctx }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          return listOfficerPrVerifications(ctx.user);
+        }),
+        verify: protectedProcedure.input(z.object({
+          purchaseRequestId: z.number().int().positive(),
+          categorySegregationVerified: z.boolean().optional(),
+        })).mutation(async ({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          const result = await verifyPurchaseRequestPackage(input.purchaseRequestId, ctx.user, { categorySegregationVerified: input.categorySegregationVerified });
+          void publishProcurementRealtimeUpdate("purchase_request");
+          return result;
+        }),
+        returnForRevision: protectedProcedure.input(z.object({
+          purchaseRequestId: z.number().int().positive(),
+          reason: z.string().min(5).max(1000),
+          remarks: z.string().max(1000).optional(),
+        })).mutation(async ({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          const result = await returnPurchaseRequestForRevision(input, ctx.user);
+          void publishProcurementRealtimeUpdate("purchase_request");
+          return result;
+        }),
+      }),
+      rfqDistribution: router({
+        list: protectedProcedure.query(({ ctx }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          return listRfqDistributions(ctx.user);
+        }),
+        update: protectedProcedure.input(z.object({
+          rfqId: z.number().int().positive(),
+          status: z.enum(["distributed", "retrieved"]),
+          canvasserName: z.string().max(180).optional(),
+          distributionDate: z.coerce.date().optional(),
+          retrievalDate: z.coerce.date().optional(),
+          remarks: z.string().max(1000).optional(),
+        })).mutation(async ({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          const result = await updateRfqDistribution(input, ctx.user);
+          void publishProcurementRealtimeUpdate("rfq");
+          return result;
+        }),
+        transmitToBac: protectedProcedure.input(z.object({
+          rfqId: z.number().int().positive(),
+          toOffice: z.string().max(180).optional(),
+          subject: z.string().max(220).optional(),
+          remarks: z.string().max(1000).optional(),
+        })).mutation(async ({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          const result = await transmitRfqToBac(input, ctx.user);
+          void publishProcurementRealtimeUpdate("bac_transmittal");
+          return result;
+        }),
+      }),
+      philgeps: router({
+        list: protectedProcedure.query(({ ctx }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          return listPhilgepsPostings(ctx.user);
+        }),
+        record: protectedProcedure.input(z.object({
+          purchaseRequestId: z.number().int().positive(),
+          rfqId: z.number().int().positive().optional(),
+          philgepsReferenceNumber: z.string().min(3).max(120),
+          postingDate: z.coerce.date(),
+          closingDate: z.coerce.date().optional(),
+          remarks: z.string().max(1000).optional(),
+        })).mutation(async ({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          const result = await recordPhilgepsPosting(input, ctx.user);
+          void publishProcurementRealtimeUpdate("purchase_request");
+          return result;
+        }),
+      }),
       notices: router({
-        list: protectedProcedure.query(({ ctx }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]); return listLettersOfNotice(); }),
-        create: protectedProcedure.input(z.object({ noticeType: z.enum(["award", "disqualification", "clarification", "demand", "other"]), purchaseRequestId: z.number().int().positive().optional(), supplierId: z.number().int().positive().optional(), subject: z.string().min(3).max(220), body: z.string().min(10).max(5000), demandDueDate: z.coerce.date().optional(), issueNow: z.boolean().optional() })).mutation(({ ctx, input }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]); return createLetterOfNotice(input, ctx.user); }),
+        list: protectedProcedure.query(({ ctx }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]); return listLettersOfNotice(); }),
+        create: protectedProcedure.input(z.object({ noticeType: z.enum(["award", "disqualification", "clarification", "demand", "other"]), purchaseRequestId: z.number().int().positive().optional(), supplierId: z.number().int().positive().optional(), subject: z.string().min(3).max(220), body: z.string().min(10).max(5000), demandDueDate: z.coerce.date().optional(), issueNow: z.boolean().optional() })).mutation(({ ctx, input }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]); return createLetterOfNotice(input, ctx.user); }),
+        serve: protectedProcedure.input(z.object({
+          noticeId: z.number().int().positive(),
+          servedAt: z.coerce.date(),
+          recipientName: z.string().min(2).max(180),
+          deliveryMode: z.enum(["hand_delivery", "courier", "registered_mail", "electronic_mail"]),
+          remarks: z.string().max(1000).optional(),
+        })).mutation(async ({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          const result = await serveLetterOfNotice(input, ctx.user);
+          void publishProcurementRealtimeUpdate("letter_of_notice");
+          return result;
+        }),
+      }),
+      releasing: router({
+        list: protectedProcedure.query(({ ctx }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          return listOfficerPurchaseOrders(ctx.user);
+        }),
+        release: protectedProcedure.input(z.object({
+          purchaseOrderId: z.number().int().positive(),
+          releasedAt: z.coerce.date(),
+          recipientName: z.string().min(2).max(180),
+          releaseMode: z.enum(["in_person_pickup", "courier", "electronic_mail"]),
+          acknowledgementReference: z.string().max(120).optional(),
+          remarks: z.string().max(1000).optional(),
+        })).mutation(async ({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          const result = await releasePurchaseOrder(input, ctx.user);
+          void publishProcurementRealtimeUpdate("purchase_order");
+          return result;
+        }),
+      }),
+      delivery: router({
+        list: protectedProcedure.query(({ ctx }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          return listDeliveryMonitoring(ctx.user);
+        }),
+        recordDelivery: protectedProcedure.input(z.object({
+          purchaseOrderId: z.number().int().positive(),
+          receiptNumber: z.string().min(3).max(40),
+          receivedByName: z.string().max(180).optional(),
+          deliveryStatus: z.enum(["complete", "partial"]).optional(),
+          signatureReference: z.string().max(1000).optional(),
+          remarks: z.string().max(1000).optional(),
+        })).mutation(async ({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          const result = await recordDelivery(input, ctx.user);
+          void publishProcurementRealtimeUpdate("purchase_order");
+          return result;
+        }),
+        recordInspection: protectedProcedure.input(z.object({
+          purchaseOrderId: z.number().int().positive(),
+          iarNumber: z.string().min(3).max(80),
+          inspectionDate: z.coerce.date(),
+          inspectedByName: z.string().min(2).max(180),
+          acceptanceStatus: z.enum(["accepted", "rejected", "partial"]),
+          remarks: z.string().max(1000).optional(),
+        })).mutation(async ({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          const result = await recordInspectionMilestone(input, ctx.user);
+          void publishProcurementRealtimeUpdate("purchase_order");
+          return result;
+        }),
       }),
       transmittals: router({
-        list: protectedProcedure.query(({ ctx }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]); return listBacTransmittals(); }),
-        create: protectedProcedure.input(z.object({ purchaseRequestId: z.number().int().positive().optional(), fromOffice: z.string().min(3).max(180), toOffice: z.string().min(3).max(180), subject: z.string().min(3).max(220), remarks: z.string().max(5000).optional(), sendNow: z.boolean().optional() })).mutation(({ ctx, input }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]); return createBacTransmittal(input, ctx.user); }),
-        acknowledge: protectedProcedure.input(z.object({ transmittalId: z.number().int().positive(), acknowledgedByName: z.string().min(3).max(180) })).mutation(({ ctx, input }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]); return acknowledgeBacTransmittal(input, ctx.user); }),
+        list: protectedProcedure.query(({ ctx }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]); return listBacTransmittals(); }),
+        create: protectedProcedure.input(z.object({ purchaseRequestId: z.number().int().positive().optional(), fromOffice: z.string().min(3).max(180), toOffice: z.string().min(3).max(180), subject: z.string().min(3).max(220), remarks: z.string().max(5000).optional(), sendNow: z.boolean().optional() })).mutation(({ ctx, input }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]); return createBacTransmittal(input, ctx.user); }),
+        acknowledge: protectedProcedure.input(z.object({ transmittalId: z.number().int().positive(), acknowledgedByName: z.string().min(3).max(180) })).mutation(({ ctx, input }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]); return acknowledgeBacTransmittal(input, ctx.user); }),
       }),
       supplierEvaluations: router({
         list: protectedProcedure.query(({ ctx }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]); return listSupplierEvaluations(); }),

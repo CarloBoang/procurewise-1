@@ -35,6 +35,28 @@ const content: Record<WorkspaceKind, { eyebrow: string; title: string; descripti
 
 export function PurchaseRequestsPage() {
   const { user } = useAuth();
+  const role = user ? normalizeProcurementRole(user.role) : "end_user";
+
+  if (role !== "end_user" && role !== "admin") {
+    return (
+      <div className="mx-auto max-w-[1240px] px-4 py-16 text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400">
+          <CircleAlert className="h-7 w-7" />
+        </div>
+        <h2 className="mt-4 text-xl font-bold text-foreground">Access Restricted: End-User Workspace Only</h2>
+        <p className="mx-auto mt-2 max-w-lg text-xs leading-relaxed text-muted-foreground">
+          The PPMP-linked Purchase Requests module and creation workspace is strictly restricted to the End-User / Requesting Unit.
+          Procurement Staff, Procurement Officers, BAC members, Budget Officers, and HoPE must manage procurement records from their designated modules.
+        </p>
+        <div className="mt-6">
+          <Button asChild className="bg-rose-700 hover:bg-rose-800 text-white text-xs">
+            <a href="/dashboard">Return to Dashboard</a>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const search = useSearch();
   const searchParams = new URLSearchParams(search);
   const [catalogSelection] = useState<Array<{ id: number; quantity: string }>>(() => { try { return JSON.parse(sessionStorage.getItem("procurewise.catalogSelection") || "[]") as Array<{ id: number; quantity: string }>; } catch { return []; } });

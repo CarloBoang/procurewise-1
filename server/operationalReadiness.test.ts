@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import type { User } from "../drizzle/schema";
 import { createProcurementDocument, describePreCanvassHandoff, markWorkflowNotificationRead, recordPreCanvassResubmission, requestPreCanvassCorrection, validateProcurementDocumentUpload } from "./db";
 
-const admin = { id: 1, openId: "operational-admin", name: "Admin", email: "admin@example.com", loginMethod: "test", role: "admin", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() } as const;
-const procurementOfficer = { ...admin, id: 7, role: "procurement_officer" as const };
+const admin: User = { id: 1, openId: "operational-admin", name: "Admin", email: "admin@example.com", loginMethod: "test", role: "admin", officeName: null, createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() };
+const procurementOfficer: User = { ...admin, id: 7, role: "procurement_officer" };
 
 function fakeDatabase(selectRows: unknown[][]) {
   let selectIndex = 0;

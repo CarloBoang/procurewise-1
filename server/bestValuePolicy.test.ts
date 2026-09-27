@@ -69,9 +69,9 @@ describe("Best Value policy runtime", () => {
 describe("Best Value policy authorization", () => {
   it("rejects an End-User before any policy record can be read or changed", async () => {
     const caller = appRouter.createCaller({
-      user: { id: 72, openId: "end-user-policy-test", name: "End User", email: "end@example.test", loginMethod: "test", role: "end_user", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
-      req: {} as TrpcContext["req"],
-      res: {} as TrpcContext["res"],
+      user: { id: 72, openId: "end-user-policy-test", name: "End User", email: "end@example.test", loginMethod: "test", role: "end_user", officeName: null, createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
+      req: {} as unknown as TrpcContext["req"],
+      res: {} as unknown as TrpcContext["res"],
     });
     await expect(caller.procurement.bestValuePolicy.active()).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(caller.procurement.bestValuePolicy.history()).rejects.toMatchObject({ code: "FORBIDDEN" });

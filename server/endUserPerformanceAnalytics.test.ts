@@ -13,6 +13,7 @@ function createContext(role: AuthenticatedUser["role"]): TrpcContext {
     name: "Analytics Test User",
     loginMethod: "test",
     role,
+    officeName: null,
     createdAt: new Date(),
     updatedAt: new Date(),
     lastSignedIn: new Date(),
@@ -20,8 +21,8 @@ function createContext(role: AuthenticatedUser["role"]): TrpcContext {
 
   return {
     user,
-    req: { protocol: "https", headers: {} } as TrpcContext["req"],
-    res: { clearCookie: () => undefined } as TrpcContext["res"],
+    req: { protocol: "https", headers: {} } as unknown as TrpcContext["req"],
+    res: { clearCookie: () => undefined } as unknown as TrpcContext["res"],
   };
 }
 
@@ -59,11 +60,17 @@ describe("procurement.analytics.endUserPerformance authorization and structure",
     expect(adminResult.totals).toHaveProperty("savings");
   }, 20000);
 
-  it("allows procurement staff / officer variations via normalizeProcurementRole", async () => {
-    const staffCaller = appRouter.createCaller(createContext("procurement_staff"));
-    const result = await staffCaller.procurement.analytics.endUserPerformance({ source: "all" });
+  it("allows procurement officer variations via normalizeProcurementRole and rejects procurement_staff", async () => {
+    const officerCaller = appRouter.createCaller(createContext("procurement_officer_i"));
+    const result = await officerCaller.procurement.analytics.endUserPerformance({ source: "all" });
     expect(result).toBeDefined();
     expect(result.officePerformance).toBeInstanceOf(Array);
+
+    const staffCaller = appRouter.createCaller(createContext("procurement_staff"));
+    await expect(staffCaller.procurement.analytics.endUserPerformance()).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "This procurement action is not permitted for your assigned role.",
+    });
   }, 20000);
 
   it("verifies mathematical consistency: savings = totalAbc - totalContract", async () => {

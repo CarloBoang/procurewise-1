@@ -31,8 +31,8 @@ describe("supplied Supplier Evaluation Form criteria", () => {
 
 describe("Supplier Evaluation Form authorization and rendering", () => {
   it("rejects cross-audience form submissions before database work begins", async () => {
-    const endUser = appRouter.createCaller({ user: { id: 44, openId: "end-user-evaluation", name: "End User", email: "end@example.test", loginMethod: "test", role: "end_user", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] });
-    const officer = appRouter.createCaller({ user: { id: 45, openId: "officer-evaluation", name: "Procurement Officer", email: "officer@example.test", loginMethod: "test", role: "procurement_officer", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, req: {} as TrpcContext["req"], res: {} as TrpcContext["res"] });
+    const endUser = appRouter.createCaller({ user: { id: 44, openId: "end-user-evaluation", name: "End User", email: "end@example.test", loginMethod: "test", role: "end_user", officeName: null, createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, req: {} as unknown as TrpcContext["req"], res: {} as unknown as TrpcContext["res"] });
+    const officer = appRouter.createCaller({ user: { id: 45, openId: "officer-evaluation", name: "Procurement Officer", email: "officer@example.test", loginMethod: "test", role: "procurement_officer", officeName: null, createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }, req: {} as unknown as TrpcContext["req"], res: {} as unknown as TrpcContext["res"] });
     await expect(endUser.procurement.officer.supplierEvaluations.submitProcurementOfficeForm({ supplierId: 1, purchaseOrderId: 1, respondentName: "End User", responseScores: procurementResponses })).rejects.toMatchObject({ code: "FORBIDDEN" });
     await expect(officer.procurement.officer.supplierEvaluations.submitEndUserForm({ supplierId: 1, purchaseOrderId: 1, goodsServicesType: "Office supplies", respondentName: "Procurement Officer", responseScores: endUserResponses })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });

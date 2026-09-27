@@ -48,7 +48,7 @@ export function roleCanAct(role: ProcurementRole, permittedRoles: ProcurementRol
  */
 export function normalizeProcurementRole(role: PersistedUserRole): ProcurementRole {
   if (role === "user") return "end_user";
-  if (role === "supply_officer" || role === "procurement_officer_i" || role === "procurement_officer_ii" || role === "procurement_staff") return "procurement_officer";
+  if (role === "supply_officer" || role === "procurement_officer_i" || role === "procurement_officer_ii") return "procurement_officer";
   if (role === "bac_secretariat" || role === "bac" || role === "hope" || role === "budget_officer") return "administrative_approver";
   return role;
 }
@@ -56,7 +56,7 @@ export function normalizeProcurementRole(role: PersistedUserRole): ProcurementRo
 export function getNextPrStatus(currentStatus: PrStatus, role: PersistedUserRole): PrStatus | null {
   const norm = normalizeProcurementRole(role);
   if (currentStatus === "draft" && (roleCanAct(norm, ["end_user"]) || role === "end_user")) return "procurement_review";
-  if (currentStatus === "procurement_review" && (roleCanAct(norm, ["procurement_officer"]) || role === "procurement_staff")) return "approval_review";
+  if (currentStatus === "procurement_review" && roleCanAct(norm, ["procurement_officer"])) return "approval_review";
   if (currentStatus === "approval_review" && (roleCanAct(norm, ["administrative_approver"]) || role === "hope" || role === "bac")) return "approved";
   return null;
 }
@@ -124,7 +124,7 @@ export function hasReservedBudgetCommitment(committedAmount: number | string, re
 export const EMPLOYEE_PR_STATUS_LABELS: Record<string, string> = {
   draft: "Draft",
   procurement_review: "In Progress — Procurement Review",
-  returned: "Returned for Correction",
+  returned: "Returned for Revision",
   approval_review: "In Progress — Approval Review",
   budget_review: "In Progress — Approval Review",
   supply_review: "In Progress — Approval Review",
@@ -142,7 +142,7 @@ export const EMPLOYEE_PR_STATUS_LABELS: Record<string, string> = {
 export const EMPLOYEE_PR_STATUS_MEANINGS: Record<string, string> = {
   draft: "Employee is still preparing the package.",
   procurement_review: "Package has been submitted to Procurement.",
-  returned: "Employee must correct the package and resubmit.",
+  returned: "Package was returned for revision by Procurement Officer. Employee must correct and resubmit.",
   approval_review: "Package is being reviewed by the authorized decision role.",
   budget_review: "Package is being reviewed by the authorized decision role.",
   supply_review: "Package is being reviewed by the authorized decision role.",
@@ -178,4 +178,101 @@ export function areUnitsCompatible(unitA: string, unitB: string): boolean {
   if (WEIGHT_UNITS.has(normA) && WEIGHT_UNITS.has(normB)) return true;
   if (LENGTH_UNITS.has(normA) && LENGTH_UNITS.has(normB)) return true;
   return false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Section 5.1.1 Mandated Category Segregation Rules
+// ─────────────────────────────────────────────────────────────────────────────
+export const SECTION_5_1_1_CATEGORIES = [
+  {
+    id: "office_supplies",
+    label: "Office Supplies",
+    description: "Office stationery, papers, folders, binders, writing materials, desk items",
+    keywords: ["paper", "pen", "ballpen", "pencil", "binder", "folder", "stapler", "staple", "envelope", "eraser", "clip", "tape", "desk organizer", "supplies", "marker", "highlighter", "scissors", "fastener", "ink cartridge", "stamp pad", "puncher", "calculator", "carbon paper", "notebook", "pad paper", "columnar", "bond paper"],
+  },
+  {
+    id: "hardware_supplies",
+    label: "Hardware Supplies",
+    description: "Construction materials, tools, lumber, electrical, plumbing, cement, fixtures",
+    keywords: ["hardware", "cement", "lumber", "paint", "pipe", "wire", "steel", "screw", "nail", "hammer", "drill", "plywood", "gravel", "sand", "fitting", "electrical", "bulb", "switch", "outlet", "circuit", "lock", "padlock", "hinge", "wrench", "pliers", "conduit", "saw", "faucet", "valve"],
+  },
+  {
+    id: "ict_supplies",
+    label: "ICT Supplies",
+    description: "Computers, peripherals, networking equipment, storage media, IT consumables",
+    keywords: ["ict", "computer", "desktop", "laptop", "monitor", "printer", "toner", "ink bottle", "keyboard", "mouse", "software", "cable", "ups", "switch", "router", "scanner", "usb", "flash drive", "hard drive", "ssd", "ram", "server", "webcam", "headset", "projector", "ethernet", "wifi", "network"],
+  },
+  {
+    id: "printing_service",
+    label: "Printing Service",
+    description: "Tarpaulin, publication, brochures, flyers, book binding, IDs, banners",
+    keywords: ["printing", "tarpaulin", "tarp", "brochure", "flyer", "banner", "id card", "certificate", "booklet", "manual", "publication", "binding service", "streamer", "poster", "invitation card", "newsletter", "souvenir program"],
+  },
+  {
+    id: "food_ingredients",
+    label: "Food Ingredients",
+    description: "Culinary items, groceries, fresh produce, meat, spices, cooking staples",
+    keywords: ["food", "ingredient", "rice", "meat", "pork", "beef", "chicken", "fish", "vegetable", "cooking oil", "spice", "sugar", "salt", "sauce", "flour", "grocery", "catering", "meal", "milk", "egg", "onion", "garlic", "vinegar", "soy sauce", "pasta", "butter", "cheese", "snack"],
+  },
+] as const;
+
+export type Section511CategoryId = (typeof SECTION_5_1_1_CATEGORIES)[number]["id"];
+
+export function detectItemCategory(text: string): Section511CategoryId | null {
+  const lower = text.toLowerCase();
+  for (const cat of SECTION_5_1_1_CATEGORIES) {
+    if (lower.includes(cat.label.toLowerCase()) || lower.includes(cat.id.replace("_", " "))) {
+      return cat.id;
+    }
+  }
+  for (const cat of SECTION_5_1_1_CATEGORIES) {
+    for (const kw of cat.keywords) {
+      const escaped = kw.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+      const regex = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i");
+      if (regex.test(lower)) {
+        return cat.id;
+      }
+    }
+  }
+  return null;
+}
+
+export function detectMixedCategories(
+  items: Array<{
+    description?: string | null;
+    specification?: string | null;
+    itemDescription?: string | null;
+    itemName?: string | null;
+    name?: string | null;
+    category?: string | null;
+  }>
+): {
+  isMixed: boolean;
+  detectedCategories: Section511CategoryId[];
+  categoryLabels: string[];
+  itemClassifications: Array<{ description: string; categoryId: Section511CategoryId | null; categoryLabel: string }>;
+} {
+  const catSet = new Set<Section511CategoryId>();
+  const classifications = items.map((item) => {
+    const desc = item.description || item.specification || item.itemDescription || item.itemName || item.name || "";
+    const cat = detectItemCategory(`${desc} ${item.category || ""}`);
+    if (cat) catSet.add(cat);
+    const catObj = SECTION_5_1_1_CATEGORIES.find((c) => c.id === cat);
+    return {
+      description: desc,
+      categoryId: cat,
+      categoryLabel: catObj ? catObj.label : "Unclassified / Other",
+    };
+  });
+
+  const detectedCategories = Array.from(catSet);
+  const isMixed = detectedCategories.length > 1;
+  const categoryLabels = detectedCategories.map((id) => SECTION_5_1_1_CATEGORIES.find((c) => c.id === id)?.label || id);
+
+  return {
+    isMixed,
+    detectedCategories,
+    categoryLabels,
+    itemClassifications: classifications,
+  };
 }

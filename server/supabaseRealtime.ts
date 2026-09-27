@@ -1,6 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 
-export type ProcurementRealtimeRecordType = "pre_canvass" | "abstract_of_canvass" | "purchase_request" | "rfq" | "purchase_order";
+export type ProcurementRealtimeRecordType =
+  | "pre_canvass"
+  | "abstract_of_canvass"
+  | "purchase_request"
+  | "rfq"
+  | "purchase_order"
+  | "bac_transmittal"
+  | "letter_of_notice";
 
 const REALTIME_TOPIC = "procurewise:workflow";
 

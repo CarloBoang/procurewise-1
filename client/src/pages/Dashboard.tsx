@@ -29,6 +29,7 @@ import {
   Award,
   Ban,
   BellRing,
+  BookOpenCheck,
   CheckCircle2,
   CircleDollarSign,
   Clock,
@@ -36,6 +37,7 @@ import {
   Eye,
   FileCheck2,
   FileEdit,
+  FileSpreadsheet,
   FileText,
   Info,
   Layers,
@@ -43,6 +45,8 @@ import {
   Plus,
   RotateCcw,
   Search,
+  Send,
+  ShieldCheck,
   Sparkles,
   Timer,
   X,
@@ -68,8 +72,20 @@ export default function Dashboard() {
 
   const procurementRole = user ? normalizeProcurementRole(user.role) : "end_user";
   const isEndUser = procurementRole === "end_user";
+  const isStaff = procurementRole === "procurement_staff";
+  const isOfficer = procurementRole === "procurement_officer";
 
-  // If not End-User, render the Admin/Officer Control Center Overview
+  // Dedicated Procurement Staff Operational Workbench
+  if (isStaff) {
+    return <ProcurementStaffDashboard data={data} isLoading={dashboard.isLoading} />;
+  }
+
+  // Dedicated Procurement Officer Control Center Overview
+  if (isOfficer) {
+    return <ProcurementOfficerDashboard />;
+  }
+
+  // If not End-User, render the Admin Control Center Overview
   if (!isEndUser) {
     return <AdminDashboard data={data} isLoading={dashboard.isLoading} userRole={procurementRole} />;
   }
@@ -1016,25 +1032,25 @@ function AdminDashboard({
 }) {
   const cards = [
     {
-      label: "PPMP & Purchase Requests",
-      icon: FileText,
-      value: data?.purchaseRequests.length,
-      detail: "Procurement packages routed through the official workflow.",
+      label: "PMR Registry & Verified PRs",
+      icon: BookOpenCheck,
+      value: data?.purchaseRequests?.filter((pr: any) => pr.procurementReviewedById !== null || pr.pmrLogged).length ?? 0,
+      detail: "Verified PR packages recorded or queued for PMR logging.",
       tone: "text-[#7b1e1e] bg-[#fff4f1] dark:text-[#ff837a] dark:bg-[#341f1f]",
-      href: "/purchase-requests",
+      href: "/pmr-registry",
     },
     {
-      label: "Pre-Canvass packages",
-      icon: FileCheck2,
-      value: data?.preCanvasses.length,
-      detail: "Three-supplier quote packages available for handoff.",
+      label: "BAC Transmittals",
+      icon: Send,
+      value: data?.transmittals?.length ?? 0,
+      detail: "Transmittal packages routed to and from the BAC Secretariat.",
       tone: "text-[#325d91] bg-[#f1f6fc] dark:text-[#79b8ff] dark:bg-[#1a2736]",
-      href: "/rfq",
+      href: "/officer/transmittals",
     },
     {
       label: "POs, delivery & PMR",
       icon: CircleDollarSign,
-      value: data?.purchaseOrders.length,
+      value: data?.purchaseOrders?.length ?? 0,
       detail: "Purchase Orders progressing through delivery and PMR.",
       tone: "text-[#9a6d19] bg-[#fff8e8] dark:text-[#f0c36a] dark:bg-[#272118]",
       href: "/purchase-orders",
@@ -1042,7 +1058,7 @@ function AdminDashboard({
     {
       label: "Audit events",
       icon: Timer,
-      value: data?.auditEvents.length,
+      value: data?.auditEvents?.length ?? 0,
       detail: "Accountability records available to your role.",
       tone: "text-[#276a4e] bg-[#f1f9f4] dark:text-[#55c98a] dark:bg-[#162c20]",
       href: "/audit",
@@ -1054,7 +1070,7 @@ function AdminDashboard({
       <PageHeader
         eyebrow="Control center"
         title="Procurement overview"
-        description="A role-sensitive view of PPMP, Purchase Request, Pre-Canvass, approval, Purchase Order, delivery, PMR, and accountability records across all offices."
+        description="A role-sensitive view of procurement planning, officer verification, BAC transmittals, Purchase Orders, delivery, PMR, and accountability records across all offices."
       />
 
       <div className="mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -1074,20 +1090,20 @@ function AdminDashboard({
               {isLoading ? "—" : card.value ?? 0}
             </p>
             <p className="mt-2 text-xs font-semibold text-[#3b4654] dark:text-[#f1f5f8]">{card.label}</p>
-            <p className="mt-2 text-[11px] leading-5 text-[#718] dark:text-[#d1dae2]">{card.detail}</p>
+            <p className="mt-2 text-[11px] leading-5 text-muted-foreground">{card.detail}</p>
           </Link>
         ))}
       </div>
 
       <div className="mt-7 grid gap-6 xl:grid-cols-[1.4fr_0.8fr]">
-        {data?.purchaseRequests.length ? (
+        {data?.purchaseRequests?.length ? (
           <div className="flat-panel">
             <div className="border-b border-[#ece8df] dark:border-[#46515c] px-5 py-4">
               <p className="text-sm font-semibold text-[#34404e] dark:text-[#f1f5f8]">
-                Active Purchase Requests
+                Active Procurement Monitoring Queue
               </p>
               <p className="mt-1 text-[11px] text-[#7d8793] dark:text-[#aeb9c4]">
-                Live records routed through the role-gated workflow.
+                Verified records routed through official administrative control.
               </p>
             </div>
             <div className="divide-y divide-[#f0ede6] dark:divide-[#46515c] px-5">
@@ -1123,8 +1139,8 @@ function AdminDashboard({
             eyebrow="Action queue"
             title="There are no workflow actions awaiting your role."
             description="Requests and approvals requiring your authority will appear here as transactions are submitted and routed."
-            actionLabel="Create purchase request"
-            actionHref="/purchase-requests"
+            actionLabel="View PMR registry"
+            actionHref="/pmr-registry"
           />
         )}
 
@@ -1140,8 +1156,8 @@ function AdminDashboard({
           </div>
           <div className="divide-y divide-[#f0ede6] dark:divide-[#46515c] px-5 py-1">
             {[
-              "End-Users submit PR, PPMP, and preliminary quotations from the completed pre-canvass as one package.",
-              "Procurement Staff/BAC validate the preliminary quotations and prepare the official Abstract of Quotations for BAC/HoPE decision.",
+              "End-Users submit complete PR packages for Procurement Officer verification and recording.",
+              "Procurement Staff/BAC validate supplier quotations and prepare the official Abstract of Quotations for BAC/HoPE decision.",
               "Purchase Orders are issued after the official decision, then closed only after delivery and PMR logging.",
             ].map((item, index) => (
               <div key={item} className="flex gap-3 py-4">
@@ -1157,3 +1173,643 @@ function AdminDashboard({
     </div>
   );
 }
+
+// ============================================================================
+// PROCUREMENT STAFF DEDICATED OVERVIEW WORKBENCH (SECTION 5 STRICT SCOPE)
+// ============================================================================
+function ProcurementStaffDashboard({
+  data,
+  isLoading,
+}: {
+  data: any;
+  isLoading: boolean;
+}) {
+  const prs = data?.purchaseRequests ?? [];
+  const pendingPmrPrs = prs.filter((pr: any) => pr.procurementReviewedById !== null && !pr.pmrLogged && !pr.pmrReferenceNumber);
+  const activeRfqs = data?.rfqs ?? [];
+  const quotationAbstracts = data?.quotationAbstracts ?? [];
+  const pendingPoAbstracts = quotationAbstracts.filter((a: any) => a.status === "approved");
+  const purchaseOrders = data?.purchaseOrders ?? [];
+  const transmittals = data?.transmittals ?? [];
+  const notices = data?.lettersOfNotice ?? [];
+
+  const cards = [
+    {
+      label: "Pending PMR Recordings",
+      icon: BookOpenCheck,
+      value: pendingPmrPrs.length,
+      detail: "Officer-verified PRs ready for PMR registry recording.",
+      tone: "text-rose-700 bg-rose-50 dark:text-rose-400 dark:bg-rose-950/40",
+      href: "/pmr-registry",
+    },
+    {
+      label: "RFQ Drafts & Canvass",
+      icon: FileSpreadsheet,
+      value: activeRfqs.length,
+      detail: "Active RFQ packages and supplier quotation records.",
+      tone: "text-blue-700 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/40",
+      href: "/rfq-management",
+    },
+    {
+      label: "BAC Transmittals (AOQ)",
+      icon: Send,
+      value: transmittals.length,
+      detail: "Packages forwarded to BAC Secretariat for AOQ creation.",
+      tone: "text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/40",
+      href: "/officer/transmittals",
+    },
+    {
+      label: "Draft POs & Notices",
+      icon: FileCheck2,
+      value: purchaseOrders.length + notices.length,
+      detail: "Draft Purchase Orders and Letters of Notice for awarded suppliers.",
+      tone: "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40",
+      href: "/purchase-orders",
+    },
+  ];
+
+  const duties = [
+    {
+      id: "1",
+      number: "Duty 1",
+      title: "Record PR to PMR",
+      condition: "Permitted only after Procurement Officer verification of PR & PPMP.",
+      href: "/pmr-registry",
+      badge: `${pendingPmrPrs.length} ready`,
+      badgeTone: pendingPmrPrs.length > 0 ? "approved" : "pending",
+      buttonText: "Open PMR Registry",
+    },
+    {
+      id: "2",
+      number: "Duty 2",
+      title: "Prepare RFQ & Recommend Approval",
+      condition: "Draft quotation package and recommend approval to HoPE.",
+      href: "/rfq-management",
+      badge: `${activeRfqs.length} active`,
+      badgeTone: "pending",
+      buttonText: "Manage RFQs",
+    },
+    {
+      id: "3",
+      number: "Duty 3",
+      title: "Forward to BAC for AOQ Preparation",
+      condition: "Transmit quotation package to BAC Secretariat for AOQ creation.",
+      href: "/officer/transmittals",
+      badge: `${transmittals.length} transmittals`,
+      badgeTone: "pending",
+      buttonText: "Open Transmittals",
+    },
+    {
+      id: "4",
+      number: "Duty 4",
+      title: "Prepare Letter of Notice",
+      condition: "Draft formal Letter of Notice for the awarded supplier.",
+      href: "/officer/notices",
+      badge: `${notices.length} notices`,
+      badgeTone: "pending",
+      buttonText: "Draft Notice",
+    },
+    {
+      id: "5",
+      number: "Duty 5",
+      title: "Prepare Purchase Order (PO)",
+      condition: "Generate and draft formal PO document from approved AOQ.",
+      href: "/purchase-orders",
+      badge: `${pendingPoAbstracts.length} POs ready`,
+      badgeTone: pendingPoAbstracts.length > 0 ? "approved" : "pending",
+      buttonText: "Draft Purchase Orders",
+    },
+  ];
+
+  return (
+    <div className="content-shell pb-12 space-y-7">
+      <PageHeader
+        eyebrow="Procurement Staff Workbench"
+        title="Procurement Operations Overview"
+        description="Assigned strictly to Procedure 5 duties: PMR recording, RFQ preparation, BAC forwarding for AOQ, Letter of Notice drafting, and Purchase Order preparation."
+      />
+
+      {/* Scoped KPI Cards */}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map((card) => (
+          <Link
+            key={card.label}
+            href={card.href}
+            className="flat-panel group p-4 transition-colors hover:border-[#d2bd92] dark:hover:border-[#64717d]"
+          >
+            <div className="flex items-start justify-between">
+              <div className={`grid h-8 w-8 place-items-center rounded-[4px] ${card.tone}`}>
+                <card.icon className="h-4 w-4" />
+              </div>
+              <ArrowUpRight className="h-3.5 w-3.5 text-[#a1a7ae] dark:text-[#aeb9c4] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+            </div>
+            <p className="mt-4 font-display text-2xl font-semibold text-[#202833] dark:text-[#f1f5f8]">
+              {isLoading ? "—" : card.value}
+            </p>
+            <p className="mt-2 text-xs font-semibold text-[#3b4654] dark:text-[#f1f5f8]">{card.label}</p>
+            <p className="mt-2 text-[11px] leading-5 text-muted-foreground">{card.detail}</p>
+          </Link>
+        ))}
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
+        {/* Left Column: Staff Action Queue */}
+        <div className="space-y-6">
+          <div className="flat-panel">
+            <div className="border-b border-[#ece8df] dark:border-[#46515c] px-5 py-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[#34404e] dark:text-[#f1f5f8]">
+                  Verified PRs Awaiting PMR Recording
+                </p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  PRs verified by Procurement Officer ready for Procedure 5.2 PMR recording.
+                </p>
+              </div>
+              <Link
+                href="/pmr-registry"
+                className="text-xs font-semibold text-rose-700 dark:text-rose-400 hover:underline flex items-center gap-1"
+              >
+                Go to PMR Registry <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+
+            <div className="divide-y divide-[#f0ede6] dark:divide-[#46515c] px-5">
+              {pendingPmrPrs.length === 0 ? (
+                <div className="py-8 text-center text-xs text-muted-foreground">
+                  <CheckCircle2 className="mx-auto h-6 w-6 text-emerald-500 mb-1" />
+                  No pending PMR recordings. All verified PRs have been logged.
+                </div>
+              ) : (
+                pendingPmrPrs.slice(0, 5).map((pr: any) => (
+                  <div key={pr.id} className="flex items-center justify-between gap-3 py-3.5">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs font-semibold text-rose-700 dark:text-rose-400">
+                          {pr.prNumber}
+                        </span>
+                        <StatusBadge tone="approved">OFFICER VERIFIED</StatusBadge>
+                      </div>
+                      <p className="text-xs text-foreground mt-0.5 line-clamp-1">{pr.purpose}</p>
+                    </div>
+                    <Button asChild size="sm" className="h-7 text-xs bg-rose-700 hover:bg-rose-800 text-white">
+                      <Link href="/pmr-registry">Record to PMR</Link>
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Quick Notice & PO Ready Queue */}
+          <div className="flat-panel">
+            <div className="border-b border-[#ece8df] dark:border-[#46515c] px-5 py-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[#34404e] dark:text-[#f1f5f8]">
+                  Approved Quotation Abstracts Ready for PO Drafting
+                </p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  BAC approved abstracts ready for formal Purchase Order preparation.
+                </p>
+              </div>
+              <Link
+                href="/purchase-orders"
+                className="text-xs font-semibold text-rose-700 dark:text-rose-400 hover:underline flex items-center gap-1"
+              >
+                Go to PO Workspace <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+
+            <div className="divide-y divide-[#f0ede6] dark:divide-[#46515c] px-5">
+              {pendingPoAbstracts.length === 0 ? (
+                <div className="py-8 text-center text-xs text-muted-foreground">
+                  <Clock className="mx-auto h-6 w-6 text-muted-foreground mb-1" />
+                  No BAC approved abstracts awaiting PO drafting currently.
+                </div>
+              ) : (
+                pendingPoAbstracts.slice(0, 4).map((abs: any) => (
+                  <div key={abs.id} className="flex items-center justify-between gap-3 py-3.5">
+                    <div>
+                      <span className="font-mono text-xs font-semibold text-foreground">
+                        Abstract for RFQ #{abs.rfqId}
+                      </span>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Supplier #{abs.recommendedSupplierId} · {formatMoney(abs.totalAmount || 0)}
+                      </p>
+                    </div>
+                    <Button asChild size="sm" variant="outline" className="h-7 text-xs">
+                      <Link href="/purchase-orders">Draft PO</Link>
+                    </Button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: 5 Assigned Duties Workbench */}
+        <div className="flat-panel h-fit">
+          <div className="border-b border-[#ece8df] dark:border-[#46515c] px-5 py-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-[#34404e] dark:text-[#f1f5f8]">
+                Assigned Duties Scope
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Strict operational boundary (Procedure 5 specification)
+              </p>
+            </div>
+            <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          </div>
+
+          <div className="divide-y divide-[#f0ede6] dark:divide-[#46515c] px-5 py-2">
+            {duties.map((duty) => (
+              <div key={duty.id} className="py-3.5 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-rose-700 dark:text-rose-400">
+                    {duty.number}
+                  </span>
+                  <StatusBadge tone={duty.badgeTone as any}>{duty.badge}</StatusBadge>
+                </div>
+                <h4 className="text-xs font-bold text-foreground">{duty.title}</h4>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">{duty.condition}</p>
+                <div className="pt-1">
+                  <Button asChild size="sm" variant="outline" className="h-7 text-xs w-full justify-between">
+                    <Link href={duty.href}>
+                      <span>{duty.buttonText}</span>
+                      <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// PROCUREMENT OFFICER DEDICATED CONTROL CENTER OVERVIEW (MANDATED 6 TASKS)
+// ============================================================================
+function ProcurementOfficerDashboard() {
+  const prVerificationsQuery = trpc.procurement.officer.prVerification.list.useQuery();
+  const rfqDistributionsQuery = trpc.procurement.officer.rfqDistribution.list.useQuery();
+  const releasingQuery = trpc.procurement.officer.releasing.list.useQuery();
+  const deliveriesQuery = trpc.procurement.officer.delivery.list.useQuery();
+  const noticesQuery = trpc.procurement.officer.notices.list.useQuery();
+
+  const isLoading =
+    prVerificationsQuery.isLoading ||
+    rfqDistributionsQuery.isLoading ||
+    releasingQuery.isLoading ||
+    deliveriesQuery.isLoading;
+
+  const verifications = prVerificationsQuery.data ?? [];
+  const pendingVerifications = verifications.filter(
+    (v: any) => !v.isVerified && v.purchaseRequest.status !== "returned"
+  );
+  const mixedCategoryPrs = verifications.filter(
+    (v: any) => !v.isVerified && v.segregationAnalysis?.isMixed
+  );
+
+  const rfqs = rfqDistributionsQuery.data ?? [];
+  const unpostedPhilgeps = rfqs.filter((r: any) => !r.philgepsPosting);
+  const pendingDistributionOrPosting = rfqs.filter(
+    (r: any) => r.distributionStatus !== "transmitted_to_bac" || !r.philgepsPosting
+  );
+
+  const orders = releasingQuery.data ?? [];
+  const unreleasedOrders = orders.filter((o: any) => !o.isReleased);
+
+  const notices = noticesQuery.data ?? [];
+  const unservedNotices = notices.filter((n: any) => n.status !== "served");
+
+  const pendingReleasingTotal = unreleasedOrders.length + unservedNotices.length;
+
+  const deliveries = deliveriesQuery.data ?? [];
+  const awaitingInspection = deliveries.filter((d: any) => !d.iar);
+
+  // 4 Scoped KPI Cards strictly reflecting the officer's mandated tasks
+  const cards = [
+    {
+      label: "Pending PR & PPMP Verifications",
+      icon: ShieldCheck,
+      value: pendingVerifications.length,
+      detail:
+        mixedCategoryPrs.length > 0
+          ? `${mixedCategoryPrs.length} PRs flagged with mixed commodity categories.`
+          : "Initial administrative verification & Section 5.1.1 clearance.",
+      tone: "text-rose-700 bg-rose-50 dark:text-rose-400 dark:bg-rose-950/40",
+      href: "/officer/pr-verification",
+    },
+    {
+      label: "RFQ Distributions & PhilGEPS",
+      icon: FileSpreadsheet,
+      value: pendingDistributionOrPosting.length,
+      detail: `${unpostedPhilgeps.length} packages awaiting PhilGEPS posting reference.`,
+      tone: "text-blue-700 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/40",
+      href: "/officer/rfq-distribution",
+    },
+    {
+      label: "Notices & POs to Release",
+      icon: Send,
+      value: pendingReleasingTotal,
+      detail: `${unservedNotices.length} notices to serve · ${unreleasedOrders.length} POs to release.`,
+      tone: "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40",
+      href: "/officer/releasing",
+    },
+    {
+      label: "Deliveries Awaiting IAR",
+      icon: Clock,
+      value: awaitingInspection.length,
+      detail: "Active purchase orders awaiting goods inspection & acceptance report.",
+      tone: "text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/40",
+      href: "/officer/delivery-monitoring",
+    },
+  ];
+
+  // 6 Mandated Lifecycle Duties strictly reflecting official Procedure 5
+  const duties = [
+    {
+      id: "1",
+      number: "Duty 1",
+      title: "Receive & Verify PR & PPMP (Section 5.1.1)",
+      description:
+        "Initial administrative verification and category segregation check (Office Supplies, Hardware Supplies, ICT Supplies, Printing Services, Food Ingredients).",
+      href: "/officer/pr-verification",
+      badge: `${pendingVerifications.length} pending`,
+      badgeTone: pendingVerifications.length > 0 ? "pending" : "approved",
+      buttonText: "Review PR Packages",
+    },
+    {
+      id: "2",
+      number: "Duty 2",
+      title: "Distribute & Retrieve RFQ & Transmit to BAC",
+      description:
+        "Manage outward distribution of RFQs to canvassers, log supplier retrievals, and formally transmit packages to the BAC Secretariat.",
+      href: "/officer/rfq-distribution",
+      badge: `${rfqs.length} active`,
+      badgeTone: "pending",
+      buttonText: "Manage Distributions",
+    },
+    {
+      id: "3",
+      number: "Duty 3",
+      title: "PhilGEPS Posting Verification",
+      description:
+        "Document and verify required PhilGEPS reference numbers and posting dates for active RFQ procurement packages.",
+      href: "/officer/rfq-distribution",
+      badge: `${unpostedPhilgeps.length} unposted`,
+      badgeTone: unpostedPhilgeps.length > 0 ? "rejected" : "approved",
+      buttonText: "Log PhilGEPS",
+    },
+    {
+      id: "4",
+      number: "Duty 4",
+      title: "Serve Letter of Notice",
+      description:
+        "Deliver and serve finalized Letters of Notice to winning suppliers with delivery mode and recipient acknowledgement logging.",
+      href: "/officer/releasing",
+      badge: `${unservedNotices.length} to serve`,
+      badgeTone: unservedNotices.length > 0 ? "pending" : "approved",
+      buttonText: "Serve Notices",
+    },
+    {
+      id: "5",
+      number: "Duty 5",
+      title: "PO & Contract Releasing",
+      description:
+        "Formally release approved and signed Purchase Orders / contracts to awarded suppliers with acknowledgement tracking.",
+      href: "/officer/releasing",
+      badge: `${unreleasedOrders.length} to release`,
+      badgeTone: unreleasedOrders.length > 0 ? "pending" : "approved",
+      buttonText: "Release Orders",
+    },
+    {
+      id: "6",
+      number: "Duty 6",
+      title: "Monitor Delivery & Inspection (IAR)",
+      description:
+        "Track supplier delivery timelines, log goods receipts, and record final inspection and acceptance milestones.",
+      href: "/officer/delivery-monitoring",
+      badge: `${awaitingInspection.length} monitoring`,
+      badgeTone: awaitingInspection.length > 0 ? "pending" : "approved",
+      buttonText: "Track Deliveries",
+    },
+  ];
+
+  return (
+    <div className="content-shell pb-12 space-y-7">
+      <PageHeader
+        eyebrow="Procurement Officer Control Center"
+        title="Procurement Officer Overview"
+        description="Assigned strictly to Procedure 5 officer duties: PR & PPMP verification (Section 5.1.1), RFQ distribution/retrieval & BAC transmittal, PhilGEPS posting, notice serving, PO releasing, and delivery inspection monitoring."
+      />
+
+      {/* Scoped KPI Cards */}
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map((card) => (
+          <Link
+            key={card.label}
+            href={card.href}
+            className="flat-panel group p-4 transition-colors hover:border-[#d2bd92] dark:hover:border-[#64717d]"
+          >
+            <div className="flex items-start justify-between">
+              <div className={`grid h-8 w-8 place-items-center rounded-[4px] ${card.tone}`}>
+                <card.icon className="h-4 w-4" />
+              </div>
+              <ArrowUpRight className="h-3.5 w-3.5 text-[#a1a7ae] dark:text-[#aeb9c4] transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+            </div>
+            <p className="mt-4 font-display text-2xl font-semibold text-[#202833] dark:text-[#f1f5f8]">
+              {isLoading ? "—" : card.value}
+            </p>
+            <p className="mt-2 text-xs font-semibold text-[#3b4654] dark:text-[#f1f5f8]">{card.label}</p>
+            <p className="mt-2 text-[11px] leading-5 text-muted-foreground">{card.detail}</p>
+          </Link>
+        ))}
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1.3fr_0.9fr]">
+        {/* Left Column: Officer Action Queues */}
+        <div className="space-y-6">
+          {/* Section 5.1.1 Verification Queue */}
+          <div className="flat-panel">
+            <div className="border-b border-[#ece8df] dark:border-[#46515c] px-5 py-4 flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-[#34404e] dark:text-[#f1f5f8]">
+                    Incoming PRs Awaiting Section 5.1.1 Verification
+                  </p>
+                  {mixedCategoryPrs.length > 0 && (
+                    <Badge variant="outline" className="text-[10px] border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                      {mixedCategoryPrs.length} Mixed Categories Flagged
+                    </Badge>
+                  )}
+                </div>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Verify category segregation before clearing package for Staff PMR recording.
+                </p>
+              </div>
+              <Link
+                href="/officer/pr-verification"
+                className="text-xs font-semibold text-rose-700 dark:text-rose-400 hover:underline flex items-center gap-1"
+              >
+                Go to Verification Hub <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+
+            <div className="divide-y divide-[#f0ede6] dark:divide-[#46515c] px-5">
+              {pendingVerifications.length === 0 ? (
+                <div className="py-8 text-center text-xs text-muted-foreground">
+                  <CheckCircle2 className="mx-auto h-6 w-6 text-emerald-500 mb-1" />
+                  All submitted PR packages have been verified and cleared for PMR recording.
+                </div>
+              ) : (
+                pendingVerifications.slice(0, 5).map((item: any) => {
+                  const pr = item.purchaseRequest;
+                  const isMixed = item.segregationAnalysis?.isMixed;
+                  return (
+                    <div key={pr.id} className="flex items-center justify-between gap-3 py-3.5">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono text-xs font-semibold text-rose-700 dark:text-rose-400">
+                            {pr.prNumber}
+                          </span>
+                          {isMixed ? (
+                            <Badge variant="outline" className="border-amber-400 bg-amber-50 text-amber-800 text-[10px] dark:bg-amber-950/40 dark:text-amber-300">
+                              <AlertTriangle className="h-3 w-3 mr-1" />
+                              Mixed Categories Detected
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-700 text-[10px] dark:bg-emerald-950/40 dark:text-emerald-300">
+                              Ready for Clearance
+                            </Badge>
+                          )}
+                          <span className="text-[11px] text-muted-foreground">
+                            ({item.items.length} items · {formatMoney(pr.totalEstimate)})
+                          </span>
+                        </div>
+                        <p className="text-xs text-foreground mt-1 truncate">{pr.purpose}</p>
+                      </div>
+                      <Button asChild size="sm" className="h-7 text-xs bg-rose-700 hover:bg-rose-800 text-white shrink-0">
+                        <Link href="/officer/pr-verification">Verify &amp; Clear</Link>
+                      </Button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Releasing & Delivery Queue */}
+          <div className="flat-panel">
+            <div className="border-b border-[#ece8df] dark:border-[#46515c] px-5 py-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-[#34404e] dark:text-[#f1f5f8]">
+                  Notices &amp; Purchase Orders Awaiting Release
+                </p>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Finalized documents ready for service and formal release to winning suppliers.
+                </p>
+              </div>
+              <Link
+                href="/officer/releasing"
+                className="text-xs font-semibold text-rose-700 dark:text-rose-400 hover:underline flex items-center gap-1"
+              >
+                Go to Releasing <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+
+            <div className="divide-y divide-[#f0ede6] dark:divide-[#46515c] px-5">
+              {pendingReleasingTotal === 0 ? (
+                <div className="py-8 text-center text-xs text-muted-foreground">
+                  <CheckCircle2 className="mx-auto h-6 w-6 text-emerald-500 mb-1" />
+                  No pending notices or POs awaiting release.
+                </div>
+              ) : (
+                <>
+                  {unservedNotices.slice(0, 3).map((notice: any) => (
+                    <div key={`notice-${notice.id}`} className="flex items-center justify-between gap-3 py-3.5">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-semibold text-amber-700 dark:text-amber-400">
+                            Notice #{notice.id}
+                          </span>
+                          <StatusBadge tone="pending">UNSERVED NOTICE</StatusBadge>
+                        </div>
+                        <p className="text-xs text-foreground mt-0.5 truncate">{notice.subject}</p>
+                      </div>
+                      <Button asChild size="sm" variant="outline" className="h-7 text-xs shrink-0">
+                        <Link href="/officer/releasing">Serve Notice</Link>
+                      </Button>
+                    </div>
+                  ))}
+                  {unreleasedOrders.slice(0, 3).map((item: any) => (
+                    <div key={`order-${item.order.id}`} className="flex items-center justify-between gap-3 py-3.5">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                            {item.order.poNumber}
+                          </span>
+                          <StatusBadge tone="approved">APPROVED PO</StatusBadge>
+                          <span className="text-[11px] text-muted-foreground truncate">
+                            {item.supplier?.name || "Supplier"}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Amount: {formatMoney(item.order.totalAmount)}
+                        </p>
+                      </div>
+                      <Button asChild size="sm" variant="outline" className="h-7 text-xs shrink-0">
+                        <Link href="/officer/releasing">Release PO</Link>
+                      </Button>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: 6 Mandated Lifecycle Duties Workbench */}
+        <div className="flat-panel h-fit">
+          <div className="border-b border-[#ece8df] dark:border-[#46515c] px-5 py-4 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-[#34404e] dark:text-[#f1f5f8]">
+                Mandated Duties Scope
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Official Procedure 5 Procurement Officer specification
+              </p>
+            </div>
+            <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+          </div>
+
+          <div className="divide-y divide-[#f0ede6] dark:divide-[#46515c] px-5 py-2">
+            {duties.map((duty) => (
+              <div key={duty.id} className="py-3.5 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-rose-700 dark:text-rose-400">
+                    {duty.number}
+                  </span>
+                  <StatusBadge tone={duty.badgeTone as any}>{duty.badge}</StatusBadge>
+                </div>
+                <h4 className="text-xs font-bold text-foreground">{duty.title}</h4>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">{duty.description}</p>
+                <div className="pt-1">
+                  <Button asChild size="sm" variant="outline" className="h-7 text-xs w-full justify-between">
+                    <Link href={duty.href}>
+                      <span>{duty.buttonText}</span>
+                      <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+

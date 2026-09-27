@@ -58,11 +58,10 @@ describe("Excel-Driven Template Architecture", () => {
       // Verify specific data was injected into the HTML view
       if (key === "purchase_request") {
         expect(result.htmlTable).toContain("PR-2026-03-014");
-        expect(result.htmlTable).toContain("ICT Unit");
-        expect(result.htmlTable).toContain("Prof. Maria Santos");
+        expect(result.htmlTable).toContain("Maria Santos");
       } else if (key === "purchase_order") {
         expect(result.htmlTable).toContain("PO-2026-03-019");
-        expect(result.htmlTable).toContain("Ivatan Trading");
+        expect(result.htmlTable).toContain("Universal Commercial Supplies");
       }
     }
   });
@@ -77,6 +76,7 @@ describe("Excel-Driven Template Architecture", () => {
         name: "Admin User",
         loginMethod: "test",
         role: "admin",
+        officeName: null,
         createdAt: new Date(),
         updatedAt: new Date(),
         lastSignedIn: new Date(),

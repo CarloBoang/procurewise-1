@@ -14,7 +14,7 @@ import { ForecastPage, NoticesPage, SupplierEvaluationsPage, TransmittalsPage } 
 import { PrintNoticePage, PrintPreCanvassAbstractPage, PrintTransmittalPage } from "./pages/PrintPages";
 import PublicTrackingPage from "./pages/PublicTracking";
 import Landing from "./pages/Landing";
-import { AnalyticsPage, AuditTrailPage, BudgetPage, HistoricalPmrPage, PlansPage, SupplierRegistryPage } from "./pages/ManagementPages";
+import { AnalyticsPage, AuditTrailPage, BudgetPage, HistoricalPmrPage, PlansPage, RfqPage, SupplierRegistryPage } from "./pages/ManagementPages";
 import { BestValuePolicySettingsPage } from "./pages/BestValuePolicySettingsPage";
 import { SupplierEvaluationFormPage } from "./pages/SupplierEvaluationFormPage";
 import { ExecutionPage, PreCanvassPage } from "./pages/WorkflowPages";
@@ -22,7 +22,12 @@ import SetupPage from "./pages/Setup";
 import TestRecordManagementPage from "./pages/TestRecordManagement";
 import FormTemplatesPage from "./pages/FormTemplates";
 import CatalogPage from "./pages/Catalog";
+import { PmrRegistryPage } from "./pages/PmrRegistryPage";
 import { PurchaseRequestsPage, WorkspacePage } from "./pages/Workspace";
+import { OfficerPrVerificationPage } from "./pages/OfficerPrVerificationPage";
+import { OfficerRfqDistributionPage } from "./pages/OfficerRfqDistributionPage";
+import { OfficerReleasingPage } from "./pages/OfficerReleasingPage";
+import { OfficerDeliveryMonitoringPage } from "./pages/OfficerDeliveryMonitoringPage";
 // Defense workspace — no authentication required
 import DemoEntryPage from "./pages/demo/DemoEntry";
 import DemoOverviewPage from "./pages/demo/DemoOverview";
@@ -40,6 +45,12 @@ function Router() {
       <Route path={"/access"} component={Access} />
       <Route path={"/track"} component={PublicTrackingPage} />
       <Route path={"/dashboard"}>{protectedPage(<Dashboard />)}</Route>
+      <Route path={"/officer/pr-verification"}>{protectedPage(<OfficerPrVerificationPage />)}</Route>
+      <Route path={"/officer/rfq-distribution"}>{protectedPage(<OfficerRfqDistributionPage />)}</Route>
+      <Route path={"/officer/releasing"}>{protectedPage(<OfficerReleasingPage />)}</Route>
+      <Route path={"/officer/delivery-monitoring"}>{protectedPage(<OfficerDeliveryMonitoringPage />)}</Route>
+      <Route path={"/pmr-registry"}>{protectedPage(<PmrRegistryPage />)}</Route>
+      <Route path={"/rfq-management"}>{protectedPage(<RfqPage />)}</Route>
       <Route path={"/catalog"}>{protectedPage(<CatalogPage />)}</Route>
       <Route path={"/purchase-requests"}>{protectedPage(<PurchaseRequestsPage />)}</Route>
       <Route path={"/rfq"}>{protectedPage(<PreCanvassPage />)}</Route>

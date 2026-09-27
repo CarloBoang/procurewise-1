@@ -4,7 +4,7 @@ import { and, desc, eq, inArray, isNull, like, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import { abstractsOfCanvass, appPpmpEntries, auditTrails, bacTransmittals, bestValuePolicies, bestValuePolicyCriteria, budgetAllotments, deliveryReceipts, formTemplates, historicalPrices, InsertUser, lettersOfNotice, mcdmRecommendations, objectsOfExpenditure, offices, pmrHistoricalRecords, pmrLogs, preCanvassQuotes, preCanvasses, procurementCatalogFavorites, procurementCatalogItems, procurementCatalogSavedItems, procurementDocuments, procurementSettings, procurementSignatories, purchaseOrders, purchaseRequestDecisions, purchaseRequestItems, purchaseRequests, quotationAbstracts, rfqNumberAssignments, rfqs, supplierEvaluationApprovals, supplierEvaluations, supplierQuotations, suppliers, supplierTagAssignments, supplierTags, testRecordArchives, User, users, workflowCorrections, workflowNotifications } from "../drizzle/schema";
-import { areUnitsCompatible, countValidPreCanvassQuotes, getEmployeePrStatus, getValidPreCanvassQuotes, hasRequiredSupplierQuotations, isValidPreCanvassQuote, normalizeProcurementRole, OFFICIAL_ROLE_LABELS, roleCanAct, selectLowestCompliantQuote, type ProcurementRole, type PrStatus } from "../shared/procurementRules";
+import { areUnitsCompatible, countValidPreCanvassQuotes, detectMixedCategories, getEmployeePrStatus, getValidPreCanvassQuotes, hasRequiredSupplierQuotations, isValidPreCanvassQuote, normalizeProcurementRole, OFFICIAL_ROLE_LABELS, roleCanAct, selectLowestCompliantQuote, type ProcurementRole, type PrStatus } from "../shared/procurementRules";
 import { ENV } from "./_core/env";
 import { validatePoBudgetGeneration, validatePrBudgetSubmission } from "./procurementValidation";
 import { storagePut } from "./storage";
@@ -685,6 +685,47 @@ export async function createLetterOfNotice(input: { noticeType: "award" | "disqu
 
 export async function listLettersOfNotice() { const db = await requireDb(); return db.select().from(lettersOfNotice).orderBy(desc(lettersOfNotice.createdAt)); }
 
+export async function serveLetterOfNotice(
+  input: {
+    noticeId: number;
+    servedAt: Date;
+    recipientName: string;
+    deliveryMode: "hand_delivery" | "courier" | "registered_mail" | "electronic_mail";
+    remarks?: string;
+  },
+  user: User
+) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Your assigned role is not authorized to serve Letters of Notice.");
+  }
+  const [notice] = await db.select().from(lettersOfNotice).where(eq(lettersOfNotice.id, input.noticeId)).limit(1);
+  if (!notice) throw new Error("Letter of Notice not found.");
+
+  await db.update(lettersOfNotice).set({
+    status: "served",
+    updatedAt: new Date(),
+  }).where(eq(lettersOfNotice.id, input.noticeId));
+
+  await writeAuditEvent({
+    entityType: "letter_of_notice",
+    entityId: notice.id,
+    action: "served_to_supplier",
+    performedById: user.id,
+    performedByRole: actorRole,
+    details: {
+      noticeNumber: notice.noticeNumber,
+      servedAt: input.servedAt.toISOString(),
+      recipientName: input.recipientName.trim(),
+      deliveryMode: input.deliveryMode,
+      remarks: input.remarks?.trim() || null,
+    },
+  });
+
+  return { ...notice, status: "served", recipientName: input.recipientName, deliveryMode: input.deliveryMode };
+}
+
 export async function createBacTransmittal(input: { purchaseRequestId?: number; fromOffice: string; toOffice: string; subject: string; remarks?: string; sendNow?: boolean }, user: User) {
   const db = await requireDb();
   const transmittalNumber = `BAC-T-${new Date().getFullYear()}-${Date.now().toString().slice(-7)}`;
@@ -705,6 +746,386 @@ export async function acknowledgeBacTransmittal(input: { transmittalId: number; 
 }
 
 export async function listBacTransmittals() { const db = await requireDb(); return db.select().from(bacTransmittals).orderBy(desc(bacTransmittals.createdAt)); }
+
+export async function listRfqDistributions(user: User) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const rfqList = await db.select().from(rfqs).orderBy(desc(rfqs.createdAt));
+  const prIds = rfqList.map((r) => r.purchaseRequestId);
+  const prs = prIds.length > 0
+    ? await db.select().from(purchaseRequests).where(inArray(purchaseRequests.id, prIds))
+    : [];
+  const transmittals = prIds.length > 0
+    ? await db.select().from(bacTransmittals).where(inArray(bacTransmittals.purchaseRequestId, prIds))
+    : [];
+  const audits = await db.select().from(auditTrails).where(eq(auditTrails.entityType, "rfq_distribution")).orderBy(desc(auditTrails.createdAt));
+
+  return rfqList.map((rfq) => {
+    const pr = prs.find((p) => p.id === rfq.purchaseRequestId) || null;
+    const transmittal = transmittals.find((t) => t.purchaseRequestId === rfq.purchaseRequestId) || null;
+    const audit = audits.find((a) => a.entityId === rfq.id);
+    const details = (audit?.details as any) || {};
+
+    let distributionStatus: "pending_distribution" | "distributed" | "retrieved" | "transmitted_to_bac" = "pending_distribution";
+    if (transmittal) {
+      distributionStatus = "transmitted_to_bac";
+    } else if (details.status === "retrieved") {
+      distributionStatus = "retrieved";
+    } else if (details.status === "distributed") {
+      distributionStatus = "distributed";
+    }
+
+    return {
+      rfq,
+      purchaseRequest: pr,
+      transmittal,
+      distributionStatus,
+      canvasserName: details.canvasserName || null,
+      distributionDate: details.distributionDate || null,
+      retrievalDate: details.retrievalDate || null,
+      remarks: details.remarks || null,
+    };
+  });
+}
+
+export async function updateRfqDistribution(
+  input: {
+    rfqId: number;
+    status: "distributed" | "retrieved";
+    canvasserName?: string;
+    distributionDate?: Date;
+    retrievalDate?: Date;
+    remarks?: string;
+  },
+  user: User
+) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const [rfq] = await db.select().from(rfqs).where(eq(rfqs.id, input.rfqId)).limit(1);
+  if (!rfq) throw new Error("RFQ not found.");
+
+  await writeAuditEvent({
+    entityType: "rfq_distribution",
+    entityId: rfq.id,
+    action: `rfq_${input.status}`,
+    performedById: user.id,
+    performedByRole: actorRole,
+    details: {
+      rfqNumber: rfq.rfqNumber,
+      status: input.status,
+      canvasserName: input.canvasserName?.trim() || null,
+      distributionDate: input.distributionDate ? input.distributionDate.toISOString() : new Date().toISOString(),
+      retrievalDate: input.retrievalDate ? input.retrievalDate.toISOString() : (input.status === "retrieved" ? new Date().toISOString() : null),
+      remarks: input.remarks?.trim() || null,
+    },
+  });
+
+  return { success: true, rfqId: rfq.id, status: input.status };
+}
+
+export async function transmitRfqToBac(
+  input: {
+    rfqId: number;
+    toOffice?: string;
+    subject?: string;
+    remarks?: string;
+  },
+  user: User
+) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const [rfq] = await db.select().from(rfqs).where(eq(rfqs.id, input.rfqId)).limit(1);
+  if (!rfq) throw new Error("RFQ not found.");
+  const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, rfq.purchaseRequestId)).limit(1);
+
+  const transmittalNumber = `BAC-T-${new Date().getFullYear()}-${Date.now().toString().slice(-7)}`;
+  await db.insert(bacTransmittals).values({
+    transmittalNumber,
+    purchaseRequestId: rfq.purchaseRequestId,
+    fromOffice: "Procurement Unit",
+    toOffice: input.toOffice?.trim() || "Bids and Awards Committee Secretariat",
+    subject: input.subject?.trim() || `Transmittal of Retrieved RFQs for PR ${pr?.prNumber || rfq.rfqNumber} to BAC`,
+    remarks: input.remarks?.trim() || `Retrieved supplier RFQ packages formally transmitted to BAC for Abstract of Quotations (AOQ) preparation.`,
+    status: "sent",
+    preparedById: user.id,
+    sentAt: new Date(),
+  });
+
+  const [transmittal] = await db.select().from(bacTransmittals).where(eq(bacTransmittals.transmittalNumber, transmittalNumber)).limit(1);
+
+  await writeAuditEvent({
+    entityType: "rfq_distribution",
+    entityId: rfq.id,
+    action: "transmitted_to_bac",
+    performedById: user.id,
+    performedByRole: actorRole,
+    details: {
+      rfqNumber: rfq.rfqNumber,
+      transmittalNumber,
+      status: "transmitted_to_bac",
+    },
+  });
+
+  await notifyRoles(["bac", "bac_secretariat"], {
+    kind: "action_required",
+    title: `RFQ Package Transmitted to BAC (${transmittalNumber})`,
+    body: `Procurement Officer transmitted retrieved RFQ quotations for PR ${pr?.prNumber ?? ""}. Ready for AOQ creation.`,
+    entityType: "bac_transmittal",
+    entityId: transmittal.id,
+  });
+
+  return transmittal;
+}
+
+export async function listPhilgepsPostings(user: User) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const [rfqList, prList, audits] = await Promise.all([
+    db.select().from(rfqs).orderBy(desc(rfqs.createdAt)),
+    db.select().from(purchaseRequests).orderBy(desc(purchaseRequests.createdAt)),
+    db.select().from(auditTrails).where(eq(auditTrails.action, "philgeps_posted")).orderBy(desc(auditTrails.createdAt)),
+  ]);
+
+  return rfqList.map((rfq) => {
+    const pr = prList.find((p) => p.id === rfq.purchaseRequestId);
+    const audit = audits.find((a) => (a.details as any)?.rfqId === rfq.id || a.entityId === rfq.purchaseRequestId);
+    const details = (audit?.details as any) || null;
+
+    return {
+      rfqId: rfq.id,
+      rfqNumber: rfq.rfqNumber,
+      purchaseRequestId: rfq.purchaseRequestId,
+      prNumber: pr?.prNumber || `PR-#${rfq.purchaseRequestId}`,
+      purpose: pr?.purpose || "",
+      totalEstimate: pr?.totalEstimate || "0.00",
+      isPosted: Boolean(audit),
+      philgepsReferenceNumber: details?.philgepsReferenceNumber || null,
+      postingDate: details?.postingDate || null,
+      closingDate: details?.closingDate || null,
+      remarks: details?.remarks || null,
+      postedAt: audit?.createdAt || null,
+    };
+  });
+}
+
+export async function recordPhilgepsPosting(
+  input: {
+    purchaseRequestId: number;
+    rfqId?: number;
+    philgepsReferenceNumber: string;
+    postingDate: Date;
+    closingDate?: Date;
+    remarks?: string;
+  },
+  user: User
+) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, input.purchaseRequestId)).limit(1);
+  if (!pr) throw new Error("Purchase Request not found.");
+
+  await writeAuditEvent({
+    entityType: "purchase_request",
+    entityId: pr.id,
+    action: "philgeps_posted",
+    performedById: user.id,
+    performedByRole: actorRole,
+    details: {
+      prNumber: pr.prNumber,
+      rfqId: input.rfqId ?? null,
+      philgepsReferenceNumber: input.philgepsReferenceNumber.trim(),
+      postingDate: input.postingDate.toISOString(),
+      closingDate: input.closingDate?.toISOString() ?? null,
+      remarks: input.remarks?.trim() || null,
+    },
+  });
+
+  return {
+    success: true,
+    purchaseRequestId: pr.id,
+    philgepsReferenceNumber: input.philgepsReferenceNumber.trim(),
+    postingDate: input.postingDate,
+  };
+}
+
+export async function listOfficerPurchaseOrders(user: User) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const orders = await db.select().from(purchaseOrders).orderBy(desc(purchaseOrders.createdAt));
+  const supplierIds = orders.map((o) => o.supplierId).filter(Boolean);
+  const supplierList = supplierIds.length > 0
+    ? await db.select().from(suppliers).where(inArray(suppliers.id, supplierIds))
+    : [];
+  const prIds = orders.map((o) => o.purchaseRequestId);
+  const prList = prIds.length > 0
+    ? await db.select().from(purchaseRequests).where(inArray(purchaseRequests.id, prIds))
+    : [];
+  const audits = await db.select().from(auditTrails).where(eq(auditTrails.action, "po_released_to_supplier")).orderBy(desc(auditTrails.createdAt));
+
+  return orders.map((order) => {
+    const supplier = supplierList.find((s) => s.id === order.supplierId) || null;
+    const pr = prList.find((p) => p.id === order.purchaseRequestId) || null;
+    const releaseAudit = audits.find((a) => a.entityId === order.id);
+    const releaseDetails = (releaseAudit?.details as any) || null;
+
+    return {
+      order,
+      supplier,
+      purchaseRequest: pr,
+      isReleased: order.status === "released" || Boolean(releaseAudit),
+      releaseDetails: releaseDetails ? {
+        releasedAt: releaseDetails.releasedAt,
+        recipientName: releaseDetails.recipientName,
+        releaseMode: releaseDetails.releaseMode,
+        acknowledgementReference: releaseDetails.acknowledgementReference,
+        remarks: releaseDetails.remarks,
+      } : null,
+    };
+  });
+}
+
+export async function releasePurchaseOrder(
+  input: {
+    purchaseOrderId: number;
+    releasedAt: Date;
+    recipientName: string;
+    releaseMode: "in_person_pickup" | "courier" | "electronic_mail";
+    acknowledgementReference?: string;
+    remarks?: string;
+  },
+  user: User
+) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const [po] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, input.purchaseOrderId)).limit(1);
+  if (!po) throw new Error("Purchase Order not found.");
+
+  await db.update(purchaseOrders).set({
+    status: "released",
+    updatedAt: new Date(),
+  }).where(eq(purchaseOrders.id, po.id));
+
+  await writeAuditEvent({
+    entityType: "purchase_order",
+    entityId: po.id,
+    action: "po_released_to_supplier",
+    performedById: user.id,
+    performedByRole: actorRole,
+    details: {
+      poNumber: po.poNumber,
+      releasedAt: input.releasedAt.toISOString(),
+      recipientName: input.recipientName.trim(),
+      releaseMode: input.releaseMode,
+      acknowledgementReference: input.acknowledgementReference?.trim() || null,
+      remarks: input.remarks?.trim() || null,
+    },
+  });
+
+  return { ...po, status: "released" as const };
+}
+
+export async function listDeliveryMonitoring(user: User) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const orders = await db.select().from(purchaseOrders).orderBy(desc(purchaseOrders.createdAt));
+  const poIds = orders.map((o) => o.id);
+  const receipts = poIds.length > 0
+    ? await db.select().from(deliveryReceipts).where(inArray(deliveryReceipts.purchaseOrderId, poIds))
+    : [];
+  const supplierIds = orders.map((o) => o.supplierId).filter(Boolean);
+  const supplierList = supplierIds.length > 0
+    ? await db.select().from(suppliers).where(inArray(suppliers.id, supplierIds))
+    : [];
+  const prIds = orders.map((o) => o.purchaseRequestId);
+  const prList = prIds.length > 0
+    ? await db.select().from(purchaseRequests).where(inArray(purchaseRequests.id, prIds))
+    : [];
+  const iarAudits = await db.select().from(auditTrails).where(eq(auditTrails.action, "inspection_iar_recorded")).orderBy(desc(auditTrails.createdAt));
+
+  return orders.map((order) => {
+    const receipt = receipts.find((r) => r.purchaseOrderId === order.id) || null;
+    const supplier = supplierList.find((s) => s.id === order.supplierId) || null;
+    const pr = prList.find((p) => p.id === order.purchaseRequestId) || null;
+    const iarAudit = iarAudits.find((a) => a.entityId === order.id);
+    const iarDetails = (iarAudit?.details as any) || null;
+
+    return {
+      order,
+      supplier,
+      purchaseRequest: pr,
+      deliveryReceipt: receipt,
+      iar: iarDetails ? {
+        iarNumber: iarDetails.iarNumber,
+        inspectionDate: iarDetails.inspectionDate,
+        inspectedByName: iarDetails.inspectedByName,
+        acceptanceStatus: iarDetails.acceptanceStatus,
+        remarks: iarDetails.remarks,
+      } : null,
+    };
+  });
+}
+
+export async function recordInspectionMilestone(
+  input: {
+    purchaseOrderId: number;
+    iarNumber: string;
+    inspectionDate: Date;
+    inspectedByName: string;
+    acceptanceStatus: "accepted" | "rejected" | "partial";
+    remarks?: string;
+  },
+  user: User
+) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const [po] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, input.purchaseOrderId)).limit(1);
+  if (!po) throw new Error("Purchase Order not found.");
+
+  await writeAuditEvent({
+    entityType: "purchase_order",
+    entityId: po.id,
+    action: "inspection_iar_recorded",
+    performedById: user.id,
+    performedByRole: actorRole,
+    details: {
+      poNumber: po.poNumber,
+      iarNumber: input.iarNumber.trim(),
+      inspectionDate: input.inspectionDate.toISOString(),
+      inspectedByName: input.inspectedByName.trim(),
+      acceptanceStatus: input.acceptanceStatus,
+      remarks: input.remarks?.trim() || null,
+    },
+  });
+
+  return { success: true, iarNumber: input.iarNumber, purchaseOrderId: po.id };
+}
 
 export async function createAppPpmpEntry(input: { fiscalYear: number; officeId: number; objectOfExpenditureId: number; catalogItemId?: number; description: string; plannedAmount: number; papCode?: string; projectTitle?: string; modeOfProcurement?: string; fundSource?: string; procurementSchedule?: string; remarks?: string }, user: User) {
   const db = await requireDb();
@@ -1109,6 +1530,160 @@ export async function advancePurchaseRequest(input: { purchaseRequestId: number;
   }
   await recordAudit({ entityType: "purchase_request", entityId: pr.id, action: `status:${input.nextStatus}`, performedById: user.id, performedByRole: normalizeProcurementRole(user.role), details: { prNumber: pr.prNumber } });
   return { ...pr, ...update };
+}
+
+export async function verifyPurchaseRequestPackage(
+  purchaseRequestId: number,
+  user: User,
+  options?: ProcurementWorkflowOptions & { categorySegregationVerified?: boolean }
+) {
+  const db = options?.db ?? await requireDb();
+  const recordAudit = options?.recordAudit ?? writeAuditEvent;
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Your assigned role is not authorized to verify Purchase Requests.");
+  }
+  const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, purchaseRequestId)).limit(1);
+  if (!pr) throw new Error("Purchase Request not found.");
+  if (pr.status === "draft") {
+    throw new Error("Draft Purchase Requests must be submitted by the End-User before officer verification.");
+  }
+
+  await db.update(purchaseRequests).set({ procurementReviewedById: user.id, updatedAt: new Date() }).where(eq(purchaseRequests.id, pr.id));
+  await recordAudit({
+    entityType: "purchase_request",
+    entityId: pr.id,
+    action: "officer_verified",
+    performedById: user.id,
+    performedByRole: actorRole,
+    details: {
+      prNumber: pr.prNumber,
+      verifiedById: user.id,
+      categorySegregationVerified: options?.categorySegregationVerified ?? true,
+      section511Compliant: true,
+    },
+  });
+  return { ...pr, procurementReviewedById: user.id };
+}
+
+export async function returnPurchaseRequestForRevision(
+  input: { purchaseRequestId: number; reason: string; remarks?: string },
+  user: User,
+  options?: ProcurementWorkflowOptions
+) {
+  const db = options?.db ?? await requireDb();
+  const recordAudit = options?.recordAudit ?? writeAuditEvent;
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Your assigned role is not authorized to return Purchase Requests.");
+  }
+  const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, input.purchaseRequestId)).limit(1);
+  if (!pr) throw new Error("Purchase Request not found.");
+
+  await db.update(purchaseRequests).set({ status: "returned", updatedAt: new Date() }).where(eq(purchaseRequests.id, pr.id));
+  await recordAudit({
+    entityType: "purchase_request",
+    entityId: pr.id,
+    action: "returned_for_revision",
+    performedById: user.id,
+    performedByRole: actorRole,
+    details: {
+      prNumber: pr.prNumber,
+      reason: input.reason,
+      remarks: input.remarks || input.reason,
+      section511NonCompliant: true,
+    },
+  });
+
+  await notifyRoles(["end_user"], {
+    kind: "action_required",
+    title: `Purchase Request ${pr.prNumber} Returned for Revision`,
+    body: input.remarks || input.reason,
+    entityType: "purchase_request",
+    entityId: pr.id,
+  });
+
+  return { ...pr, status: "returned" as const };
+}
+
+export async function listOfficerPrVerifications(user: User) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const allPrs = await db.select().from(purchaseRequests).orderBy(desc(purchaseRequests.createdAt));
+  const prIds = allPrs.map((p) => p.id);
+  const items = prIds.length > 0
+    ? await db.select().from(purchaseRequestItems).where(inArray(purchaseRequestItems.purchaseRequestId, prIds))
+    : [];
+  const ppmpIds = allPrs.map((p) => p.ppmpEntryId).filter((id): id is number => typeof id === "number");
+  const ppmpEntries = ppmpIds.length > 0
+    ? await db.select().from(appPpmpEntries).where(inArray(appPpmpEntries.id, ppmpIds))
+    : [];
+
+  return allPrs.map((pr) => {
+    const prItems = items.filter((item) => item.purchaseRequestId === pr.id);
+    const linkedPpmp = ppmpEntries.find((e) => e.id === pr.ppmpEntryId) || null;
+    const segregationAnalysis = detectMixedCategories(prItems);
+    return {
+      purchaseRequest: pr,
+      items: prItems,
+      linkedPpmp,
+      segregationAnalysis,
+      isVerified: Boolean(pr.procurementReviewedById),
+    };
+  });
+}
+
+export async function recordPurchaseRequestToPmr(
+  input: { purchaseRequestId: number; pmrReference?: string; remarks?: string },
+  user: User,
+  options?: ProcurementWorkflowOptions
+) {
+  const db = options?.db ?? await requireDb();
+  const recordAudit = options?.recordAudit ?? writeAuditEvent;
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_staff", "admin"])) {
+    throw new Error("Your assigned role is not authorized to record PRs to PMR. This duty is assigned to Procurement Staff.");
+  }
+
+  const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, input.purchaseRequestId)).limit(1);
+  if (!pr) throw new Error("Purchase Request not found.");
+
+  // Procedure 5.2 requirement: Permitted only AFTER the Procurement Officer has received and verified the PR & PPMP
+  const isVerifiedByOfficer = Boolean(pr.procurementReviewedById) || ["approval_review", "approved", "rfq", "po", "po_issued", "delivered", "pmr_logged", "closed"].includes(pr.status);
+  if (!isVerifiedByOfficer) {
+    throw new Error("Recording PR to PMR is permitted only after the Procurement Officer has received and verified the PR & PPMP.");
+  }
+
+  const pmrReference = input.pmrReference?.trim() || `PMR-${new Date().getFullYear()}-${String(pr.id).padStart(5, "0")}`;
+
+  await recordAudit({
+    entityType: "purchase_request",
+    entityId: pr.id,
+    action: "recorded_to_pmr",
+    performedById: user.id,
+    performedByRole: actorRole,
+    details: {
+      prNumber: pr.prNumber,
+      trackingToken: pr.trackingToken,
+      ppmpEntryId: pr.ppmpEntryId,
+      pmrReference,
+      remarks: input.remarks?.trim() || null,
+      recordedAt: new Date().toISOString(),
+    },
+  });
+
+  return {
+    success: true,
+    purchaseRequestId: pr.id,
+    prNumber: pr.prNumber,
+    trackingToken: pr.trackingToken,
+    ppmpEntryId: pr.ppmpEntryId,
+    pmrReference,
+    recordedAt: new Date(),
+  };
 }
 
 export async function rejectPurchaseRequest(
@@ -1550,7 +2125,7 @@ export async function recordDelivery(input: { purchaseOrderId: number; receiptNu
   const db = options?.db ?? await requireDb();
   const recordAudit = options?.recordAudit ?? writeAuditEvent;
   const [po] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, input.purchaseOrderId)).limit(1);
-  if (!po || po.status !== "issued") throw new Error("Only an issued Purchase Order may be recorded as delivered.");
+  if (!po || (po.status !== "issued" && po.status !== "released")) throw new Error("Only an issued or released Purchase Order may be recorded as delivered.");
   await db.insert(deliveryReceipts).values({ purchaseOrderId: po.id, receiptNumber: input.receiptNumber, receivedByName: input.receivedByName || null, deliveryStatus: input.deliveryStatus ?? "complete", signatureReference: input.signatureReference || null, remarks: input.remarks || null, receivedById: user.id });
   await db.update(purchaseOrders).set({ status: "delivered" }).where(eq(purchaseOrders.id, po.id));
   await db.update(purchaseRequests).set({ status: "delivered" }).where(eq(purchaseRequests.id, po.purchaseRequestId));

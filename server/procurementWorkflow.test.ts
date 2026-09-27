@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import type { User } from "../drizzle/schema";
 import { advancePurchaseRequest, createPurchaseOrderFromPreCanvass, decideAbstractOfCanvass, logPmr, recordDelivery, submitPreCanvass } from "./db";
 
-const user = { id: 1, openId: "workflow-test", name: "Workflow Test", email: "workflow@example.com", loginMethod: "test", role: "admin", createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() } as const;
+const user: User = { id: 1, openId: "workflow-test", name: "Workflow Test", email: "workflow@example.com", loginMethod: "test", role: "admin", officeName: null, createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() };
 
 function fakeDatabase(selectRows: unknown[][]) {
   let selectIndex = 0;
