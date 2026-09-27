@@ -124,4 +124,26 @@ describe("Global Notification Architecture Decoupling across All Roles", () => {
       expect(notificationCenterDrawerSource).toContain("handleOpenDestination");
     });
   });
+
+  describe("4. Viewport-Locked Height & Centered Pull-Tab Sidebar Toggle", () => {
+    it("locks sidebar root to viewport height without outer page scrolling", () => {
+      expect(dashboardLayoutSource).toContain("sticky top-0 h-screen max-h-screen");
+      expect(dashboardLayoutSource).toContain("flex flex-col h-screen max-h-screen overflow-hidden");
+    });
+
+    it("restricts scrolling to navigation links area only with slim custom scrollbar", () => {
+      expect(dashboardLayoutSource).toContain("sidebar-nav-scroll flex-1 min-h-0 overflow-y-auto");
+    });
+
+    it("pins footer & profile section firmly to the bottom", () => {
+      expect(dashboardLayoutSource).toContain("shrink-0 mt-auto border-t");
+      // Old collapse button inside the footer is removed
+      expect(dashboardLayoutSource).not.toContain("Expand sidebar\" : \"Collapse sidebar\"}\n                    className=\"flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100");
+    });
+
+    it("implements centered pull-tab toggle pinned to vertical midpoint of right border", () => {
+      expect(dashboardLayoutSource).toContain("absolute top-1/2 -translate-y-1/2 -right-3 z-30 flex items-center justify-center w-6 h-6 rounded-full");
+      expect(dashboardLayoutSource).toContain("isCollapsed ? \"w-[70px]\" : \"w-64\"");
+    });
+  });
 });
