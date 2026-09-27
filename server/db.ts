@@ -1639,15 +1639,21 @@ export async function listOfficerPrVerifications(user: User) {
   const ppmpEntries = ppmpIds.length > 0
     ? await db.select().from(appPpmpEntries).where(inArray(appPpmpEntries.id, ppmpIds))
     : [];
+  const documents = prIds.length > 0
+    ? await db.select().from(procurementDocuments).where(and(eq(procurementDocuments.entityType, "purchase_request"), inArray(procurementDocuments.entityId, prIds)))
+    : [];
 
   return allPrs.map((pr) => {
     const prItems = items.filter((item) => item.purchaseRequestId === pr.id);
     const linkedPpmp = ppmpEntries.find((e) => e.id === pr.ppmpEntryId) || null;
+    const prDocuments = documents.filter((d) => d.entityId === pr.id);
+    const uploadedPpmpDoc = prDocuments.find((d) => d.documentType.toLowerCase().includes("ppmp")) || null;
     const segregationAnalysis = detectMixedCategories(prItems);
     return {
       purchaseRequest: pr,
       items: prItems,
       linkedPpmp,
+      uploadedPpmpDoc,
       segregationAnalysis,
       isVerified: Boolean(pr.procurementReviewedById),
     };

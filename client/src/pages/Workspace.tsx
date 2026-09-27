@@ -15,8 +15,8 @@ import { OfficeSelect } from "@/components/OfficeSelect";
 import { IntegratedPreCanvassModal } from "@/components/IntegratedPreCanvassModal";
 import { trpc } from "@/lib/trpc";
 import { countValidPreCanvassQuotes, detectMixedCategories, hasRequiredSupplierQuotations, normalizeProcurementRole, SECTION_5_1_1_CATEGORIES } from "../../../shared/procurementRules";
-import { AlertTriangle, CheckCircle2, CircleAlert, FileSearch, Info, LoaderCircle, Plus, Search, Send, ShieldAlert, Star, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, CheckCircle2, CircleAlert, ExternalLink, FileCheck, FileCheck2, FileSearch, FileText, Info, LoaderCircle, Plus, Search, Send, ShieldAlert, Star, Trash2, Upload, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearch } from "wouter";
 import { toast } from "sonner";
 
@@ -82,6 +82,10 @@ export function PurchaseRequestsPage() {
     onSuccess: () => { toast.success("Purchase Request rejected and the employee was notified."); void utils.procurement.purchaseRequests.list.invalidate(); void utils.procurement.dashboard.invalidate(); },
     onError: (error) => toast.error(error.message),
   });
+  const createPpmpMutation = trpc.procurement.setup.createAppPpmpEntry.useMutation();
+  const attachDocumentMutation = trpc.procurement.documents.attach.useMutation();
+  const [isSubmittingPackage, setIsSubmittingPackage] = useState(false);
+
   const createRequest = trpc.procurement.purchaseRequests.create.useMutation({
     onSuccess: (created) => {
       void navigator.clipboard?.writeText(created.trackingToken);
@@ -102,6 +106,71 @@ export function PurchaseRequestsPage() {
     onError: (error) => toast.error(error.message),
   });
 
+  const handleCreatePurchaseRequest = async (
+    input: Parameters<typeof createRequest.mutateAsync>[0],
+    uploadedPpmpFile?: { name: string; type: string; size: number; base64: string } | null,
+    newPpmpData?: { title: string; fiscalYear: number; plannedAmount?: number } | null
+  ) => {
+    setIsSubmittingPackage(true);
+    try {
+      let resolvedPpmpId = input.ppmpEntryId;
+
+      // If user is registering a new PPMP entry on the fly
+      if (!resolvedPpmpId && newPpmpData) {
+        const estTotal = input.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.estimatedUnitCost) || 0), 0);
+        const createdPpmp = await createPpmpMutation.mutateAsync({
+          fiscalYear: newPpmpData.fiscalYear,
+          officeId: input.officeId,
+          objectOfExpenditureId: input.objectOfExpenditureId,
+          description: newPpmpData.title.trim() || input.purpose.trim() || "Annual Department PPMP",
+          plannedAmount: newPpmpData.plannedAmount && newPpmpData.plannedAmount > 0 ? newPpmpData.plannedAmount : Math.max(estTotal, 1000),
+          fundSource: input.fundSource,
+          modeOfProcurement: "Small Value Procurement",
+        });
+        resolvedPpmpId = createdPpmp.id;
+        void utils.procurement.dashboard.invalidate();
+      }
+
+      const created = await createRequest.mutateAsync({
+        ...input,
+        ppmpEntryId: resolvedPpmpId,
+      });
+
+      // If user uploaded a PPMP file, attach it to the purchase request
+      if (uploadedPpmpFile) {
+        try {
+          await attachDocumentMutation.mutateAsync({
+            entityType: "purchase_request",
+            entityId: created.id,
+            documentType: "Project Procurement Management Plan (PPMP)",
+            originalFileName: uploadedPpmpFile.name,
+            mimeType: uploadedPpmpFile.type || "application/pdf",
+            dataBase64: uploadedPpmpFile.base64,
+          });
+
+          if (resolvedPpmpId) {
+            void attachDocumentMutation.mutateAsync({
+              entityType: "app_ppmp_entry",
+              entityId: resolvedPpmpId,
+              documentType: "Approved PPMP Document",
+              originalFileName: uploadedPpmpFile.name,
+              mimeType: uploadedPpmpFile.type || "application/pdf",
+              dataBase64: uploadedPpmpFile.base64,
+            }).catch(() => {});
+          }
+          toast.success("Department PPMP document successfully attached to this package.");
+        } catch (attachErr: any) {
+          console.warn("PPMP attachment notice:", attachErr);
+          toast.warning("PR created, but file attachment had an issue: " + (attachErr.message || "Upload issue"));
+        }
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create Purchase Request.");
+    } finally {
+      setIsSubmittingPackage(false);
+    }
+  };
+
   const [selectedPrId, setSelectedPrId] = useState<number | null>(null);
 
   const selectedPr = useMemo(() => {
@@ -115,7 +184,7 @@ export function PurchaseRequestsPage() {
 
   return <div className="content-shell">
     <PageHeader eyebrow="End-User package" title="PPMP-linked Purchase Requests" description="Create an itemized Purchase Request with a Linked PPMP entry, then prepare the three-file package: PR, PPMP, and preliminary quotations from the completed pre-canvass." action={{ label: "New Purchase Request", onClick: () => setIsCreating(!isCreating) }} />
-    {isCreating ? <PurchaseRequestForm setup={setup.data} ppmpEntries={dashboard.data?.appPpmpEntries} catalogItemIds={catalogItemIds} catalogSelection={catalogSelection} isSaving={createRequest.isPending} onCancel={() => setIsCreating(false)} onCreate={(input) => createRequest.mutate(input)} /> : (
+    {isCreating ? <PurchaseRequestForm setup={setup.data} ppmpEntries={dashboard.data?.appPpmpEntries} catalogItemIds={catalogItemIds} catalogSelection={catalogSelection} isSaving={isSubmittingPackage || createRequest.isPending} onCancel={() => setIsCreating(false)} onCreate={handleCreatePurchaseRequest} /> : (
       <div className="mt-7">
         {purchaseRequests.isLoading ? <LoadingPanel label="Loading Purchase Requests" /> : purchaseRequests.data?.length ? <>
           <PurchaseRequestTable
@@ -247,7 +316,7 @@ function PurchaseRequestTable({
   })}</tbody></RecordTable>;
 }
 
-function PurchaseRequestForm({ setup, ppmpEntries, catalogItemIds, catalogSelection, isSaving, onCancel, onCreate }: { setup?: { offices: Array<{ id: number; code: string; name: string }>; objectsOfExpenditure: Array<{ id: number; code: string; name: string }> }; ppmpEntries?: Array<{ id: number; description: string; fiscalYear: number }>; catalogItemIds: number[]; catalogSelection: Array<{ id: number; quantity: string }>; isSaving: boolean; onCancel: () => void; onCreate: (input: { purpose: string; fundSource?: string; fundCluster?: string; responsibilityCenterCode?: string; requesterDesignation?: string; requestedSignatoryId?: number; approvedSignatoryId?: number; ppmpEntryId: number; officeId: number; objectOfExpenditureId: number; items: Array<{ catalogItemId?: number; stockPropertyNo?: string; description: string; specification?: string; quantity: number; unit: string; estimatedUnitCost: number }> }) => void }) {
+function PurchaseRequestForm({ setup, ppmpEntries, catalogItemIds, catalogSelection, isSaving, onCancel, onCreate }: { setup?: { offices: Array<{ id: number; code: string; name: string }>; objectsOfExpenditure: Array<{ id: number; code: string; name: string }>; settings?: any }; ppmpEntries?: Array<{ id: number; description: string; fiscalYear: number }>; catalogItemIds: number[]; catalogSelection: Array<{ id: number; quantity: string }>; isSaving: boolean; onCancel: () => void; onCreate: (input: { purpose: string; fundSource?: string; fundCluster?: string; responsibilityCenterCode?: string; requesterDesignation?: string; requestedSignatoryId?: number; approvedSignatoryId?: number; ppmpEntryId?: number; officeId: number; objectOfExpenditureId: number; items: Array<{ catalogItemId?: number; stockPropertyNo?: string; description: string; specification?: string; quantity: number; unit: string; estimatedUnitCost: number }> }, uploadedPpmpFile?: { name: string; type: string; size: number; base64: string } | null, newPpmpData?: { title: string; fiscalYear: number; plannedAmount?: number } | null) => void }) {
   const utils = trpc.useUtils();
   const [purpose, setPurpose] = useState("");
   const [fundSource, setFundSource] = useState("");
@@ -257,7 +326,48 @@ function PurchaseRequestForm({ setup, ppmpEntries, catalogItemIds, catalogSelect
   const [approvedSignatoryChoice, setApprovedSignatoryChoice] = useState("");
   const [officeId, setOfficeId] = useState("");
   const [objectId, setObjectId] = useState("");
+
+  // PPMP linking & upload mode
+  const [ppmpMode, setPpmpMode] = useState<"existing" | "upload">(() => (ppmpEntries && ppmpEntries.length > 0 ? "existing" : "upload"));
   const [ppmpEntryId, setPpmpEntryId] = useState("");
+  const [customPpmpTitle, setCustomPpmpTitle] = useState("");
+  const [customPpmpYear, setCustomPpmpYear] = useState<number>(new Date().getFullYear());
+  const [uploadedFile, setUploadedFile] = useState<{ name: string; type: string; size: number; base64: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 14 * 1024 * 1024) {
+      toast.error("File exceeds 14MB limit. Please upload a smaller document.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const base64 = result.includes(",") ? result.split(",")[1] : result;
+      setUploadedFile({
+        name: file.name,
+        type: file.type || "application/pdf",
+        size: file.size,
+        base64,
+      });
+      if (!customPpmpTitle.trim()) {
+        const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+        setCustomPpmpTitle(nameWithoutExt);
+      }
+      toast.success(`Attached PPMP document: ${file.name}`);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeUploadedFile = () => {
+    setUploadedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const [items, setItems] = useState<RequestItem[]>([{ catalogItemId: "", stockPropertyNo: "", description: "", specification: "", quantity: "", unit: "", estimatedUnitCost: "" }]);
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogCodeFamily, setCatalogCodeFamily] = useState("all");
@@ -299,13 +409,52 @@ function PurchaseRequestForm({ setup, ppmpEntries, catalogItemIds, catalogSelect
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     if (!configurationReady) return toast.error("An Admin must first add an office and object of expenditure.");
-    if (!purpose.trim() || !ppmpEntryId || !officeId || !objectId || items.some((item) => !item.description.trim() || Number(item.quantity) <= 0 || Number(item.estimatedUnitCost) <= 0)) return toast.error("Complete the PPMP, purpose, budget references, and at least one valid item.");
+    if (!purpose.trim() || !officeId || !objectId || items.some((item) => !item.description.trim() || Number(item.quantity) <= 0 || Number(item.estimatedUnitCost) <= 0)) {
+      return toast.error("Complete the purpose, department, budget references, and at least one valid item.");
+    }
+    if (ppmpMode === "existing" && !ppmpEntryId) {
+      return toast.error("Please select a linked PPMP entry, or switch to 'Upload / Register PPMP' to provide your own.");
+    }
+    if (ppmpMode === "upload" && !uploadedFile && !customPpmpTitle.trim() && !purpose.trim()) {
+      return toast.error("Please upload your PPMP document or enter a PPMP title/description.");
+    }
     if (requestedSignatoryChoice && !selectedRequestedSignatory) return toast.error("Choose Requested by from the authorized signatory suggestions.");
     if (approvedSignatoryChoice && !selectedApprovedSignatory) return toast.error("Choose Approved by from the authorized signatory suggestions.");
     if (categoryAnalysis.isMixed && !mixedCategoryAcknowledged) {
       return toast.error(`Section 5.1.1 Warning: Mixed categories detected (${categoryAnalysis.categoryLabels.join(" + ")}). Check the acknowledgement or separate items before submitting.`);
     }
-    onCreate({ purpose: purpose.trim(), fundSource: fundSource.trim() || undefined, fundCluster: fundCluster.trim() || undefined, responsibilityCenterCode: responsibilityCenterCode.trim() || undefined, requesterDesignation: selectedRequestedSignatory?.designation || undefined, requestedSignatoryId: selectedRequestedSignatory?.id, approvedSignatoryId: selectedApprovedSignatory?.id, ppmpEntryId: Number(ppmpEntryId), officeId: Number(officeId), objectOfExpenditureId: Number(objectId), items: items.map((item) => ({ catalogItemId: item.catalogItemId ? Number(item.catalogItemId) : undefined, stockPropertyNo: item.stockPropertyNo.trim() || undefined, description: item.description.trim(), specification: item.specification.trim() || undefined, quantity: Number(item.quantity), unit: item.unit.trim(), estimatedUnitCost: Number(item.estimatedUnitCost) })) });
+
+    onCreate(
+      {
+        purpose: purpose.trim(),
+        fundSource: fundSource.trim() || undefined,
+        fundCluster: fundCluster.trim() || undefined,
+        responsibilityCenterCode: responsibilityCenterCode.trim() || undefined,
+        requesterDesignation: selectedRequestedSignatory?.designation || undefined,
+        requestedSignatoryId: selectedRequestedSignatory?.id,
+        approvedSignatoryId: selectedApprovedSignatory?.id,
+        ppmpEntryId: ppmpMode === "existing" && ppmpEntryId ? Number(ppmpEntryId) : undefined,
+        officeId: Number(officeId),
+        objectOfExpenditureId: Number(objectId),
+        items: items.map((item) => ({
+          catalogItemId: item.catalogItemId ? Number(item.catalogItemId) : undefined,
+          stockPropertyNo: item.stockPropertyNo.trim() || undefined,
+          description: item.description.trim(),
+          specification: item.specification.trim() || undefined,
+          quantity: Number(item.quantity),
+          unit: item.unit.trim(),
+          estimatedUnitCost: Number(item.estimatedUnitCost),
+        })),
+      },
+      uploadedFile,
+      ppmpMode === "upload"
+        ? {
+            title: customPpmpTitle.trim() || purpose.trim() || "Annual Department PPMP",
+            fiscalYear: customPpmpYear || new Date().getFullYear(),
+            plannedAmount: total > 0 ? total : undefined,
+          }
+        : null
+    );
   };
 
   return <div className="mt-7 grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px] print:block print:m-0 print:p-0">
@@ -353,7 +502,152 @@ function PurchaseRequestForm({ setup, ppmpEntries, catalogItemIds, catalogSelect
         </div>
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <div className="sm:col-span-2"><Label className="text-xs font-semibold text-[#4c5664] dark:text-[#f1f5f8]">Linked PPMP entry</Label><Select value={ppmpEntryId} onValueChange={setPpmpEntryId} disabled={!ppmpEntries?.length}><SelectTrigger className="mt-2 h-9 rounded-[4px] border-[#dedad2] dark:border-[#46515c] dark:bg-[#232c35] dark:text-[#f1f5f8] text-xs"><SelectValue placeholder="Select your PPMP entry" /></SelectTrigger><SelectContent className="dark:border-[#46515c] dark:bg-[#1b2229] dark:text-[#f1f5f8]">{ppmpEntries?.map((entry) => <SelectItem key={entry.id} value={String(entry.id)}>FY {entry.fiscalYear} — {entry.description}</SelectItem>)}</SelectContent></Select>{!ppmpEntries?.length && <p className="mt-1.5 text-[11px] text-[#9a6d19] dark:text-[#f0c36a]">Create a PPMP entry before opening a Purchase Request.</p>}</div>
+          {/* PPMP Selection / Upload Box */}
+          <div className="sm:col-span-2 rounded-lg border border-[#e4d4ae] dark:border-[#524424] bg-[#fffdf5] dark:bg-[#1f1b14] p-3.5 sm:p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-[#ebdcb8] dark:border-[#483c22] pb-2.5">
+              <div>
+                <Label className="text-xs font-bold text-[#4c5664] dark:text-[#f1f5f8] flex items-center gap-1.5">
+                  <FileCheck className="h-4 w-4 text-[#7b1e1e] dark:text-[#ff837a]" />
+                  Linked PPMP (Project Procurement Management Plan)
+                </Label>
+                <p className="text-[11px] text-[#75643e] dark:text-[#c4cfd9] mt-0.5">
+                  Attach your own department PPMP document or select an existing registered planning entry.
+                </p>
+              </div>
+
+              {/* Mode Toggle */}
+              <div className="inline-flex rounded-md border border-[#dedad2] dark:border-[#46515c] p-0.5 bg-white dark:bg-[#232c35]">
+                <button
+                  type="button"
+                  onClick={() => setPpmpMode("upload")}
+                  className={`px-2.5 py-1 text-[11px] font-medium rounded transition-colors flex items-center gap-1 ${
+                    ppmpMode === "upload"
+                      ? "bg-[#7b1e1e] text-white shadow-sm"
+                      : "text-[#66717e] hover:text-[#34404e] dark:text-[#aeb9c4] dark:hover:text-white"
+                  }`}
+                >
+                  <Upload className="h-3 w-3" />
+                  Upload / Register PPMP
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPpmpMode("existing")}
+                  disabled={!ppmpEntries?.length}
+                  className={`px-2.5 py-1 text-[11px] font-medium rounded transition-colors flex items-center gap-1 ${
+                    ppmpMode === "existing"
+                      ? "bg-[#7b1e1e] text-white shadow-sm"
+                      : "text-[#66717e] hover:text-[#34404e] dark:text-[#aeb9c4] dark:hover:text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                  }`}
+                  title={!ppmpEntries?.length ? "No registered PPMP entries found in database" : ""}
+                >
+                  <FileSearch className="h-3 w-3" />
+                  Select Existing {ppmpEntries?.length ? `(${ppmpEntries.length})` : ""}
+                </button>
+              </div>
+            </div>
+
+            {/* Mode 1: Upload / Register Own PPMP */}
+            {ppmpMode === "upload" ? (
+              <div className="space-y-3 pt-1">
+                <div>
+                  <Label className="text-[11px] font-semibold text-[#4c5664] dark:text-[#f1f5f8] mb-1 block">
+                    Upload Department PPMP Document (PDF, Excel, Word, or Scanned Image)
+                  </Label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.xlsx,.xls,.docx,.doc,.png,.jpg,.jpeg"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="ppmp-file-upload-input"
+                  />
+                  {uploadedFile ? (
+                    <div className="flex items-center justify-between rounded-md border border-emerald-300 bg-emerald-50/80 dark:border-emerald-800 dark:bg-emerald-950/30 p-2.5 text-xs text-emerald-900 dark:text-emerald-200">
+                      <div className="flex items-center gap-2 truncate">
+                        <FileCheck2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <div className="truncate">
+                          <span className="font-semibold">{uploadedFile.name}</span>
+                          <span className="ml-2 text-[10px] text-emerald-700 dark:text-emerald-400 font-mono">
+                            ({(uploadedFile.size / 1024).toFixed(1)} KB)
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={removeUploadedFile}
+                        className="ml-2 rounded p-1 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+                        title="Remove file"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="group flex flex-col items-center justify-center rounded-md border-2 border-dashed border-[#dedad2] dark:border-[#46515c] hover:border-[#7b1e1e] dark:hover:border-[#ff837a] bg-white/60 dark:bg-[#1b2229]/60 p-4 text-center cursor-pointer transition-colors"
+                    >
+                      <Upload className="h-6 w-6 text-[#9a6d19] group-hover:text-[#7b1e1e] dark:text-[#f0c36a] dark:group-hover:text-[#ff837a] transition-colors mb-1.5" />
+                      <p className="text-xs font-semibold text-[#34404e] dark:text-[#f1f5f8]">
+                        Click or drag to attach your approved Department PPMP
+                      </p>
+                      <p className="text-[10px] text-[#77818d] dark:text-[#aeb9c4] mt-0.5">
+                        Supports PDF, Excel (.xlsx, .xls), Word (.docx), or scans (Max 14MB)
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 pt-1">
+                  <div>
+                    <Label className="text-[11px] font-semibold text-[#4c5664] dark:text-[#f1f5f8]">
+                      PPMP Project Title / Description
+                    </Label>
+                    <Input
+                      value={customPpmpTitle}
+                      onChange={(e) => setCustomPpmpTitle(e.target.value)}
+                      placeholder={purpose.trim() || "e.g. FY 2026 Office Supplies Procurement Plan"}
+                      className="mt-1 h-8 text-xs rounded-[4px] border-[#dedad2] dark:border-[#46515c] dark:bg-[#232c35]"
+                    />
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      Defaults to PR purpose if left blank.
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label className="text-[11px] font-semibold text-[#4c5664] dark:text-[#f1f5f8]">
+                      Fiscal Year (FY)
+                    </Label>
+                    <Input
+                      type="number"
+                      min={2020}
+                      max={2050}
+                      value={customPpmpYear}
+                      onChange={(e) => setCustomPpmpYear(Number(e.target.value))}
+                      className="mt-1 h-8 text-xs rounded-[4px] border-[#dedad2] dark:border-[#46515c] dark:bg-[#232c35]"
+                    />
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      Allocated budget year under institutional APP.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="pt-1">
+                <Select value={ppmpEntryId} onValueChange={setPpmpEntryId}>
+                  <SelectTrigger className="h-9 rounded-[4px] border-[#dedad2] dark:border-[#46515c] dark:bg-[#232c35] dark:text-[#f1f5f8] text-xs">
+                    <SelectValue placeholder="Select from registered PPMP entries" />
+                  </SelectTrigger>
+                  <SelectContent className="dark:border-[#46515c] dark:bg-[#1b2229] dark:text-[#f1f5f8]">
+                    {ppmpEntries?.map((entry) => (
+                      <SelectItem key={entry.id} value={String(entry.id)}>
+                        FY {entry.fiscalYear} — {entry.description}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
           <div className="sm:col-span-2"><Label htmlFor="pr-purpose" className="text-xs font-semibold text-[#4c5664] dark:text-[#f1f5f8]">Purpose</Label><Textarea id="pr-purpose" value={purpose} onChange={(event) => setPurpose(event.target.value)} placeholder="State the official purpose and intended use." className="mt-2 min-h-20 rounded-[4px] border-[#dedad2] dark:border-[#46515c] dark:bg-[#232c35] dark:text-[#f1f5f8] text-sm focus-visible:ring-[#7b1e1e]" /></div>
           <div>
             <Label className="text-xs font-semibold text-[#4c5664] dark:text-[#f1f5f8]">Requesting Office / Department</Label>

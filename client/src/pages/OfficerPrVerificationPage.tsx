@@ -392,6 +392,20 @@ export function OfficerPrVerificationPage() {
                               PPMP Linked · {item.linkedPpmp.modeOfProcurement || "SVP"}
                             </div>
                           </div>
+                        ) : (item as any).uploadedPpmpDoc ? (
+                          <div>
+                            <div className="truncate font-medium text-slate-700 dark:text-slate-300" title={(item as any).uploadedPpmpDoc.originalFileName}>
+                              {(item as any).uploadedPpmpDoc.originalFileName}
+                            </div>
+                            <a
+                              href={(item as any).uploadedPpmpDoc.storageUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium hover:underline inline-flex items-center gap-1"
+                            >
+                              PPMP Attached <ExternalLink className="h-2.5 w-2.5" />
+                            </a>
+                          </div>
                         ) : (
                           <span className="text-[11px] text-rose-500 font-medium">No linked PPMP</span>
                         )}
@@ -494,9 +508,9 @@ export function OfficerPrVerificationPage() {
                     <BookOpenCheck className="h-4 w-4 text-[#881337]" />
                     Linked PPMP Verification
                   </span>
-                  {selectedVerificationItem.linkedPpmp ? (
+                  {selectedVerificationItem.linkedPpmp || (selectedVerificationItem as any).uploadedPpmpDoc ? (
                     <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
-                      PPMP Verified
+                      PPMP Verified {(selectedVerificationItem as any).uploadedPpmpDoc ? "(Attached File)" : ""}
                     </Badge>
                   ) : (
                     <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 text-[10px]">
@@ -519,8 +533,28 @@ export function OfficerPrVerificationPage() {
                       <div className="font-medium text-slate-800 dark:text-slate-200">{selectedVerificationItem.linkedPpmp.modeOfProcurement || "SVP"}</div>
                     </div>
                   </div>
+                ) : (selectedVerificationItem as any).uploadedPpmpDoc ? (
+                  <div className="mt-2.5 text-xs text-slate-700 dark:text-slate-300">
+                    The End-User provided and attached an authorized department PPMP document to this package.
+                  </div>
                 ) : (
                   <p className="mt-2 text-xs text-rose-600">The End-User has not attached a valid PPMP entry to this Purchase Request.</p>
+                )}
+                {(selectedVerificationItem as any).uploadedPpmpDoc && (
+                  <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
+                      <FileText className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                      <span className="truncate max-w-xs">Attached PPMP: <strong className="font-medium">{(selectedVerificationItem as any).uploadedPpmpDoc.originalFileName}</strong></span>
+                    </div>
+                    <a
+                      href={(selectedVerificationItem as any).uploadedPpmpDoc.storageUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#881337] hover:underline dark:text-rose-400 shrink-0 ml-2"
+                    >
+                      <ExternalLink className="h-3 w-3" /> View / Download PPMP
+                    </a>
+                  </div>
                 )}
               </div>
 
