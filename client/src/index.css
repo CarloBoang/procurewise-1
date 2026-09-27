@@ -710,6 +710,12 @@ html[data-appearance-theme="dark"] {
     border-collapse: collapse !important;
   }
 
+  .excel-rendered-table td {
+    box-sizing: border-box !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+  }
+
   .excel-rendered-table tr {
     page-break-inside: avoid !important;
   }
@@ -731,6 +737,8 @@ html[data-appearance-theme="dark"] {
 
 .excel-rendered-table td {
   box-sizing: border-box;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 #pr-system-controls > .mt-7 > .overflow-x-auto { overflow-x: visible; }

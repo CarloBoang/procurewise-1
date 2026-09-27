@@ -14,8 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { OfficeSelect } from "@/components/OfficeSelect";
 import { IntegratedPreCanvassModal } from "@/components/IntegratedPreCanvassModal";
 import { trpc } from "@/lib/trpc";
-import { countValidPreCanvassQuotes, hasRequiredSupplierQuotations, normalizeProcurementRole } from "../../../shared/procurementRules";
-import { CheckCircle2, CircleAlert, FileSearch, Info, LoaderCircle, Plus, Search, Send, Star, Trash2 } from "lucide-react";
+import { countValidPreCanvassQuotes, detectMixedCategories, hasRequiredSupplierQuotations, normalizeProcurementRole, SECTION_5_1_1_CATEGORIES } from "../../../shared/procurementRules";
+import { AlertTriangle, CheckCircle2, CircleAlert, FileSearch, Info, LoaderCircle, Plus, Search, Send, ShieldAlert, Star, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearch } from "wouter";
 import { toast } from "sonner";
@@ -289,6 +289,11 @@ function PurchaseRequestForm({ setup, ppmpEntries, catalogItemIds, catalogSelect
   const selectedApprovedSignatory = approverSignatories.find((signatory) => signatoryLabel(signatory) === approvedSignatoryChoice);
   const selectedOffice = setup?.offices.find((office) => String(office.id) === officeId);
   const total = useMemo(() => items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.estimatedUnitCost) || 0), 0), [items]);
+  const categoryAnalysis = useMemo(() => {
+    const validItems = items.filter((item) => item.description.trim().length > 0);
+    return detectMixedCategories(validItems);
+  }, [items]);
+  const [mixedCategoryAcknowledged, setMixedCategoryAcknowledged] = useState(false);
   const updateItem = (index: number, field: keyof RequestItem, value: string) => setItems((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item));
   const addItem = () => setItems((current) => [...current, { catalogItemId: "", stockPropertyNo: "", description: "", specification: "", quantity: "", unit: "", estimatedUnitCost: "" }]);
   const submit = (event: React.FormEvent) => {
@@ -297,6 +302,9 @@ function PurchaseRequestForm({ setup, ppmpEntries, catalogItemIds, catalogSelect
     if (!purpose.trim() || !ppmpEntryId || !officeId || !objectId || items.some((item) => !item.description.trim() || Number(item.quantity) <= 0 || Number(item.estimatedUnitCost) <= 0)) return toast.error("Complete the PPMP, purpose, budget references, and at least one valid item.");
     if (requestedSignatoryChoice && !selectedRequestedSignatory) return toast.error("Choose Requested by from the authorized signatory suggestions.");
     if (approvedSignatoryChoice && !selectedApprovedSignatory) return toast.error("Choose Approved by from the authorized signatory suggestions.");
+    if (categoryAnalysis.isMixed && !mixedCategoryAcknowledged) {
+      return toast.error(`Section 5.1.1 Warning: Mixed categories detected (${categoryAnalysis.categoryLabels.join(" + ")}). Check the acknowledgement or separate items before submitting.`);
+    }
     onCreate({ purpose: purpose.trim(), fundSource: fundSource.trim() || undefined, fundCluster: fundCluster.trim() || undefined, responsibilityCenterCode: responsibilityCenterCode.trim() || undefined, requesterDesignation: selectedRequestedSignatory?.designation || undefined, requestedSignatoryId: selectedRequestedSignatory?.id, approvedSignatoryId: selectedApprovedSignatory?.id, ppmpEntryId: Number(ppmpEntryId), officeId: Number(officeId), objectOfExpenditureId: Number(objectId), items: items.map((item) => ({ catalogItemId: item.catalogItemId ? Number(item.catalogItemId) : undefined, stockPropertyNo: item.stockPropertyNo.trim() || undefined, description: item.description.trim(), specification: item.specification.trim() || undefined, quantity: Number(item.quantity), unit: item.unit.trim(), estimatedUnitCost: Number(item.estimatedUnitCost) })) });
   };
 
@@ -304,7 +312,40 @@ function PurchaseRequestForm({ setup, ppmpEntries, catalogItemIds, catalogSelect
     <form onSubmit={submit} className="min-w-0 space-y-6 print:m-0 print:p-0">
       <OfficialPurchaseRequestCanvas entityName={(setup as any)?.settings?.entityName || "[Agency / Institution Name]"} fundCluster={fundCluster} officeSection={selectedOffice ? `${selectedOffice.code} — ${selectedOffice.name}` : ""} responsibilityCenterCode={responsibilityCenterCode} purpose={purpose} requestedByName={selectedRequestedSignatory?.fullName} requestedByDesignation={selectedRequestedSignatory?.designation} approvedByName={selectedApprovedSignatory?.fullName} approvedByDesignation={selectedApprovedSignatory?.designation} items={items} />
 
-      <section aria-labelledby="pr-system-controls" className="border border-[#ded8cc] bg-[#fffdfa] dark:border-[#46515c] dark:bg-[#1b2229] p-4 sm:p-5 print:hidden no-print">{catalogItemIds.length > 0 && items.some((item) => catalogItemIds.includes(Number(item.catalogItemId))) && <div className="mb-4 border-l-2 border-[#7b1e1e] bg-[#f8f1e0] dark:border-[#ff837a] dark:bg-[#341f1f] px-3 py-2.5"><p className="text-[11px] font-semibold text-[#6f1a1a] dark:text-[#ff837a]">{catalogItemIds.length} catalog item{catalogItemIds.length === 1 ? "" : "s"} added</p><p className="mt-1 text-[10px] leading-4 text-[#75643e] dark:text-[#d1dae2]">The selected catalog items and saved quantities are prefilled below. Review and edit each quantity, unit, and estimated cost before saving.</p></div>}
+      <section aria-labelledby="pr-system-controls" className="border border-[#ded8cc] bg-[#fffdfa] dark:border-[#46515c] dark:bg-[#1b2229] p-4 sm:p-5 print:hidden no-print">
+        {categoryAnalysis.isMixed && (
+          <div className="mb-5 rounded-md border-2 border-rose-300 bg-rose-50/90 p-4 dark:border-rose-900 dark:bg-rose-950/40">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400 mt-0.5" />
+              <div className="space-y-1.5 text-xs">
+                <p className="font-bold text-rose-900 dark:text-rose-200">
+                  Section 5.1.1 Mandated Category Segregation Alert: Mixed Categories Detected
+                </p>
+                <p className="text-rose-800 dark:text-rose-300 leading-relaxed">
+                  The items in this request are mixed across multiple distinct categories:{" "}
+                  <span className="font-bold underline">
+                    {categoryAnalysis.categoryLabels.join(" + ")}
+                  </span>.
+                  Under institutional rules (Section 5.1.1), separate Purchase Requests must be filed for Office Supplies, Hardware Supplies, ICT Supplies, Printing Service, and Food Ingredients.
+                </p>
+                <p className="text-[11px] text-rose-700 dark:text-rose-400 font-medium">
+                  Notice: The Procurement Officer will return mixed-category requests for revision. To proceed anyway with this draft, check the confirmation box below:
+                </p>
+                <label className="mt-2 flex items-center gap-2 cursor-pointer pt-1 font-semibold text-rose-900 dark:text-rose-200">
+                  <input
+                    type="checkbox"
+                    checked={mixedCategoryAcknowledged}
+                    onChange={(e) => setMixedCategoryAcknowledged(e.target.checked)}
+                    className="h-4 w-4 rounded border-rose-300 text-rose-700 focus:ring-rose-500"
+                  />
+                  <span>I acknowledge that this package has mixed categories and may be returned under Section 5.1.1</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {catalogItemIds.length > 0 && items.some((item) => catalogItemIds.includes(Number(item.catalogItemId))) && <div className="mb-4 border-l-2 border-[#7b1e1e] bg-[#f8f1e0] dark:border-[#ff837a] dark:bg-[#341f1f] px-3 py-2.5"><p className="text-[11px] font-semibold text-[#6f1a1a] dark:text-[#ff837a]">{catalogItemIds.length} catalog item{catalogItemIds.length === 1 ? "" : "s"} added</p><p className="mt-1 text-[10px] leading-4 text-[#75643e] dark:text-[#d1dae2]">The selected catalog items and saved quantities are prefilled below. Review and edit each quantity, unit, and estimated cost before saving.</p></div>}
         <div className="mt-4 border-l-2 border-[#9a6d19] bg-[#fffaf0] dark:border-[#f0c36a] dark:bg-[#272118] px-3 py-2.5"><p className="text-[11px] font-semibold text-[#72561d] dark:text-[#f0c36a]">Item details — system entry workspace</p><p className="mt-1 text-[10px] leading-4 text-[#75643e] dark:text-[#d1dae2]">This part is used to choose a catalog item or enter a recorded item, quantity, unit, and authorized estimated cost. Those values populate the blank rows in the official Appendix 60 item grid above; this workspace is not part of the government form itself.</p></div>
         <div className="border-b border-[#e8e2d7] dark:border-[#46515c] pb-4">
           <p id="pr-system-controls" className="text-xs font-semibold text-[#34404e] dark:text-[#f1f5f8]">System controls — not part of Appendix 60</p>

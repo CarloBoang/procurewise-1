@@ -384,6 +384,12 @@ export function OfficerRfqDistributionPage({
                 ) : (
                   distItems.map((item) => {
                     const status = item.distributionStatus;
+                    const prEstimate = Number(item.purchaseRequest?.totalEstimate || 0);
+                    const requiresPhilgeps = prEstimate > 50000;
+                    const matchingPhilgeps = philgepsItems.find(
+                      (p) => p.rfqId === item.rfq.id || p.purchaseRequestId === item.purchaseRequest?.id
+                    );
+                    const isPhilgepsPosted = Boolean(matchingPhilgeps?.isPosted);
 
                     return (
                       <tr key={item.rfq.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
@@ -398,6 +404,22 @@ export function OfficerRfqDistributionPage({
                           <div className="truncate text-[11px] text-slate-500" title={item.purchaseRequest?.purpose}>
                             {item.purchaseRequest?.purpose || "Procurement Package"}
                           </div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">
+                            ABC: {formatMoney(item.purchaseRequest?.totalEstimate)}
+                          </div>
+                          {requiresPhilgeps && (
+                            <div className="mt-1">
+                              {isPhilgepsPosted ? (
+                                <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 text-[9px] py-0 px-1.5 font-normal">
+                                  <ShieldCheck className="mr-0.5 h-2.5 w-2.5 inline" /> PhilGEPS #{matchingPhilgeps?.philgepsReferenceNumber}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="border-amber-400 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 text-[9px] py-0 px-1.5 font-medium">
+                                  <AlertCircle className="mr-0.5 h-2.5 w-2.5 inline" /> PhilGEPS Req. (&gt; ₱50k)
+                                </Badge>
+                              )}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           {status === "transmitted_to_bac" ? (
@@ -468,14 +490,32 @@ export function OfficerRfqDistributionPage({
                               </Button>
                             )}
                             {status === "retrieved" && (
-                              <Button
-                                size="sm"
-                                onClick={() => handleOpenBacModal(item)}
-                                className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                              >
-                                <ArrowRight className="mr-1 h-3 w-3" />
-                                Transmit to BAC
-                              </Button>
+                              <>
+                                {requiresPhilgeps && !isPhilgepsPosted && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleOpenPhilgepsModal(matchingPhilgeps || {
+                                      purchaseRequestId: item.purchaseRequest?.id,
+                                      rfqId: item.rfq.id,
+                                      prNumber: item.purchaseRequest?.prNumber || `PR-#${item.purchaseRequest?.id}`,
+                                      rfqNumber: item.rfq.rfqNumber,
+                                    })}
+                                    className="h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white"
+                                    title="Document PhilGEPS Reference (Mandatory for ABC > ₱50k)"
+                                  >
+                                    <Globe className="mr-1 h-3 w-3" />
+                                    Post PhilGEPS
+                                  </Button>
+                                )}
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleOpenBacModal(item)}
+                                  className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                                >
+                                  <ArrowRight className="mr-1 h-3 w-3" />
+                                  Transmit to BAC
+                                </Button>
+                              </>
                             )}
                             {status === "transmitted_to_bac" && (
                               <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 text-[10px]">
@@ -637,64 +677,114 @@ export function OfficerRfqDistributionPage({
       )}
 
       {/* BAC Transmittal Modal */}
-      {selectedRfqForBac && (
-        <Dialog open={Boolean(selectedRfqForBac)} onOpenChange={(open) => !open && setSelectedRfqForBac(null)}>
-          <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="text-base font-bold text-slate-900 dark:text-white">
-                Formal Transmittal to Bids & Awards Committee (BAC)
-              </DialogTitle>
-              <DialogDescription className="text-xs">
-                Formally transmit retrieved quotations to the BAC Secretariat for Abstract of Quotations (AOQ) preparation.
-              </DialogDescription>
-            </DialogHeader>
+      {selectedRfqForBac && (() => {
+        const prEstimate = Number(selectedRfqForBac.purchaseRequest?.totalEstimate || 0);
+        const requiresPhilgeps = prEstimate > 50000;
+        const matchingPhilgeps = philgepsItems.find(
+          (p) => p.rfqId === selectedRfqForBac.rfq.id || p.purchaseRequestId === selectedRfqForBac.purchaseRequest?.id
+        );
+        const isPhilgepsPosted = Boolean(matchingPhilgeps?.isPosted);
+        const canTransmit = !requiresPhilgeps || isPhilgepsPosted;
 
-            <div className="space-y-3 pt-2 text-xs">
-              <div>
-                <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Recipient Office / Committee:</Label>
-                <Input
-                  value={bacOffice}
-                  onChange={(e) => setBacOffice(e.target.value)}
-                  className="mt-1 h-8 text-xs"
-                />
+        return (
+          <Dialog open={Boolean(selectedRfqForBac)} onOpenChange={(open) => !open && setSelectedRfqForBac(null)}>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="text-base font-bold text-slate-900 dark:text-white">
+                  Formal Transmittal to Bids & Awards Committee (BAC)
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Formally transmit retrieved quotations to the BAC Secretariat for Abstract of Quotations (AOQ) preparation.
+                </DialogDescription>
+              </DialogHeader>
+
+              {/* Section 54.2 Compliance Alert */}
+              {requiresPhilgeps && !isPhilgepsPosted && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200 text-xs space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold">RA 9184 IRR Section 54.2 Compliance Guard</p>
+                      <p className="mt-0.5 text-[11px] leading-relaxed">
+                        This procurement package has an ABC of <strong>{formatMoney(prEstimate)}</strong> (exceeding ₱50,000.00). Section 54.2 mandates a documented PhilGEPS posting reference number before transmittal to the BAC Secretariat.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const pkgToPost = matchingPhilgeps || {
+                        purchaseRequestId: selectedRfqForBac.purchaseRequest?.id,
+                        rfqId: selectedRfqForBac.rfq.id,
+                        prNumber: selectedRfqForBac.purchaseRequest?.prNumber || `PR-#${selectedRfqForBac.purchaseRequest?.id}`,
+                        rfqNumber: selectedRfqForBac.rfq.rfqNumber,
+                      };
+                      setSelectedRfqForBac(null);
+                      handleOpenPhilgepsModal(pkgToPost);
+                    }}
+                    className="w-full text-xs border-amber-400 text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/50 font-medium"
+                  >
+                    <Globe className="mr-1.5 h-3.5 w-3.5" />
+                    Document PhilGEPS Posting Reference Now
+                  </Button>
+                </div>
+              )}
+
+              {requiresPhilgeps && isPhilgepsPosted && (
+                <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300 flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>PhilGEPS Reference Documented: <strong>{matchingPhilgeps?.philgepsReferenceNumber}</strong> (Section 54.2 Verified)</span>
+                </div>
+              )}
+
+              <div className="space-y-3 pt-2 text-xs">
+                <div>
+                  <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Recipient Office / Committee:</Label>
+                  <Input
+                    value={bacOffice}
+                    onChange={(e) => setBacOffice(e.target.value)}
+                    className="mt-1 h-8 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Transmittal Subject:</Label>
+                  <Input
+                    value={bacSubject}
+                    onChange={(e) => setBacSubject(e.target.value)}
+                    className="mt-1 h-8 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Transmittal Remarks / Scope:</Label>
+                  <Textarea
+                    value={bacRemarks}
+                    onChange={(e) => setBacRemarks(e.target.value)}
+                    className="mt-1 text-xs min-h-[80px]"
+                  />
+                </div>
               </div>
 
-              <div>
-                <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Transmittal Subject:</Label>
-                <Input
-                  value={bacSubject}
-                  onChange={(e) => setBacSubject(e.target.value)}
-                  className="mt-1 h-8 text-xs"
-                />
-              </div>
-
-              <div>
-                <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Transmittal Remarks / Scope:</Label>
-                <Textarea
-                  value={bacRemarks}
-                  onChange={(e) => setBacRemarks(e.target.value)}
-                  className="mt-1 text-xs min-h-[80px]"
-                />
-              </div>
-            </div>
-
-            <DialogFooter className="mt-3">
-              <Button variant="outline" size="sm" onClick={() => setSelectedRfqForBac(null)} className="text-xs">
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                disabled={transmitBacMutation.isPending}
-                onClick={handleConfirmBacTransmit}
-                className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                {transmitBacMutation.isPending && <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                Transmit to BAC
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+              <DialogFooter className="mt-3">
+                <Button variant="outline" size="sm" onClick={() => setSelectedRfqForBac(null)} className="text-xs">
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={transmitBacMutation.isPending || !canTransmit}
+                  onClick={handleConfirmBacTransmit}
+                  className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
+                >
+                  {transmitBacMutation.isPending && <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                  Transmit to BAC
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
 
       {/* PhilGEPS Modal */}
       {selectedPkgForPhilgeps && (

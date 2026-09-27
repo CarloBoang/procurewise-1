@@ -836,9 +836,11 @@ export async function transmitRfqToBac(
     subject?: string;
     remarks?: string;
   },
-  user: User
+  user: User,
+  options?: ProcurementWorkflowOptions & { bypassPhilgepsCheck?: boolean }
 ) {
-  const db = await requireDb();
+  const db = options?.db ?? (await requireDb());
+  const auditWriter = options?.recordAudit ?? writeAuditEvent;
   const actorRole = normalizeProcurementRole(user.role);
   if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
     throw new Error("Access restricted to Procurement Officer.");
@@ -846,6 +848,21 @@ export async function transmitRfqToBac(
   const [rfq] = await db.select().from(rfqs).where(eq(rfqs.id, input.rfqId)).limit(1);
   if (!rfq) throw new Error("RFQ not found.");
   const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, rfq.purchaseRequestId)).limit(1);
+
+  if (!options?.bypassPhilgepsCheck && pr && Number(pr.totalEstimate || 0) > 50000) {
+    const philgepsAudits = await db
+      .select()
+      .from(auditTrails)
+      .where(eq(auditTrails.action, "philgeps_posted"));
+    const isPosted = philgepsAudits.some(
+      (a: any) => a.entityId === pr.id || (a.details as any)?.rfqId === rfq.id
+    );
+    if (!isPosted) {
+      throw new Error(
+        "Under Section 54.2 of RA 9184 IRR, procurement packages with ABC exceeding ₱50,000.00 require a documented PhilGEPS posting reference number before transmittal to BAC."
+      );
+    }
+  }
 
   const transmittalNumber = `BAC-T-${new Date().getFullYear()}-${Date.now().toString().slice(-7)}`;
   await db.insert(bacTransmittals).values({
@@ -862,7 +879,7 @@ export async function transmitRfqToBac(
 
   const [transmittal] = await db.select().from(bacTransmittals).where(eq(bacTransmittals.transmittalNumber, transmittalNumber)).limit(1);
 
-  await writeAuditEvent({
+  await auditWriter({
     entityType: "rfq_distribution",
     entityId: rfq.id,
     action: "transmitted_to_bac",
@@ -880,7 +897,7 @@ export async function transmitRfqToBac(
     title: `RFQ Package Transmitted to BAC (${transmittalNumber})`,
     body: `Procurement Officer transmitted retrieved RFQ quotations for PR ${pr?.prNumber ?? ""}. Ready for AOQ creation.`,
     entityType: "bac_transmittal",
-    entityId: transmittal.id,
+    entityId: transmittal?.id,
   });
 
   return transmittal;
@@ -1220,7 +1237,8 @@ export async function createWorkflowNotification(input: { recipientUserId: numbe
 }
 
 export async function notifyRoles(roles: ProcurementRole[], input: Omit<Parameters<typeof createWorkflowNotification>[0], "recipientUserId">) {
-  const db = await requireDb();
+  const db = await getDb();
+  if (!db) return;
   const people = await db.select().from(users);
   const recipientIds = Array.from(new Set(people.filter((person) => roleCanAct(normalizeProcurementRole(person.role), roles)).map((person) => person.id)));
   await Promise.all(recipientIds.map((recipientUserId) => createWorkflowNotification({ ...input, recipientUserId })));

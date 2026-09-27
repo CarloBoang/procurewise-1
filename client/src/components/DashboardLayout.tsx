@@ -818,7 +818,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* ── Main content (proper padding & breathing room) ────────────────── */}
         <div className="flex-1 flex flex-col min-w-0 w-full transition-all duration-300 ease-in-out">
-          <main className="min-w-0 flex-1 overflow-x-auto pt-20 lg:pt-8 px-4 sm:px-6 md:px-8 pb-12 print:p-0 transition-all duration-300 ease-in-out">
+          <main className="min-w-0 flex-1 overflow-x-auto pt-20 lg:pt-10 px-4 sm:px-6 md:px-8 pb-12 print:p-0 transition-all duration-300 ease-in-out">
             <div className="mx-auto w-full max-w-[1440px]">
               {children}
             </div>
