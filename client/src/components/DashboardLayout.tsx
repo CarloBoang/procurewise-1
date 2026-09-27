@@ -492,6 +492,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   // ── Sidebar nav item ───────────────────────────────────────────────────────
+  // ── Sidebar nav item ───────────────────────────────────────────────────────
   const NavItem = ({ item }: { item: (typeof navigation)[0] }) => {
     const label = getLabel(item);
     const active = location === item.path;
@@ -504,8 +505,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         aria-current={active ? "page" : undefined}
         style={active ? { boxShadow: "0 0 14px rgba(136,19,55,0.22)" } : undefined}
         className={[
-          "group relative flex w-full items-center rounded-xl py-2 text-left transition-all duration-150",
-          isCollapsed ? "justify-center px-2" : "px-3 gap-2.5",
+          "group relative transition-all duration-150",
+          isCollapsed
+            ? "w-full flex justify-center items-center px-0 my-2 rounded-xl py-2"
+            : "flex w-full items-center rounded-xl py-2 px-3 gap-2.5 text-left",
           active
             ? "border border-[#881337]/30 dark:border-[#881337]/50 bg-[#881337]/10 dark:bg-[#881337]/25 text-[#881337] dark:text-white font-semibold before:bg-[#d5ab55]"
             : "border border-transparent text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200",
@@ -514,7 +517,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Active top accent hairline */}
         {active && (
           <span
-            className="pointer-events-none absolute inset-x-3 top-0 h-px rounded-full before:bg-[#d5ab55]"
+            className="pointer-events-none absolute inset-x-2 top-0 h-px rounded-full before:bg-[#d5ab55]"
             style={{ background: "linear-gradient(90deg, transparent, #e11d48, transparent)" }}
           />
         )}
@@ -522,8 +525,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Icon container */}
         <span
           className={[
-            "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors",
-            isCollapsed ? "" : "mr-0",
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+            isCollapsed ? "mx-auto" : "",
             active
               ? "bg-[#881337]/15 dark:bg-[#881337]/35 text-[#881337] dark:text-[#fda4af]"
               : "bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 group-hover:bg-slate-200 dark:group-hover:bg-slate-700/80 group-hover:text-slate-800 dark:group-hover:text-slate-200",
@@ -541,9 +544,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
 
     return isCollapsed ? (
-      <Tooltip key={item.path}>
+      <Tooltip key={item.path} delayDuration={50}>
         <TooltipTrigger asChild>{btn}</TooltipTrigger>
-        <TooltipContent side="right" className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-xs font-medium text-slate-800 dark:text-slate-200 shadow-md">
+        <TooltipContent side="right" className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-xs font-medium text-slate-800 dark:text-slate-200 shadow-md z-50">
           {label}
         </TooltipContent>
       </Tooltip>
@@ -632,40 +635,34 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="relative shrink-0 hidden lg:block sticky top-0 h-screen max-h-screen z-20 print:hidden no-print">
           <aside
             className={[
-              "sidebar-rail flex flex-col h-screen max-h-screen overflow-hidden border-r transition-all duration-200",
-              "bg-white dark:bg-[#0c1322] border-slate-200 dark:border-slate-800/80 text-slate-800 dark:text-slate-200",
-              isCollapsed ? "w-[70px]" : "w-64",
+              "sidebar-rail flex flex-col justify-between h-screen max-h-screen overflow-hidden border-r transition-all duration-300 ease-in-out",
+              "bg-white dark:bg-[#0c1322] border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200",
+              isCollapsed ? "w-[72px]" : "w-64",
             ].join(" ")}
           >
             {/* ── Header Section (Top) ── */}
-            <div className={`flex h-16 shrink-0 items-center border-b border-slate-200 dark:border-slate-800/80 ${isCollapsed ? "justify-center px-2" : "justify-between px-4"}`}>
-              {isCollapsed ? (
-                <div className="flex flex-col items-center gap-2">
+            {isCollapsed ? (
+              <div className="flex h-16 w-full shrink-0 items-center justify-center border-b border-slate-200 dark:border-slate-800">
+                <div className="mx-auto my-3 flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#d2b058]/40 bg-white p-0.5 shadow-sm">
+                  <img src="/bsc-logo.jpg" alt="BSC Logo" className="h-full w-full rounded-lg object-contain" />
+                </div>
+              </div>
+            ) : (
+              <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 dark:border-slate-800 px-4">
+                <div className="flex items-center gap-3">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#d2b058]/40 bg-white p-0.5 shadow-sm">
                     <img src="/bsc-logo.jpg" alt="BSC Logo" className="h-full w-full rounded-lg object-contain" />
                   </div>
-                  <div className="flex flex-col items-center gap-1.5 pt-1">
-                    <NotificationCenterDrawer triggerVariant="minimal" />
-                    <ThemeToggle />
+                  <div>
+                    <p className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900 dark:text-white leading-tight">ProcureWise</p>
                   </div>
                 </div>
-              ) : (
-                <>
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#d2b058]/40 bg-white p-0.5 shadow-sm">
-                      <img src="/bsc-logo.jpg" alt="BSC Logo" className="h-full w-full rounded-lg object-contain" />
-                    </div>
-                    <div>
-                      <p className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900 dark:text-white leading-tight">ProcureWise</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <NotificationCenterDrawer triggerVariant="minimal" />
-                    <ThemeToggle />
-                  </div>
-                </>
-              )}
-            </div>
+                <div className="flex items-center gap-1.5">
+                  <NotificationCenterDrawer triggerVariant="minimal" />
+                  <ThemeToggle />
+                </div>
+              </div>
+            )}
 
             {/* ── Search (expanded only) ── */}
             {!isCollapsed && (
@@ -685,11 +682,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
 
             {/* ── Navigation Links Area (Middle - ONLY scrollable section) ── */}
-            <div className="sidebar-nav-scroll flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 py-2">
+            <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-thumb]:bg-slate-700 [&::-webkit-scrollbar-thumb]:rounded-full overflow-x-hidden">
               {Object.entries(grouped).map(([cat, items]) => {
                 const isSectionCollapsed = Boolean(collapsedSections[cat]);
                 return (
-                  <div key={cat} className="mb-3">
+                  <div key={cat} className={isCollapsed ? "mb-1" : "mb-3"}>
                     {!isCollapsed && (
                       <button
                         type="button"
@@ -715,8 +712,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               })}
             </div>
 
-            {/* ── Footer & Profile Section (Bottom - Pinned firmly) ── */}
-            <div className="shrink-0 mt-auto border-t border-slate-200 dark:border-slate-800/80 p-3 space-y-2">
+            {/* ── Bottom pinned section (Footer & Profile) ── */}
+            <div className="shrink-0 border-t border-slate-200 dark:border-slate-800 p-3 bg-inherit space-y-2">
               {/* Help & Support row */}
               {!isCollapsed ? (
                 <button
@@ -730,82 +727,77 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <span className="sidebar-nav-label flex-1 truncate">Help &amp; Support</span>
                 </button>
               ) : (
-                <Tooltip>
+                <Tooltip delayDuration={50}>
                   <TooltipTrigger asChild>
                     <button
                       type="button"
                       onClick={() => setHelpOpen(true)}
-                      className="flex w-full items-center justify-center rounded-xl py-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-800 dark:hover:text-slate-200"
+                      className="flex h-9 w-9 mx-auto items-center justify-center rounded-xl text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+                      aria-label="Help & Support"
                     >
-                      <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800/80">
-                        <LifeBuoy className="h-4 w-4" />
-                      </span>
+                      <LifeBuoy className="h-4 w-4" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="right" className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-xs text-slate-800 dark:text-slate-200">
+                  <TooltipContent side="right" className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-xs text-slate-800 dark:text-slate-200 shadow-md z-50">
                     Help &amp; Support
                   </TooltipContent>
                 </Tooltip>
               )}
 
               {/* Pinned profile card */}
-              <div
-                className={`rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-[#121826] transition-colors ${
-                  isCollapsed ? "flex h-11 w-full items-center justify-center p-1" : "p-2.5"
-                }`}
-              >
-                {isCollapsed ? (
-                  <Tooltip>
+              {isCollapsed ? (
+                <div className="flex justify-center items-center py-1">
+                  <Tooltip delayDuration={50}>
                     <TooltipTrigger asChild>
                       <button
                         type="button"
                         onClick={() => setEditProfileOpen(true)}
-                        className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#881337]/15 dark:bg-[#881337]/25 ring-2 ring-[#881337]/30 transition hover:ring-[#881337]/60"
+                        className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#881337]/15 dark:bg-[#881337]/25 ring-2 ring-[#881337]/30 transition hover:ring-[#881337]/60"
                         title="Edit profile"
                       >
                         <span className="text-xs font-bold text-[#881337] dark:text-[#fda4af]">{userInitials}</span>
                         <span className="absolute top-0 right-0 h-2 w-2 rounded-full border-2 border-white dark:border-[#121826] bg-emerald-500" />
                       </button>
                     </TooltipTrigger>
-                    <TooltipContent side="right" className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-xs text-slate-800 dark:text-slate-200 shadow-md">
-                      {user.name || "Procurement User"}<br />
-                      <span className="text-[#881337] dark:text-[#fda4af] font-semibold">{roleLabel}</span>
+                    <TooltipContent side="right" className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0f172a] text-xs text-slate-800 dark:text-slate-200 shadow-md z-50">
+                      <p className="font-semibold">{user.name || "Procurement User"}</p>
+                      <p className="text-[#881337] dark:text-[#fda4af] text-[10px]">{roleLabel}</p>
                     </TooltipContent>
                   </Tooltip>
-                ) : (
-                  <div className="flex items-center gap-2.5">
-                    {/* Avatar */}
-                    <button
-                      type="button"
-                      onClick={() => setEditProfileOpen(true)}
-                      className="relative flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-full bg-[#881337]/15 dark:bg-[#881337]/25 ring-2 ring-[#881337]/30 transition hover:ring-[#881337]/60"
-                      title="Edit profile"
-                    >
-                      <span className="text-xs font-bold text-[#881337] dark:text-[#fda4af]">{userInitials}</span>
-                      <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-[#121826] bg-emerald-500" />
-                    </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-[#121826] p-2.5 transition-colors">
+                  {/* Avatar */}
+                  <button
+                    type="button"
+                    onClick={() => setEditProfileOpen(true)}
+                    className="relative flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-full bg-[#881337]/15 dark:bg-[#881337]/25 ring-2 ring-[#881337]/30 transition hover:ring-[#881337]/60"
+                    title="Edit profile"
+                  >
+                    <span className="text-xs font-bold text-[#881337] dark:text-[#fda4af]">{userInitials}</span>
+                    <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-[#121826] bg-emerald-500" />
+                  </button>
 
-                    {/* Name + role */}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-semibold leading-tight text-slate-800 dark:text-slate-100">
-                        {user.name || "Procurement User"}
-                      </p>
-                      <p className="truncate text-[10px] leading-tight text-[#881337] dark:text-[#fda4af] font-medium mt-0.5">{roleLabel}</p>
-                    </div>
-
-                    {/* Logout */}
-                    <button
-                      type="button"
-                      onClick={() => void handleLogout()}
-                      aria-label="Sign out"
-                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-200/80 dark:bg-slate-800 text-slate-500 dark:text-slate-400 transition hover:bg-rose-500/20 hover:text-rose-500 dark:hover:text-rose-400"
-                      title="Sign out"
-                    >
-                      <LogOut className="h-3.5 w-3.5" />
-                    </button>
+                  {/* Name + role */}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs font-semibold leading-tight text-slate-800 dark:text-slate-100">
+                      {user.name || "Procurement User"}
+                    </p>
+                    <p className="truncate text-[10px] leading-tight text-[#881337] dark:text-[#fda4af] font-medium mt-0.5">{roleLabel}</p>
                   </div>
-                )}
-              </div>
+
+                  {/* Logout */}
+                  <button
+                    type="button"
+                    onClick={() => void handleLogout()}
+                    aria-label="Sign out"
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-200/80 dark:bg-slate-800 text-slate-500 dark:text-slate-400 transition hover:bg-rose-500/20 hover:text-rose-500 dark:hover:text-rose-400"
+                    title="Sign out"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
           </aside>
 
@@ -814,19 +806,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             type="button"
             onClick={toggleSidebar}
             aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="absolute top-1/2 -translate-y-1/2 -right-3 z-30 flex items-center justify-center w-6 h-6 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0c1322] text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white shadow-md cursor-pointer transition-transform duration-200 hover:scale-110 active:scale-95"
+            className="absolute top-1/2 -translate-y-1/2 -right-3.5 z-40 w-7 h-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full shadow-md flex items-center justify-center cursor-pointer transition-all hover:scale-110 active:scale-95"
           >
-            <ChevronLeft
-              className={`h-3.5 w-3.5 transition-transform duration-200 ${
-                isCollapsed ? "rotate-180" : "rotate-0"
-              }`}
-            />
+            {isCollapsed ? (
+              <ChevronRight className="h-3.5 w-3.5 text-slate-600 dark:text-slate-300" />
+            ) : (
+              <ChevronLeft className="h-3.5 w-3.5 text-slate-600 dark:text-slate-300" />
+            )}
           </button>
         </div>
 
         {/* ── Main content (proper padding & breathing room) ────────────────── */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <main className="min-w-0 flex-1 overflow-x-hidden pt-20 lg:pt-8 px-6 md:px-10 pb-12 print:p-0 transition-colors">
+        <div className="flex-1 flex flex-col min-w-0 w-full transition-all duration-300 ease-in-out">
+          <main className="min-w-0 flex-1 overflow-x-auto pt-20 lg:pt-8 px-4 sm:px-6 md:px-8 pb-12 print:p-0 transition-all duration-300 ease-in-out">
             <div className="mx-auto w-full max-w-[1440px]">
               {children}
             </div>

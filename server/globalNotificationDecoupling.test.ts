@@ -128,22 +128,27 @@ describe("Global Notification Architecture Decoupling across All Roles", () => {
   describe("4. Viewport-Locked Height & Centered Pull-Tab Sidebar Toggle", () => {
     it("locks sidebar root to viewport height without outer page scrolling", () => {
       expect(dashboardLayoutSource).toContain("sticky top-0 h-screen max-h-screen");
-      expect(dashboardLayoutSource).toContain("flex flex-col h-screen max-h-screen overflow-hidden");
+      expect(dashboardLayoutSource).toContain("flex flex-col justify-between h-screen max-h-screen overflow-hidden");
+      expect(dashboardLayoutSource).toContain("isCollapsed ? \"w-[72px]\" : \"w-64\"");
     });
 
     it("restricts scrolling to navigation links area only with slim custom scrollbar", () => {
-      expect(dashboardLayoutSource).toContain("sidebar-nav-scroll flex-1 min-h-0 overflow-y-auto");
+      expect(dashboardLayoutSource).toContain("flex-1 min-h-0 overflow-y-auto px-3 py-2 [&::-webkit-scrollbar]:w-1.5");
     });
 
     it("pins footer & profile section firmly to the bottom", () => {
-      expect(dashboardLayoutSource).toContain("shrink-0 mt-auto border-t");
+      expect(dashboardLayoutSource).toContain("shrink-0 border-t border-slate-200 dark:border-slate-800 p-3 bg-inherit space-y-2");
       // Old collapse button inside the footer is removed
       expect(dashboardLayoutSource).not.toContain("Expand sidebar\" : \"Collapse sidebar\"}\n                    className=\"flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100");
     });
 
     it("implements centered pull-tab toggle pinned to vertical midpoint of right border", () => {
-      expect(dashboardLayoutSource).toContain("absolute top-1/2 -translate-y-1/2 -right-3 z-30 flex items-center justify-center w-6 h-6 rounded-full");
-      expect(dashboardLayoutSource).toContain("isCollapsed ? \"w-[70px]\" : \"w-64\"");
+      expect(dashboardLayoutSource).toContain("absolute top-1/2 -translate-y-1/2 -right-3.5 z-40 w-7 h-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full shadow-md flex items-center justify-center cursor-pointer transition-all hover:scale-110");
+    });
+
+    it("centers logo in collapsed header and synchronizes main canvas transition", () => {
+      expect(dashboardLayoutSource).toContain("mx-auto my-3 flex h-9 w-9 shrink-0 items-center justify-center");
+      expect(dashboardLayoutSource).toContain("transition-all duration-300 ease-in-out");
     });
   });
 });
