@@ -11,17 +11,19 @@ import { trpc } from "@/lib/trpc";
 import { CheckCircle2, Circle, FileSignature, LoaderCircle, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { OFFICIAL_ROLE_LABELS } from "../../../shared/procurementRules";
+import { OFFICIAL_ROLE_LABELS, normalizeProcurementRole } from "../../../shared/procurementRules";
 
 const roleLabels = { end_user: OFFICIAL_ROLE_LABELS.end_user, procurement_officer: "Procurement Office (legacy)", procurement_officer_i: OFFICIAL_ROLE_LABELS.procurement_officer_i, procurement_officer_ii: OFFICIAL_ROLE_LABELS.procurement_officer_ii, procurement_staff: OFFICIAL_ROLE_LABELS.procurement_staff, administrative_approver: OFFICIAL_ROLE_LABELS.administrative_approver, bac_secretariat: OFFICIAL_ROLE_LABELS.bac_secretariat, bac: OFFICIAL_ROLE_LABELS.bac, hope: OFFICIAL_ROLE_LABELS.hope, budget_officer: OFFICIAL_ROLE_LABELS.budget_officer, supplier_contractor: OFFICIAL_ROLE_LABELS.supplier_contractor, admin: OFFICIAL_ROLE_LABELS.admin } as const;
 
 export default function SetupPage() {
   const { user, loading: authLoading } = useAuth();
-  const isAdmin = user?.role === "admin";
+  const role = user ? normalizeProcurementRole(user.role) : "end_user";
+  const isOfficerOrAdmin = role === "admin" || role === "procurement_officer";
+  const isAdmin = role === "admin";
   const utils = trpc.useUtils();
   const setup = trpc.procurement.setup.details.useQuery(undefined, { retry: false });
-  const users = trpc.procurement.setup.users.useQuery(undefined, { retry: false, enabled: Boolean(isAdmin) });
-  const purchaseRequestSignatories = trpc.procurement.purchaseRequests.signatories.useQuery(undefined, { retry: false, enabled: Boolean(isAdmin) });
+  const users = trpc.procurement.setup.users.useQuery(undefined, { retry: false, enabled: Boolean(isOfficerOrAdmin) });
+  const purchaseRequestSignatories = trpc.procurement.purchaseRequests.signatories.useQuery(undefined, { retry: false, enabled: Boolean(isOfficerOrAdmin) });
   const refresh = () => { void utils.procurement.setup.details.invalidate(); };
   const createOffice = trpc.procurement.setup.createOffice.useMutation({ onSuccess: () => { toast.success("Office added."); refresh(); }, onError: (error) => toast.error(error.message) });
   const createObject = trpc.procurement.setup.createObjectOfExpenditure.useMutation({ onSuccess: () => { toast.success("Object of expenditure added."); refresh(); }, onError: (error) => toast.error(error.message) });

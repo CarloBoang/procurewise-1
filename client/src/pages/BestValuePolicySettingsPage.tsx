@@ -23,9 +23,10 @@ function createWeightDraft(weights: Array<{ criterionKey: string; weight: number
 
 export function BestValuePolicySettingsPage() {
   const { user } = useAuth();
-  const isAdmin = user ? normalizeProcurementRole(user.role) === "admin" : false;
-  const policy = trpc.procurement.bestValuePolicy.active.useQuery(undefined, { enabled: isAdmin, retry: false });
-  const history = trpc.procurement.bestValuePolicy.history.useQuery(undefined, { enabled: isAdmin, retry: false });
+  const role = user ? normalizeProcurementRole(user.role) : "end_user";
+  const canAccess = role === "admin" || role === "procurement_officer";
+  const policy = trpc.procurement.bestValuePolicy.active.useQuery(undefined, { enabled: canAccess, retry: false });
+  const history = trpc.procurement.bestValuePolicy.history.useQuery(undefined, { enabled: canAccess, retry: false });
   const utils = trpc.useUtils();
   const [policyName, setPolicyName] = useState("Initial Best Value Policy");
   const [weights, setWeights] = useState<WeightDraft>(() => createWeightDraft([]));
@@ -51,7 +52,7 @@ export function BestValuePolicySettingsPage() {
     onError: (error) => toast.error(error.message),
   });
 
-  if (!isAdmin) {
+  if (!canAccess) {
     return <div className="mx-auto max-w-[980px]"><PageHeader eyebrow="Administrative controls" title="Best Value Policy" description="Only administrators may review or revise the institution’s saved recommendation criteria." /><section className="flat-panel mt-7 p-6 text-center"><ShieldCheck className="mx-auto h-7 w-7 text-[#9a6d19]" /><p className="mt-3 text-sm font-semibold text-[#3f4a57]">Administrative permission required</p><p className="mx-auto mt-1 max-w-xl text-[11px] leading-5 text-[#77818d]">Your current role cannot view or change Best Value policy weights. Procurement recommendation and approval controls remain role-gated.</p></section></div>;
   }
 

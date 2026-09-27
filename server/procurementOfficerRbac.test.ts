@@ -104,4 +104,54 @@ describe("Procurement Officer RBAC & Section 5.1.1 Mandate Boundaries", () => {
       officerCaller.procurement.preCanvasses.create({ purchaseRequestId: 1 })
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
+
+  it("verifies Procurement Officer navigation scope and decoupled notification center", async () => {
+    const { readFileSync } = await import("node:fs");
+    const dashboardLayout = readFileSync(
+      new URL("../client/src/components/DashboardLayout.tsx", import.meta.url),
+      "utf8"
+    );
+
+    // 1. Mandatory Retained & Mandated Modules in allowedOfficerPaths
+    const requiredOfficerPaths = [
+      "/dashboard",
+      "/officer/pr-verification",
+      "/officer/rfq-distribution",
+      "/officer/philgeps",
+      "/officer/notices-serving",
+      "/officer/releasing",
+      "/officer/delivery-monitoring",
+      "/supplier-evaluation-form",
+      "/budgets",
+      "/analytics",
+      "/officer/forecast",
+      "/audit",
+      "/pmr-history",
+      "/best-value-policy",
+      "/setup",
+      "/form-templates",
+    ];
+
+    for (const path of requiredOfficerPaths) {
+      expect(dashboardLayout).toContain(`"${path}"`);
+    }
+
+    // 2. Strictly Hidden Modules for Officer (End-User only)
+    expect(dashboardLayout).not.toMatch(
+      /allowedOfficerPaths\s*=\s*\[[^\]]*"\/catalog"[^\]]*\]/
+    );
+    expect(dashboardLayout).not.toMatch(
+      /allowedOfficerPaths\s*=\s*\[[^\]]*"\/purchase-requests"[^\]]*\]/
+    );
+    expect(dashboardLayout).not.toMatch(
+      /allowedOfficerPaths\s*=\s*\[[^\]]*"\/rfq"[^\]]*\]/
+    );
+
+    // 3. Notification Center is standalone and independent from Help & Support
+    expect(dashboardLayout).toContain("NotificationCenterDrawer");
+    expect(dashboardLayout).toContain("HelpSupportDialog");
+    // Help & Support must NOT link to notifications
+    expect(dashboardLayout).not.toMatch(/onClick=\{[^}]*setLocation\("\/notifications"\)[^}]*\}\s*className="[^"]*"\s*>\s*<span[^>]*>\s*<LifeBuoy/);
+  });
 });
+

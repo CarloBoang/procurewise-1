@@ -46,8 +46,10 @@ function Router() {
       <Route path={"/track"} component={PublicTrackingPage} />
       <Route path={"/dashboard"}>{protectedPage(<Dashboard />)}</Route>
       <Route path={"/officer/pr-verification"}>{protectedPage(<OfficerPrVerificationPage />)}</Route>
-      <Route path={"/officer/rfq-distribution"}>{protectedPage(<OfficerRfqDistributionPage />)}</Route>
-      <Route path={"/officer/releasing"}>{protectedPage(<OfficerReleasingPage />)}</Route>
+      <Route path={"/officer/rfq-distribution"}>{protectedPage(<OfficerRfqDistributionPage initialTab="distribution" />)}</Route>
+      <Route path={"/officer/philgeps"}>{protectedPage(<OfficerRfqDistributionPage initialTab="philgeps" />)}</Route>
+      <Route path={"/officer/notices-serving"}>{protectedPage(<OfficerReleasingPage initialTab="notices" />)}</Route>
+      <Route path={"/officer/releasing"}>{protectedPage(<OfficerReleasingPage initialTab="pos" />)}</Route>
       <Route path={"/officer/delivery-monitoring"}>{protectedPage(<OfficerDeliveryMonitoringPage />)}</Route>
       <Route path={"/pmr-registry"}>{protectedPage(<PmrRegistryPage />)}</Route>
       <Route path={"/rfq-management"}>{protectedPage(<RfqPage />)}</Route>

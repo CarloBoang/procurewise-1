@@ -36,12 +36,16 @@ function formatMoney(amount: number | string | null | undefined) {
   })}`;
 }
 
-export function OfficerReleasingPage() {
+export function OfficerReleasingPage({
+  initialTab = "notices",
+}: {
+  initialTab?: "notices" | "pos";
+} = {}) {
   const { user } = useAuth();
   const role = user ? normalizeProcurementRole(user.role) : "end_user";
   const isOfficerOrAdmin = role === "procurement_officer" || role === "admin";
 
-  const [activeTab, setActiveTab] = useState<"notices" | "pos">("notices");
+  const [activeTab, setActiveTab] = useState<"notices" | "pos">(initialTab);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Serve Notice Modal

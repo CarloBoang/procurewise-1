@@ -72,8 +72,8 @@ export const appRouter = router({
       updateUserOffice: protectedProcedure.input(z.object({ userId: z.number().int().positive(), officeName: z.string().max(180) })).mutation(({ ctx, input }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["admin"]); return updateUserOffice(input.userId, input.officeName, ctx.user); }),
     }),
     bestValuePolicy: router({
-      active: protectedProcedure.query(({ ctx }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["admin"]); return getBestValuePolicy(); }),
-      history: protectedProcedure.query(({ ctx }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["admin"]); return getBestValuePolicyHistory(); }),
+      active: protectedProcedure.query(({ ctx }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["admin", "procurement_officer"]); return getBestValuePolicy(); }),
+      history: protectedProcedure.query(({ ctx }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["admin", "procurement_officer"]); return getBestValuePolicyHistory(); }),
       save: protectedProcedure.input(z.object({
         name: z.string().min(3).max(180),
         criteria: z.array(z.object({ criterionKey: z.enum(BEST_VALUE_CRITERION_KEYS), weight: z.number().min(0).max(100) })).length(BEST_VALUE_CRITERION_KEYS.length),

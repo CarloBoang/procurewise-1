@@ -2,6 +2,8 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { NotificationToastListener } from "@/components/NotificationToastListener";
+import { NotificationCenterDrawer } from "@/components/NotificationCenterDrawer";
+import { HelpSupportDialog } from "@/components/HelpSupportDialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { OfficeSelect } from "@/components/OfficeSelect";
 import { trpc } from "@/lib/trpc";
@@ -48,28 +50,42 @@ const navigation: Array<{
     category: "workspace",
   },
   {
-    label: "PR Verification",
+    label: "Receive & Verify PR/PPMP",
     path: "/officer/pr-verification",
     icon: FileCheck2,
     roles: ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "admin"],
     category: "workspace",
   },
   {
-    label: "RFQ Distribution & PhilGEPS",
+    label: "Distribute & Retrieve RFQ / Transmit to BAC",
     path: "/officer/rfq-distribution",
     icon: Send,
     roles: ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "admin"],
     category: "workspace",
   },
   {
-    label: "Notice & PO Releasing",
-    path: "/officer/releasing",
+    label: "PhilGEPS Posting",
+    path: "/officer/philgeps",
+    icon: FileSpreadsheet,
+    roles: ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "admin"],
+    category: "workspace",
+  },
+  {
+    label: "Letters of Notice (Serving)",
+    path: "/officer/notices-serving",
     icon: FileText,
     roles: ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "admin"],
     category: "processing",
   },
   {
-    label: "Delivery Monitoring",
+    label: "Purchase Order / Contract Releasing",
+    path: "/officer/releasing",
+    icon: FileCheck2,
+    roles: ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "admin"],
+    category: "processing",
+  },
+  {
+    label: "Delivery & Inspection Monitoring",
     path: "/officer/delivery-monitoring",
     icon: Boxes,
     roles: ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "admin"],
@@ -289,6 +305,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [location, setLocation] = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [selectedOfficeName, setSelectedOfficeName] = useState(user?.officeName || "");
   const [searchQuery, setSearchQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -355,8 +372,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         "/dashboard",
         "/officer/pr-verification",
         "/officer/rfq-distribution",
+        "/officer/philgeps",
+        "/officer/notices-serving",
         "/officer/releasing",
         "/officer/delivery-monitoring",
+        "/supplier-evaluation-form",
+        "/budgets",
+        "/analytics",
+        "/officer/forecast",
+        "/audit",
+        "/pmr-history",
+        "/best-value-policy",
+        "/setup",
         "/form-templates",
       ];
       return allowedOfficerPaths.includes(item.path);
@@ -376,7 +403,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (item.path === "/audit") return "My Audit Trail";
     }
     if (currentRole === "procurement_officer" || currentRole === "procurement_officer_i" || currentRole === "procurement_officer_ii" || rawRole === "supply_officer") {
-      if (item.path === "/form-templates") return "Documents / Forms Hub";
+      if (item.path === "/dashboard") return "Overview";
+      if (item.path === "/officer/pr-verification") return "Receive & Verify PR/PPMP";
+      if (item.path === "/officer/rfq-distribution") return "Distribute & Retrieve RFQ / Transmit to BAC";
+      if (item.path === "/officer/philgeps") return "PhilGEPS Posting";
+      if (item.path === "/officer/notices-serving") return "Letters of Notice (Serving)";
+      if (item.path === "/officer/releasing") return "Purchase Order / Contract Releasing";
+      if (item.path === "/officer/delivery-monitoring") return "Delivery & Inspection Monitoring";
+      if (item.path === "/supplier-evaluation-form") return "Supplier Evaluation Form";
+      if (item.path === "/budgets") return "Budget Control";
+      if (item.path === "/analytics") return "Reports & Analytics";
+      if (item.path === "/officer/forecast") return "Procurement Forecast";
+      if (item.path === "/audit") return "Audit Trail";
+      if (item.path === "/pmr-history") return "Historical PMR";
+      if (item.path === "/best-value-policy") return "Best Value Policy";
+      if (item.path === "/setup") return "System Setup";
+      if (item.path === "/form-templates") return "Documents & Forms Hub";
     }
     if (currentRole === "procurement_staff") {
       if (item.path === "/dashboard") return "Overview";
@@ -533,19 +575,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <span className="font-['Plus_Jakarta_Sans'] text-sm font-bold text-slate-900 dark:text-white">ProcureWise</span>
 
         <div className="ml-auto flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setLocation("/notifications")}
-            aria-label="Notifications"
-            className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400"
-          >
-            <Bell className="h-4 w-4" />
-            {unreadCount > 0 && (
-              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#881337] px-0.5 text-[9px] font-bold text-white">
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </span>
-            )}
-          </button>
+          <NotificationCenterDrawer triggerVariant="minimal" />
           <ThemeToggle />
         </div>
       </div>
@@ -609,8 +639,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* ── Header ── */}
           <div className={`flex h-16 shrink-0 items-center border-b border-slate-200 dark:border-slate-800/80 ${isCollapsed ? "justify-center px-3" : "justify-between px-4"}`}>
             {isCollapsed ? (
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#d2b058]/40 bg-white p-0.5 shadow-sm">
-                <img src="/bsc-logo.jpg" alt="BSC Logo" className="h-full w-full rounded-lg object-contain" />
+              <div className="flex flex-col items-center gap-1.5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#d2b058]/40 bg-white p-0.5 shadow-sm">
+                  <img src="/bsc-logo.jpg" alt="BSC Logo" className="h-full w-full rounded-lg object-contain" />
+                </div>
+                <NotificationCenterDrawer triggerVariant="minimal" />
               </div>
             ) : (
               <>
@@ -623,7 +656,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <p className="text-[10px] font-medium text-[#881337] dark:text-[#fda4af] leading-tight">Gov. Procurement</p>
                   </div>
                 </div>
-                <ThemeToggle />
+                <div className="flex items-center gap-1.5">
+                  <NotificationCenterDrawer triggerVariant="minimal" />
+                  <ThemeToggle />
+                </div>
               </>
             )}
           </div>
@@ -682,25 +718,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {!isCollapsed ? (
               <button
                 type="button"
-                onClick={() => setLocation("/notifications")}
+                onClick={() => setHelpOpen(true)}
                 className="mb-2 flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-900 dark:hover:text-slate-200"
               >
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400">
                   <LifeBuoy className="h-[15px] w-[15px]" />
                 </span>
                 <span className="sidebar-nav-label flex-1 text-slate-600 dark:text-slate-400 font-medium">Help &amp; Support</span>
-                {unreadCount > 0 && (
-                  <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-[#881337] px-1 text-[9px] font-bold text-white">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
-                )}
               </button>
             ) : (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
                     type="button"
-                    onClick={() => setLocation("/notifications")}
+                    onClick={() => setHelpOpen(true)}
                     className="mb-2 flex w-full items-center justify-center rounded-xl py-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50 hover:text-slate-800 dark:hover:text-slate-200"
                   >
                     <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800/80">
@@ -793,11 +824,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </aside>
 
         {/* ── Main content (proper padding & breathing room) ────────────────── */}
-        <main className="min-w-0 flex-1 overflow-x-hidden pt-20 md:pt-10 px-6 md:px-10 pb-12 print:p-0 transition-colors">
-          <div className="mx-auto w-full max-w-[1440px]">
-            {children}
-          </div>
-        </main>
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* ── Global Desktop Top Header Bar ──────────────────────────────────── */}
+          <header className="sticky top-0 z-30 hidden lg:flex h-14 w-full shrink-0 items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-[#0c1322]/80 backdrop-blur px-8 print:hidden transition-colors">
+            <div className="flex items-center gap-2.5">
+              <span className="rounded-md border border-[#881337]/20 bg-[#881337]/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#881337] dark:border-[#881337]/40 dark:bg-[#881337]/20 dark:text-[#fda4af]">
+                {roleLabel}
+              </span>
+              <span className="text-xs text-slate-400 dark:text-slate-500">|</span>
+              <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                Batanes State College Procurement Management System
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <NotificationCenterDrawer triggerVariant="topbar" />
+              <ThemeToggle />
+            </div>
+          </header>
+
+          <main className="min-w-0 flex-1 overflow-x-hidden pt-20 lg:pt-8 px-6 md:px-10 pb-12 print:p-0 transition-colors">
+            <div className="mx-auto w-full max-w-[1440px]">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
 
       {/* ── Edit Profile Dialog ─────────────────────────────────────────────── */}
@@ -855,6 +906,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Decoupled Help & Support Center Dialog ─────────────────────────── */}
+      <HelpSupportDialog open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
   );
 }
