@@ -637,13 +637,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           ].join(" ")}
         >
           {/* ── Header ── */}
-          <div className={`flex h-16 shrink-0 items-center border-b border-slate-200 dark:border-slate-800/80 ${isCollapsed ? "justify-center px-3" : "justify-between px-4"}`}>
+          <div className={`flex h-16 shrink-0 items-center border-b border-slate-200 dark:border-slate-800/80 ${isCollapsed ? "justify-center px-2" : "justify-between px-4"}`}>
             {isCollapsed ? (
-              <div className="flex flex-col items-center gap-1.5">
+              <div className="flex flex-col items-center gap-2">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#d2b058]/40 bg-white p-0.5 shadow-sm">
                   <img src="/bsc-logo.jpg" alt="BSC Logo" className="h-full w-full rounded-lg object-contain" />
                 </div>
-                <NotificationCenterDrawer triggerVariant="minimal" />
+                <div className="flex flex-col items-center gap-1.5 pt-1">
+                  <NotificationCenterDrawer triggerVariant="minimal" />
+                  <ThemeToggle />
+                </div>
               </div>
             ) : (
               <>
@@ -652,8 +655,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <img src="/bsc-logo.jpg" alt="BSC Logo" className="h-full w-full rounded-lg object-contain" />
                   </div>
                   <div>
-                    <p className="font-['Plus_Jakarta_Sans'] text-sm font-bold text-slate-900 dark:text-white leading-tight">ProcureWise</p>
-                    <p className="text-[10px] font-medium text-[#881337] dark:text-[#fda4af] leading-tight">Gov. Procurement</p>
+                    <p className="font-['Plus_Jakarta_Sans'] text-base font-bold text-slate-900 dark:text-white leading-tight">ProcureWise</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">
@@ -825,24 +827,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* ── Main content (proper padding & breathing room) ────────────────── */}
         <div className="flex-1 flex flex-col min-w-0">
-          {/* ── Global Desktop Top Header Bar ──────────────────────────────────── */}
-          <header className="sticky top-0 z-30 hidden lg:flex h-14 w-full shrink-0 items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-[#0c1322]/80 backdrop-blur px-8 print:hidden transition-colors">
-            <div className="flex items-center gap-2.5">
-              <span className="rounded-md border border-[#881337]/20 bg-[#881337]/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#881337] dark:border-[#881337]/40 dark:bg-[#881337]/20 dark:text-[#fda4af]">
-                {roleLabel}
-              </span>
-              <span className="text-xs text-slate-400 dark:text-slate-500">|</span>
-              <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                Batanes State College Procurement Management System
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <NotificationCenterDrawer triggerVariant="topbar" />
-              <ThemeToggle />
-            </div>
-          </header>
-
           <main className="min-w-0 flex-1 overflow-x-hidden pt-20 lg:pt-8 px-6 md:px-10 pb-12 print:p-0 transition-colors">
             <div className="mx-auto w-full max-w-[1440px]">
               {children}

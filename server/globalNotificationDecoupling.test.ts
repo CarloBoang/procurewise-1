@@ -49,10 +49,22 @@ describe("Global Notification Architecture Decoupling across All Roles", () => {
     });
   });
 
-  describe("2. Global Top-Level Notification Bell", () => {
-    it("positions an independent Notification Bell in the top header navbar and mobile bar", () => {
-      expect(dashboardLayoutSource).toContain("<NotificationCenterDrawer triggerVariant=\"topbar\" />");
+  describe("2. Unified Sidebar Controls & Redundant Top Header Removal", () => {
+    it("removes Gov. Procurement subtitle from sidebar header and preserves clean ProcureWise brand", () => {
+      expect(dashboardLayoutSource).not.toContain("Gov. Procurement");
+      expect(dashboardLayoutSource).toContain("ProcureWise");
+      expect(dashboardLayoutSource).toContain("/bsc-logo.jpg");
+    });
+
+    it("deletes the redundant top banner bar with repeated role badge and institution subtitle", () => {
+      expect(dashboardLayoutSource).not.toContain("Batanes State College Procurement Management System");
+      expect(dashboardLayoutSource).not.toContain("<NotificationCenterDrawer triggerVariant=\"topbar\" />");
+    });
+
+    it("deduplicates notification bell and theme toggle controls to unified spots", () => {
+      // Bell and theme toggle are unified in sidebar header and mobile bar
       expect(dashboardLayoutSource).toContain("<NotificationCenterDrawer triggerVariant=\"minimal\" />");
+      expect(dashboardLayoutSource).toContain("<ThemeToggle />");
     });
 
     it("NotificationCenterDrawer uses Lucide Bell icon and reactive badge indicator", () => {
