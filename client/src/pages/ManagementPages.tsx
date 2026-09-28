@@ -279,9 +279,144 @@ export function RfqPage() {
   </div>;
 }
 
-function QuotationForm({ rfqs, suppliers, isSaving, onCancel, onCreate }: { rfqs: Array<{ id: number; rfqNumber: string }>; suppliers: Array<{ id: number; supplierCode: string; companyName: string }>; isSaving: boolean; onCancel: () => void; onCreate: (input: { rfqId: number; supplierId: number; totalPrice: number; deliveryDays: number; isCompliant: boolean; notes?: string }) => void }) {
-  const [rfqId, setRfqId] = useState(""); const [supplierId, setSupplierId] = useState(""); const [totalPrice, setTotalPrice] = useState(""); const [deliveryDays, setDeliveryDays] = useState(""); const [isCompliant, setIsCompliant] = useState("yes"); const [notes, setNotes] = useState("");
-  return <FormShell title="Supplier quotation" description="Each supplier may provide one quotation per RFQ." icon={<FileSearch className="h-4 w-4" />} className="mt-7" onSubmit={(event) => { event.preventDefault(); if (!rfqId || !supplierId || Number(totalPrice) <= 0 || Number(deliveryDays) < 0) return toast.error("Complete the RFQ, supplier, price, and delivery fields."); onCreate({ rfqId: Number(rfqId), supplierId: Number(supplierId), totalPrice: Number(totalPrice), deliveryDays: Number(deliveryDays), isCompliant: isCompliant === "yes", notes: notes.trim() || undefined }); }}><div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"><Field label="RFQ"><Select value={rfqId} onValueChange={setRfqId}><SelectTrigger><SelectValue placeholder="Select RFQ" /></SelectTrigger><SelectContent>{rfqs.map((rfq) => <SelectItem key={rfq.id} value={String(rfq.id)}>{rfq.rfqNumber}</SelectItem>)}</SelectContent></Select></Field><Field label="Supplier"><Select value={supplierId} onValueChange={setSupplierId}><SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger><SelectContent>{suppliers.map((supplier) => <SelectItem key={supplier.id} value={String(supplier.id)}>{supplier.supplierCode} — {supplier.companyName}</SelectItem>)}</SelectContent></Select></Field><Field label="Total quotation"><Input type="number" min="0.01" step="0.01" value={totalPrice} onChange={(event) => setTotalPrice(event.target.value)} placeholder="0.00" /></Field><Field label="Delivery days"><Input type="number" min="0" value={deliveryDays} onChange={(event) => setDeliveryDays(event.target.value)} placeholder="0" /></Field><Field label="Compliance"><Select value={isCompliant} onValueChange={setIsCompliant}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="yes">Compliant</SelectItem><SelectItem value="no">Non-compliant</SelectItem></SelectContent></Select></Field><Field label="Notes"><Input value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Optional notes" /></Field></div><div className="mt-5 flex justify-end gap-2"><Button type="button" variant="outline" onClick={onCancel} className="h-9 rounded-[4px] text-xs">Cancel</Button><Button disabled={isSaving || !rfqs.length || !suppliers.length} className="h-9 rounded-[4px] bg-[#7b1e1e] text-xs hover:bg-[#641818]">{isSaving && <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" />}Save quotation</Button></div></FormShell>;
+function QuotationForm({
+  rfqs,
+  suppliers,
+  isSaving,
+  onCancel,
+  onCreate,
+}: {
+  rfqs: Array<{ id: number; rfqNumber: string }>;
+  suppliers: Array<{ id: number; supplierCode: string; companyName: string }>;
+  isSaving: boolean;
+  onCancel: () => void;
+  onCreate: (input: {
+    rfqId: number;
+    supplierId: number;
+    totalPrice: number;
+    deliveryDays: number;
+    isCompliant: boolean;
+    notes?: string;
+  }) => void;
+}) {
+  const [rfqId, setRfqId] = useState("");
+  const [supplierId, setSupplierId] = useState("");
+  const [totalPrice, setTotalPrice] = useState("");
+  const [deliveryDays, setDeliveryDays] = useState("");
+  const [isCompliant, setIsCompliant] = useState("yes");
+  const [notes, setNotes] = useState("");
+
+  return (
+    <FormShell
+      title="Supplier quotation"
+      description="Each supplier may provide one quotation per RFQ."
+      icon={<FileSearch className="h-4 w-4" />}
+      className="mt-7 w-full min-w-0"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!rfqId || !supplierId || Number(totalPrice) <= 0 || Number(deliveryDays) < 0) {
+          return toast.error("Complete the RFQ, supplier, price, and delivery fields.");
+        }
+        onCreate({
+          rfqId: Number(rfqId),
+          supplierId: Number(supplierId),
+          totalPrice: Number(totalPrice),
+          deliveryDays: Number(deliveryDays),
+          isCompliant: isCompliant === "yes",
+          notes: notes.trim() || undefined,
+        });
+      }}
+    >
+      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 w-full min-w-0">
+        <Field label="RFQ" className="w-full min-w-0">
+          <Select value={rfqId} onValueChange={setRfqId}>
+            <SelectTrigger className="w-full min-w-0 box-border overflow-hidden">
+              <SelectValue placeholder="Select RFQ" className="truncate" />
+            </SelectTrigger>
+            <SelectContent>
+              {rfqs.map((rfq) => (
+                <SelectItem key={rfq.id} value={String(rfq.id)}>
+                  {rfq.rfqNumber}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field label="Supplier" className="w-full min-w-0">
+          <Select value={supplierId} onValueChange={setSupplierId}>
+            <SelectTrigger className="w-full min-w-0 box-border overflow-hidden">
+              <SelectValue placeholder="Select supplier" className="truncate" />
+            </SelectTrigger>
+            <SelectContent>
+              {suppliers.map((supplier) => (
+                <SelectItem key={supplier.id} value={String(supplier.id)}>
+                  {supplier.supplierCode} — {supplier.companyName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field label="Total quotation" className="w-full min-w-0">
+          <Input
+            type="number"
+            min="0.01"
+            step="0.01"
+            value={totalPrice}
+            onChange={(event) => setTotalPrice(event.target.value)}
+            placeholder="0.00"
+            className="w-full min-w-0 box-border"
+          />
+        </Field>
+
+        <Field label="Delivery days" className="w-full min-w-0">
+          <Input
+            type="number"
+            min="0"
+            value={deliveryDays}
+            onChange={(event) => setDeliveryDays(event.target.value)}
+            placeholder="0"
+            className="w-full min-w-0 box-border"
+          />
+        </Field>
+
+        <Field label="Compliance" className="w-full min-w-0">
+          <Select value={isCompliant} onValueChange={setIsCompliant}>
+            <SelectTrigger className="w-full min-w-0 box-border overflow-hidden">
+              <SelectValue className="truncate" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="yes">Compliant</SelectItem>
+              <SelectItem value="no">Non-compliant</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field label="Notes" className="w-full min-w-0">
+          <Input
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            placeholder="Optional notes"
+            className="w-full min-w-0 box-border"
+          />
+        </Field>
+      </div>
+
+      <div className="mt-5 flex justify-end gap-2">
+        <Button type="button" variant="outline" onClick={onCancel} className="h-9 rounded-[4px] text-xs">
+          Cancel
+        </Button>
+        <Button
+          disabled={isSaving || !rfqs.length || !suppliers.length}
+          className="h-9 rounded-[4px] bg-[#7b1e1e] text-xs hover:bg-[#641818]"
+        >
+          {isSaving && <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+          Save quotation
+        </Button>
+      </div>
+    </FormShell>
+  );
 }
 
 function QuotationComparison({ rfqs, quotations, supplierMap }: { rfqs: Array<{ id: number; rfqNumber: string }>; quotations: Array<{ id: number; rfqId: number; supplierId: number; totalPrice: string; deliveryDays: number; isCompliant: number }>; supplierMap: Map<number, { supplierCode: string; companyName: string }> }) {
@@ -1002,7 +1137,7 @@ export function AuditTrailPage() {
 }
 
 function Metric({ label, value, detail, icon: Icon }: { label: string; value: string; detail: string; icon: typeof BarChart3 }) { return <div className="flat-panel p-5"><div className="flex items-start justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#9a6d19]">{label}</p><p className="mt-4 font-display text-2xl font-semibold text-[#202833]">{value}</p></div><Icon className="h-4 w-4 text-[#7b1e1e]" /></div><p className="mt-3 text-[11px] leading-5 text-[#73808b]">{detail}</p></div>; }
-function Field({ label, children }: { label: string; children: React.ReactNode }) { return <div><Label className="text-[11px] font-semibold text-[#4c5664]">{label}</Label><div className="mt-1.5">{children}</div></div>; }
+function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) { return <div className={cn("w-full min-w-0", className)}><Label className="text-[11px] font-semibold text-[#4c5664] block truncate">{label}</Label><div className="mt-1.5 w-full min-w-0">{children}</div></div>; }
 function LoadingPanel({ label }: { label: string }) { return <div className="flat-panel grid min-h-72 place-items-center text-center"><div><LoaderCircle className="mx-auto h-5 w-5 animate-spin text-[#7b1e1e]" /><p className="mt-3 text-xs text-[#6e7885]">{label}</p></div></div>; }
 
 export function HistoricalPmrPage() {
