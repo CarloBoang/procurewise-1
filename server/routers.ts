@@ -57,7 +57,7 @@ export const appRouter = router({
             .optional()
         )
         .query(({ ctx, input }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          // Available to all authenticated roles for institutional transparency
           return getEndUserPerformanceAnalytics(input);
         }),
     }),

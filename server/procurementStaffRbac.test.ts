@@ -65,11 +65,6 @@ describe("Procurement Staff RBAC & Procedure 5.2 Boundaries", () => {
       staffCaller.procurement.purchaseRequests.verifyPackage({ purchaseRequestId: 1 })
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
 
-    // End-User performance analytics is strictly for procurement_officer and admin
-    await expect(
-      staffCaller.procurement.analytics.endUserPerformance()
-    ).rejects.toMatchObject({ code: "FORBIDDEN" });
-
     // Pre-Canvass creation is strictly for end_user
     await expect(
       staffCaller.procurement.preCanvasses.create({ purchaseRequestId: 1 })

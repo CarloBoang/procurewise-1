@@ -27,18 +27,16 @@ function createContext(role: AuthenticatedUser["role"]): TrpcContext {
 }
 
 describe("procurement.analytics.endUserPerformance authorization and structure", () => {
-  it("rejects regular end-user and external accounts with FORBIDDEN error", async () => {
+  it("allows all authenticated users including end_user, staff, officer, and admin to access performance analytics for transparency", async () => {
     const endUserCaller = appRouter.createCaller(createContext("end_user"));
-    await expect(endUserCaller.procurement.analytics.endUserPerformance()).rejects.toMatchObject({
-      code: "FORBIDDEN",
-      message: "This procurement action is not permitted for your assigned role.",
-    });
+    const endUserResult = await endUserCaller.procurement.analytics.endUserPerformance({ source: "all" });
+    expect(endUserResult).toBeDefined();
+    expect(endUserResult.kpiSummary).toHaveProperty("failedCount");
 
-    const supplierCaller = appRouter.createCaller(createContext("supplier_contractor"));
-    await expect(supplierCaller.procurement.analytics.endUserPerformance()).rejects.toMatchObject({
-      code: "FORBIDDEN",
-      message: "This procurement action is not permitted for your assigned role.",
-    });
+    const staffCaller = appRouter.createCaller(createContext("procurement_staff"));
+    const staffResult = await staffCaller.procurement.analytics.endUserPerformance({ source: "all" });
+    expect(staffResult).toBeDefined();
+    expect(staffResult.officePerformance).toBeInstanceOf(Array);
   });
 
   it("allows procurement_officer and admin to access end-user performance analytics", async () => {
@@ -60,17 +58,11 @@ describe("procurement.analytics.endUserPerformance authorization and structure",
     expect(adminResult.totals).toHaveProperty("savings");
   }, 20000);
 
-  it("allows procurement officer variations via normalizeProcurementRole and rejects procurement_staff", async () => {
+  it("allows procurement officer variations via normalizeProcurementRole", async () => {
     const officerCaller = appRouter.createCaller(createContext("procurement_officer_i"));
     const result = await officerCaller.procurement.analytics.endUserPerformance({ source: "all" });
     expect(result).toBeDefined();
     expect(result.officePerformance).toBeInstanceOf(Array);
-
-    const staffCaller = appRouter.createCaller(createContext("procurement_staff"));
-    await expect(staffCaller.procurement.analytics.endUserPerformance()).rejects.toMatchObject({
-      code: "FORBIDDEN",
-      message: "This procurement action is not permitted for your assigned role.",
-    });
   }, 20000);
 
   it("verifies mathematical consistency: savings = totalAbc - totalContract", async () => {

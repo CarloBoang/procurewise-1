@@ -222,7 +222,21 @@ const navigation: Array<{
     label: "Analytics",
     path: "/analytics",
     icon: Boxes,
-    roles: ["end_user", "procurement_officer", "procurement_officer_i", "procurement_officer_ii", "admin"],
+    roles: [
+      "end_user",
+      "procurement_officer",
+      "procurement_officer_i",
+      "procurement_officer_ii",
+      "supply_officer",
+      "procurement_staff",
+      "administrative_approver",
+      "bac",
+      "bac_secretariat",
+      "hope",
+      "budget_officer",
+      "supplier_contractor",
+      "admin",
+    ],
     category: "reports",
   },
   {
@@ -363,6 +377,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         "/officer/notices",
         "/purchase-orders",
         "/form-templates",
+        "/analytics",
       ];
       return allowedStaffPaths.includes(item.path);
     }
@@ -399,7 +414,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const getLabel = (item: (typeof navigation)[0]) => {
     if (currentRole === "end_user") {
       if (item.path === "/purchase-requests") return "PPMP-linked Purchase Requests";
-      if (item.path === "/analytics") return "My Analytics";
+      if (item.path === "/analytics") return "Reports & Analytics";
       if (item.path === "/audit") return "My Audit Trail";
     }
     if (currentRole === "procurement_officer" || currentRole === "procurement_officer_i" || currentRole === "procurement_officer_ii" || rawRole === "supply_officer") {

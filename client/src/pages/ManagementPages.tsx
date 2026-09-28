@@ -313,7 +313,8 @@ export function AnalyticsPage() {
   const { user } = useAuth();
   const role = normalizeProcurementRole(user?.role ?? "end_user");
   const isEndUser = role === "end_user";
-  const canViewPerformanceAnalytics = role === "procurement_officer" || role === "admin";
+  // Performance and procurement analytics available to all users for institutional transparency
+  const canViewPerformanceAnalytics = true;
 
   const dashboard = trpc.procurement.dashboard.useQuery(undefined, { retry: false });
   const data = dashboard.data;
@@ -324,7 +325,7 @@ export function AnalyticsPage() {
   const cycleTime = data?.analytics.averageCycleTimeDays;
   const topCommodities = data?.analytics.topCommodities ?? [];
 
-  // Performance Analytics Data (Restricted to Procurement Staff/Officer and Admin)
+  // Performance Analytics Data (Available to all users for transparency)
   const [source, setSource] = useState<"all" | "live" | "historical">("all");
   const [search, setSearch] = useState("");
   const [selectedOffice, setSelectedOffice] = useState("");
@@ -398,16 +399,12 @@ export function AnalyticsPage() {
   return (
     <div className="mx-auto w-full max-w-[1360px] pb-12">
       <PageHeader
-        eyebrow={isEndUser ? "My procurement activity" : "Procurement intelligence"}
-        title={isEndUser ? "My Analytics" : "Analytics & performance"}
-        description={
-          isEndUser
-            ? "A summary of the Purchase Requests, PPMP entries, and completed procurement activity connected to your account."
-            : "Live, record-backed measures for workflow volume, office-level end-user performance, budget plan-versus-actual progress, and delivery tracking."
-        }
+        eyebrow="Institutional procurement intelligence & transparency"
+        title="Analytics & Performance"
+        description="Live, record-backed measures for workflow volume, office-level end-user performance, budget plan-versus-actual progress, and delivery tracking across Batanes State College."
       />
 
-      {/* Top-Level KPI Summary Cards / Banner (Exclusively for Procurement Staff / Officer and Admin) */}
+      {/* Top-Level KPI Summary Cards / Banner (Available to All Users for Transparency) */}
       {canViewPerformanceAnalytics && (
         <section className="mt-7">
           <div className="mb-3.5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

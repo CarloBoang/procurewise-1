@@ -5500,7 +5500,6 @@ var appRouter = router({
           fiscalYear: z2.number().int().optional()
         }).optional()
       ).query(({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
         return getEndUserPerformanceAnalytics(input);
       })
     }),
