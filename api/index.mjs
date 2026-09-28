@@ -152,8 +152,39 @@ var NOT_ADMIN_ERR_MSG = "You do not have required permission (10002)";
 // server/_core/trpc.ts
 import { initTRPC, TRPCError as TRPCError2 } from "@trpc/server";
 import superjson from "superjson";
+import { ZodError } from "zod";
+function formatZodIssue(issue) {
+  const path = issue.path ?? [];
+  if (path[0] === "items" && typeof path[1] === "number") {
+    const itemNum = path[1] + 1;
+    const field = path[2];
+    if (field === "unit") return `Item #${itemNum}: Unit of measurement is required (e.g. pc, box, set, unit, lot).`;
+    if (field === "description") return `Item #${itemNum}: Description is required (at least 2 characters).`;
+    if (field === "quantity") return `Item #${itemNum}: Quantity must be greater than 0.`;
+    if (field === "estimatedUnitCost") return `Item #${itemNum}: Estimated unit cost must be greater than \u20B10.00.`;
+    return `Item #${itemNum}${field ? ` (${field})` : ""}: ${issue.message}`;
+  }
+  if (issue.message && !issue.message.startsWith("Too small") && !issue.message.startsWith("Expected") && !issue.message.startsWith("Invalid")) {
+    return issue.message;
+  }
+  const fieldLabel = path.length ? path.join(".") : "Field";
+  return `${fieldLabel}: ${issue.message}`;
+}
 var t = initTRPC.context().create({
-  transformer: superjson
+  transformer: superjson,
+  errorFormatter({ shape, error }) {
+    let message = shape.message;
+    if (error.cause instanceof ZodError) {
+      const firstIssue = error.cause.issues[0];
+      if (firstIssue) {
+        message = formatZodIssue(firstIssue);
+      }
+    }
+    return {
+      ...shape,
+      message
+    };
+  }
 });
 var router = t.router;
 var publicProcedure = t.procedure;
@@ -5555,7 +5586,27 @@ var appRouter = router({
       list: protectedProcedure.query(({ ctx }) => listPurchaseRequests(ctx.user)),
       detail: protectedProcedure.input(z2.object({ purchaseRequestId: z2.number().int().positive() })).query(({ ctx, input }) => getPurchaseRequestDetail(input.purchaseRequestId, ctx.user)),
       signatories: protectedProcedure.query(() => listPurchaseRequestSignatories()),
-      create: protectedProcedure.input(z2.object({ purpose: z2.string().min(10), fundSource: z2.string().max(160).optional(), fundCluster: z2.string().max(80).optional(), responsibilityCenterCode: z2.string().max(80).optional(), requesterDesignation: z2.string().max(160).optional(), requestedSignatoryId: z2.number().int().positive().optional(), approvedSignatoryId: z2.number().int().positive().optional(), ppmpEntryId: z2.number().int().positive().optional(), officeId: z2.number().int().positive(), objectOfExpenditureId: z2.number().int().positive(), items: z2.array(z2.object({ catalogItemId: z2.number().int().positive().optional(), stockPropertyNo: z2.string().max(80).optional(), description: z2.string().min(2), specification: z2.string().optional(), quantity: z2.number().positive(), unit: z2.string().min(1), estimatedUnitCost: z2.number().positive() })).min(1) })).mutation(({ ctx, input }) => {
+      create: protectedProcedure.input(z2.object({
+        purpose: z2.string().trim().min(10, "Purpose must be at least 10 characters"),
+        fundSource: z2.string().max(160).optional(),
+        fundCluster: z2.string().max(80).optional(),
+        responsibilityCenterCode: z2.string().max(80).optional(),
+        requesterDesignation: z2.string().max(160).optional(),
+        requestedSignatoryId: z2.number().int().positive().optional(),
+        approvedSignatoryId: z2.number().int().positive().optional(),
+        ppmpEntryId: z2.number().int().positive().optional(),
+        officeId: z2.number().int().positive("Requesting Department/Office is required"),
+        objectOfExpenditureId: z2.number().int().positive("Object of Expenditure is required"),
+        items: z2.array(z2.object({
+          catalogItemId: z2.number().int().positive().optional(),
+          stockPropertyNo: z2.string().max(80).optional(),
+          description: z2.string().trim().min(2, "Item description must be at least 2 characters"),
+          specification: z2.string().optional(),
+          quantity: z2.number().positive("Quantity must be greater than 0"),
+          unit: z2.string().trim().min(1, "Unit of measurement is required (e.g. pc, box, set, unit, lot)"),
+          estimatedUnitCost: z2.number().positive("Estimated unit cost must be greater than \u20B10.00")
+        })).min(1, "At least one line item is required")
+      })).mutation(({ ctx, input }) => {
         assertRole(normalizeProcurementRole(ctx.user.role), ["end_user"]);
         return createPurchaseRequest(input, ctx.user);
       }),

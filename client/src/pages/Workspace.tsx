@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { OfficeSelect } from "@/components/OfficeSelect";
 import { IntegratedPreCanvassModal } from "@/components/IntegratedPreCanvassModal";
 import { trpc } from "@/lib/trpc";
+import { formatFriendlyError } from "@/lib/formatError";
 import { countValidPreCanvassQuotes, detectMixedCategories, hasRequiredSupplierQuotations, normalizeProcurementRole, SECTION_5_1_1_CATEGORIES } from "../../../shared/procurementRules";
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, CircleAlert, ExternalLink, FileCheck, FileCheck2, FileSearch, FileText, Info, LoaderCircle, Plus, Search, Send, ShieldAlert, Star, Trash2, Upload, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -76,11 +77,11 @@ export function PurchaseRequestsPage() {
   const dashboard = trpc.procurement.dashboard.useQuery(undefined, { retry: false });
   const submitRequest = trpc.procurement.purchaseRequests.advance.useMutation({
     onSuccess: () => { toast.success("Complete procurement package forwarded to the Procurement Officer."); void utils.procurement.purchaseRequests.list.invalidate(); void utils.procurement.dashboard.invalidate(); },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(formatFriendlyError(error)),
   });
   const rejectRequest = trpc.procurement.purchaseRequests.reject.useMutation({
     onSuccess: () => { toast.success("Purchase Request rejected and the employee was notified."); void utils.procurement.purchaseRequests.list.invalidate(); void utils.procurement.dashboard.invalidate(); },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(formatFriendlyError(error)),
   });
   const createPpmpMutation = trpc.procurement.setup.createAppPpmpEntry.useMutation();
   const attachDocumentMutation = trpc.procurement.documents.attach.useMutation();
@@ -103,7 +104,7 @@ export function PurchaseRequestsPage() {
         status: created.status,
       });
     },
-    onError: (error) => toast.error(error.message),
+    onError: (error) => toast.error(formatFriendlyError(error)),
   });
 
   const handleCreatePurchaseRequest = async (
@@ -544,7 +545,8 @@ function PurchaseRequestForm({
   };
 
   // Step 2: Line items and Catalog state
-  const [items, setItems] = useState<RequestItem[]>([{ catalogItemId: "", stockPropertyNo: "", description: "", specification: "", quantity: "", unit: "", estimatedUnitCost: "" }]);
+  const [items, setItems] = useState<RequestItem[]>([{ catalogItemId: "", stockPropertyNo: "", description: "", specification: "", quantity: "1", unit: "pc", estimatedUnitCost: "" }]);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState("");
   const [catalogCodeFamily, setCatalogCodeFamily] = useState("all");
   const [favoritesOnly, setFavoritesOnly] = useState(false);
@@ -559,13 +561,13 @@ function PurchaseRequestForm({
     const search = catalogSearch.trim().toLowerCase();
     return (favorites.data ?? []).filter((catalogItem) => (!catalogCodeFamily || catalogCodeFamily === "all" || catalogItem.productCode.startsWith(catalogCodeFamily)) && (!search || catalogItem.productCode.toLowerCase().includes(search) || catalogItem.description.toLowerCase().includes(search)));
   }, [catalog.data?.items, catalogCodeFamily, catalogSearch, favorites.data, favoritesOnly]);
-  const toggleFavorite = trpc.procurement.catalog.setFavorite.useMutation({ onSuccess: () => { void utils.procurement.catalog.favorites.invalidate(); }, onError: (error) => toast.error(error.message) });
+  const toggleFavorite = trpc.procurement.catalog.setFavorite.useMutation({ onSuccess: () => { void utils.procurement.catalog.favorites.invalidate(); }, onError: (error) => toast.error(formatFriendlyError(error)) });
 
   useEffect(() => {
     const selectedItems = (catalog.data?.items ?? []).filter((item) => catalogItemIds.includes(item.id));
     if (!selectedItems.length) return;
     const quantityById = new Map(catalogSelection.map((selection) => [selection.id, selection.quantity]));
-    setItems((current) => current.length === 1 && !current[0].description && !current[0].catalogItemId ? selectedItems.map((selected) => ({ catalogItemId: String(selected.id), stockPropertyNo: selected.productCode, description: selected.description, specification: selected.remarks || "", quantity: quantityById.get(selected.id) || "1", unit: selected.unit || "", estimatedUnitCost: selected.referencePrice })) : current);
+    setItems((current) => current.length === 1 && !current[0].description && !current[0].catalogItemId ? selectedItems.map((selected) => ({ catalogItemId: String(selected.id), stockPropertyNo: selected.productCode, description: selected.description, specification: selected.remarks || "", quantity: quantityById.get(selected.id) || "1", unit: selected.unit || "pc", estimatedUnitCost: selected.referencePrice })) : current);
     sessionStorage.removeItem("procurewise.catalogSelection");
   }, [catalog.data?.items, catalogItemIds, catalogSelection]);
 
@@ -585,18 +587,55 @@ function PurchaseRequestForm({
   const [mixedCategoryAcknowledged, setMixedCategoryAcknowledged] = useState(false);
 
   const updateItem = (index: number, field: keyof RequestItem, value: string) => setItems((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item));
-  const addItem = () => setItems((current) => [...current, { catalogItemId: "", stockPropertyNo: "", description: "", specification: "", quantity: "", unit: "", estimatedUnitCost: "" }]);
+  const addItem = () => setItems((current) => [...current, { catalogItemId: "", stockPropertyNo: "", description: "", specification: "", quantity: "1", unit: "pc", estimatedUnitCost: "" }]);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
+    setAttemptedSubmit(true);
     if (!configurationReady) return toast.error("An Admin must first add an office and object of expenditure.");
-    if (!purpose.trim() || !officeId || !objectId || items.some((item) => !item.description.trim() || Number(item.quantity) <= 0 || Number(item.estimatedUnitCost) <= 0)) {
-      return toast.error("Complete the purpose, department, budget references, and at least one valid item.");
+    if (!purpose.trim()) {
+      return toast.error("Purchase Request Purpose is required (at least 10 characters).");
+    }
+    if (purpose.trim().length < 10) {
+      return toast.error("Purchase Request Purpose must be at least 10 characters.");
+    }
+    if (!officeId) {
+      return toast.error("Please select a Requesting Department / Office.");
+    }
+    if (!objectId) {
+      return toast.error("Please select an Object of Expenditure.");
     }
     if (!verifiedPpmp) {
       setCurrentStep("ppmp");
       return toast.error("A verified PPMP is required before creating a Purchase Request.");
     }
+    if (!items.length) {
+      return toast.error("Please add at least one line item.");
+    }
+
+    // Comprehensive per-item validation with user-friendly messages
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const itemNum = i + 1;
+      const desc = item.description.trim();
+      const nameLabel = desc ? ` ("${desc.length > 20 ? desc.slice(0, 18) + "..." : desc}")` : "";
+
+      if (!desc) {
+        return toast.error(`Item #${itemNum}: Item description is required.`);
+      }
+      const qty = Number(item.quantity);
+      if (!item.quantity.trim() || isNaN(qty) || qty <= 0) {
+        return toast.error(`Item #${itemNum}${nameLabel}: Quantity must be greater than 0.`);
+      }
+      if (!item.unit.trim()) {
+        return toast.error(`Item #${itemNum}${nameLabel}: Unit of measurement is required (e.g. pc, box, set, unit, lot).`);
+      }
+      const cost = Number(item.estimatedUnitCost);
+      if (!item.estimatedUnitCost.trim() || isNaN(cost) || cost <= 0) {
+        return toast.error(`Item #${itemNum}${nameLabel}: Estimated unit cost must be greater than ₱0.00.`);
+      }
+    }
+
     if (requestedSignatoryChoice && !selectedRequestedSignatory) return toast.error("Choose Requested by from the authorized signatory suggestions.");
     if (approvedSignatoryChoice && !selectedApprovedSignatory) return toast.error("Choose Approved by from the authorized signatory suggestions.");
     if (categoryAnalysis.isMixed && !mixedCategoryAcknowledged) {
@@ -947,7 +986,7 @@ function PurchaseRequestForm({
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[10px] font-bold uppercase tracking-wider rounded bg-emerald-200 text-emerald-900 dark:bg-emerald-900 dark:text-emerald-200 px-2 py-0.5">
-                        Verified Department PPMP
+                        Verified Department PPMP · Linked PPMP entry
                       </span>
                       <span className="text-xs font-bold text-emerald-950 dark:text-emerald-100 font-mono">
                         FY {verifiedPpmp?.fiscalYear}
@@ -1282,6 +1321,25 @@ function PurchaseRequestForm({
                   </div>
                 </div>
 
+                <datalist id="pr-unit-suggestions">
+                  <option value="pc">pc (piece)</option>
+                  <option value="unit">unit</option>
+                  <option value="box">box</option>
+                  <option value="set">set</option>
+                  <option value="pack">pack</option>
+                  <option value="lot">lot</option>
+                  <option value="pad">pad</option>
+                  <option value="roll">roll</option>
+                  <option value="ream">ream</option>
+                  <option value="bottle">bottle</option>
+                  <option value="can">can</option>
+                  <option value="cartridge">cartridge</option>
+                  <option value="tube">tube</option>
+                  <option value="meter">meter</option>
+                  <option value="pair">pair</option>
+                  <option value="bundle">bundle</option>
+                </datalist>
+
                 <div className="overflow-x-auto">
                   <RecordTable className="mt-4 min-w-[920px]">
                     <RecordTableHeader>
@@ -1289,16 +1347,21 @@ function PurchaseRequestForm({
                         <th className="px-3 py-3 font-semibold">Catalog item</th>
                         <th className="px-3 py-3 font-semibold">Favorite</th>
                         <th className="px-3 py-3 font-semibold">Stock / property no.</th>
-                        <th className="px-3 py-3 font-semibold">Description</th>
-                        <th className="px-3 py-3 font-semibold">Qty.</th>
-                        <th className="px-3 py-3 font-semibold">Unit</th>
-                        <th className="px-3 py-3 font-semibold">Est. unit cost</th>
+                        <th className="px-3 py-3 font-semibold">Description <span className="text-rose-600">*</span></th>
+                        <th className="px-3 py-3 font-semibold">Qty. <span className="text-rose-600">*</span></th>
+                        <th className="px-3 py-3 font-semibold">Unit <span className="text-rose-600">*</span></th>
+                        <th className="px-3 py-3 font-semibold">Est. unit cost (₱) <span className="text-rose-600">*</span></th>
                         <th className="w-10 px-2 py-3" />
                       </tr>
                     </RecordTableHeader>
                     <tbody className="divide-y divide-[#efebe4] dark:divide-[#46515c]">
                       {items.map((item, index) => {
                         const selectedCatalogItem = [...catalogItems, ...(favorites.data ?? [])].find((catalogItem) => String(catalogItem.id) === item.catalogItemId);
+                        const isDescInvalid = attemptedSubmit && !item.description.trim();
+                        const isQtyInvalid = attemptedSubmit && (!item.quantity.trim() || Number(item.quantity) <= 0);
+                        const isUnitInvalid = attemptedSubmit && !item.unit.trim();
+                        const isCostInvalid = attemptedSubmit && (!item.estimatedUnitCost.trim() || Number(item.estimatedUnitCost) <= 0);
+
                         return (
                           <tr key={index}>
                             <td className="min-w-64 p-2">
@@ -1316,7 +1379,7 @@ function PurchaseRequestForm({
                                             catalogItemId: value,
                                             stockPropertyNo: selected.productCode,
                                             description: selected.description,
-                                            unit: selected.unit || "",
+                                            unit: selected.unit || "pc",
                                             estimatedUnitCost: Number(selected.referencePrice).toFixed(2),
                                           }
                                         : currentItem
@@ -1364,7 +1427,9 @@ function PurchaseRequestForm({
                                 value={item.description}
                                 onChange={(event) => updateItem(index, "description", event.target.value)}
                                 placeholder="Item description"
-                                className="h-8 border-[#e1ddd5] dark:border-[#46515c] dark:bg-[#232c35] dark:text-[#f1f5f8] text-xs"
+                                className={`h-8 border-[#e1ddd5] dark:border-[#46515c] dark:bg-[#232c35] dark:text-[#f1f5f8] text-xs ${
+                                  isDescInvalid ? "border-rose-500 ring-1 ring-rose-500 bg-rose-50/40 dark:bg-rose-950/30" : ""
+                                }`}
                               />
                             </td>
                             <td className="p-2">
@@ -1374,14 +1439,21 @@ function PurchaseRequestForm({
                                 type="number"
                                 min="0.01"
                                 step="0.01"
-                                className="h-8 w-20 border-[#e1ddd5] dark:border-[#46515c] dark:bg-[#232c35] dark:text-[#f1f5f8] text-xs"
+                                placeholder="1"
+                                className={`h-8 w-20 border-[#e1ddd5] dark:border-[#46515c] dark:bg-[#232c35] dark:text-[#f1f5f8] text-xs ${
+                                  isQtyInvalid ? "border-rose-500 ring-1 ring-rose-500 bg-rose-50/40 dark:bg-rose-950/30" : ""
+                                }`}
                               />
                             </td>
                             <td className="p-2">
                               <Input
                                 value={item.unit}
+                                list="pr-unit-suggestions"
                                 onChange={(event) => updateItem(index, "unit", event.target.value)}
-                                className="h-8 w-20 border-[#e1ddd5] dark:border-[#46515c] dark:bg-[#232c35] dark:text-[#f1f5f8] text-xs"
+                                placeholder="e.g. pc, box"
+                                className={`h-8 w-24 border-[#e1ddd5] dark:border-[#46515c] dark:bg-[#232c35] dark:text-[#f1f5f8] text-xs ${
+                                  isUnitInvalid ? "border-rose-500 ring-1 ring-rose-500 bg-rose-50/40 dark:bg-rose-950/30" : ""
+                                }`}
                               />
                             </td>
                             <td className="p-2">
@@ -1392,7 +1464,9 @@ function PurchaseRequestForm({
                                 min="0.01"
                                 step="0.01"
                                 placeholder="0.00"
-                                className="h-8 w-28 border-[#e1ddd5] dark:border-[#46515c] dark:bg-[#232c35] dark:text-[#f1f5f8] text-xs"
+                                className={`h-8 w-28 border-[#e1ddd5] dark:border-[#46515c] dark:bg-[#232c35] dark:text-[#f1f5f8] text-xs ${
+                                  isCostInvalid ? "border-rose-500 ring-1 ring-rose-500 bg-rose-50/40 dark:bg-rose-950/30" : ""
+                                }`}
                               />
                             </td>
                             <td className="p-2">

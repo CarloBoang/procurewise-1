@@ -116,7 +116,27 @@ export const appRouter = router({
       list: protectedProcedure.query(({ ctx }) => listPurchaseRequests(ctx.user)),
       detail: protectedProcedure.input(z.object({ purchaseRequestId: z.number().int().positive() })).query(({ ctx, input }) => getPurchaseRequestDetail(input.purchaseRequestId, ctx.user)),
       signatories: protectedProcedure.query(() => listPurchaseRequestSignatories()),
-      create: protectedProcedure.input(z.object({ purpose: z.string().min(10), fundSource: z.string().max(160).optional(), fundCluster: z.string().max(80).optional(), responsibilityCenterCode: z.string().max(80).optional(), requesterDesignation: z.string().max(160).optional(), requestedSignatoryId: z.number().int().positive().optional(), approvedSignatoryId: z.number().int().positive().optional(), ppmpEntryId: z.number().int().positive().optional(), officeId: z.number().int().positive(), objectOfExpenditureId: z.number().int().positive(), items: z.array(z.object({ catalogItemId: z.number().int().positive().optional(), stockPropertyNo: z.string().max(80).optional(), description: z.string().min(2), specification: z.string().optional(), quantity: z.number().positive(), unit: z.string().min(1), estimatedUnitCost: z.number().positive() })).min(1) })).mutation(({ ctx, input }) => {
+      create: protectedProcedure.input(z.object({
+        purpose: z.string().trim().min(10, "Purpose must be at least 10 characters"),
+        fundSource: z.string().max(160).optional(),
+        fundCluster: z.string().max(80).optional(),
+        responsibilityCenterCode: z.string().max(80).optional(),
+        requesterDesignation: z.string().max(160).optional(),
+        requestedSignatoryId: z.number().int().positive().optional(),
+        approvedSignatoryId: z.number().int().positive().optional(),
+        ppmpEntryId: z.number().int().positive().optional(),
+        officeId: z.number().int().positive("Requesting Department/Office is required"),
+        objectOfExpenditureId: z.number().int().positive("Object of Expenditure is required"),
+        items: z.array(z.object({
+          catalogItemId: z.number().int().positive().optional(),
+          stockPropertyNo: z.string().max(80).optional(),
+          description: z.string().trim().min(2, "Item description must be at least 2 characters"),
+          specification: z.string().optional(),
+          quantity: z.number().positive("Quantity must be greater than 0"),
+          unit: z.string().trim().min(1, "Unit of measurement is required (e.g. pc, box, set, unit, lot)"),
+          estimatedUnitCost: z.number().positive("Estimated unit cost must be greater than ₱0.00")
+        })).min(1, "At least one line item is required")
+      })).mutation(({ ctx, input }) => {
         assertRole(normalizeProcurementRole(ctx.user.role), ["end_user"]);
         return createPurchaseRequest(input, ctx.user);
       }),
