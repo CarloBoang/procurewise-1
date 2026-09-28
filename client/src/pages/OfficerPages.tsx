@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils";
 import { PageHeader } from "@/components/PageHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +12,7 @@ import { trpc } from "@/lib/trpc";
 import { CheckCircle2, FileCheck, FilePlus2, FileText, LineChart as LineChartIcon, LoaderCircle, Printer, ScrollText, Send, SendHorizontal, Star } from "lucide-react";
 import { SupplierEvaluationPreviewModal, type SupplierEvaluationFormData } from "@/components/SupplierEvaluationDocument";
 import { OfficeSelect } from "@/components/OfficeSelect";
-import { OfficialBacResolutionCanvas } from "@/components/OfficialBacResolutionCanvas";
+import { DEFAULT_BSC_BAC_MEMBERS, OfficialBacResolutionCanvas, type BacSignatory } from "@/components/OfficialBacResolutionCanvas";
 import { useEffect, useState } from "react";
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
@@ -20,7 +21,14 @@ import { useLocation } from "wouter";
 const statusTone = (status: string) => status === "issued" || status === "sent" || status === "acknowledged" ? "approved" : status === "cancelled" ? "returned" : "draft";
 const money = (value: string | number) => `₱${Number(value).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) { return <div><Label className="text-[11px] font-semibold">{label}</Label><div className="mt-1.5">{children}</div></div>; }
+function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
+  return (
+    <div className={cn("w-full min-w-0", className)}>
+      <Label className="text-[11px] font-semibold text-neutral-800 block truncate mb-1">{label}</Label>
+      <div className="w-full min-w-0">{children}</div>
+    </div>
+  );
+}
 function SubmitButton({ pending, label }: { pending: boolean; label: string }) { return <Button disabled={pending} className="h-9 rounded-[4px] bg-[#7b1e1e] text-xs hover:bg-[#641818]">{pending && <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" />}{label}</Button>; }
 
 export function NoticesPage() {
@@ -230,11 +238,11 @@ export function TransmittalsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full min-w-0">
             {/* Form Column (5 cols) */}
-            <div className="lg:col-span-5 space-y-5">
-              <section className="flat-panel p-5">
-                <div className="flex items-center justify-between border-b border-[#ece8df] pb-3 mb-4">
+            <div className="lg:col-span-5 min-w-0 w-full space-y-5">
+              <section className="w-full overflow-hidden rounded-xl border border-stone-200 bg-white p-6 shadow-sm min-w-0">
+                <div className="flex items-center justify-between border-b border-stone-200 pb-3 mb-4">
                   <div>
                     <h3 className="font-semibold text-sm text-[#202833] flex items-center gap-2">
                       <FileCheck className="h-4 w-4 text-[#7b1e1e]" />
@@ -255,11 +263,11 @@ export function TransmittalsPage() {
                   </Button>
                 </div>
 
-                <form onSubmit={handleEndorse} className="space-y-4">
+                <form onSubmit={handleEndorse} className="space-y-4 w-full min-w-0">
                   <Field label="Auto-fill from Purchase Request (Optional)">
                     <Select value={selectedPrId} onValueChange={setSelectedPrId}>
-                      <SelectTrigger className="h-9 text-xs">
-                        <SelectValue placeholder="Choose Purchase Request to load..." />
+                      <SelectTrigger className="h-9 text-xs w-full min-w-0 box-border truncate overflow-hidden">
+                        <SelectValue placeholder="Choose Purchase Request to load..." className="truncate" />
                       </SelectTrigger>
                       <SelectContent>
                         {(dashboard.data?.purchaseRequests ?? []).map((pr) => (
@@ -271,13 +279,13 @@ export function TransmittalsPage() {
                     </Select>
                   </Field>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full min-w-0">
                     <Field label="Resolution Number *">
                       <Input
                         value={resolutionNumber}
                         onChange={(e) => setResolutionNumber(e.target.value)}
                         placeholder="e.g. 2601-GAS2-009"
-                        className="h-9 text-xs font-mono font-semibold"
+                        className="h-9 text-xs font-mono font-semibold w-full min-w-0 box-border"
                         required
                       />
                     </Field>
@@ -287,27 +295,51 @@ export function TransmittalsPage() {
                         value={customPrNumber}
                         onChange={(e) => setCustomPrNumber(e.target.value)}
                         placeholder="e.g. 2026-009"
-                        className="h-9 text-xs font-mono"
+                        className="h-9 text-xs font-mono w-full min-w-0 box-border"
                         required
                       />
                     </Field>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full min-w-0">
                     <Field label="Mode of Procurement *">
                       <Input
                         value={modeOfProcurement}
                         onChange={(e) => setModeOfProcurement(e.target.value)}
                         placeholder="e.g. Small Value Procurement"
-                        className="h-9 text-xs font-semibold"
+                        className="h-9 text-xs font-semibold w-full min-w-0 box-border"
+                        required
+                      />
+                    </Field>
+
+                    <Field label="Resolution Date">
+                      <Input
+                        value={dateResolved}
+                        onChange={(e) => setDateResolved(e.target.value)}
+                        placeholder="e.g. September 29, 2026"
+                        className="h-9 text-xs w-full min-w-0 box-border"
+                      />
+                    </Field>
+                  </div>
+
+                  {/* Two-input row: Approved Budget (ABC) and Mode of Evaluation */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full min-w-0">
+                    <Field label="Approved Budget (ABC) (₱) *">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="1"
+                        value={approvedBudget}
+                        onChange={(e) => setApprovedBudget(Number(e.target.value))}
+                        className="h-9 text-xs font-semibold text-[#7b1e1e] w-full min-w-0 box-border"
                         required
                       />
                     </Field>
 
                     <Field label="Mode of Evaluation">
                       <Select value={evaluationMode} onValueChange={(v) => setEvaluationMode(v as typeof evaluationMode)}>
-                        <SelectTrigger className="h-9 text-xs">
-                          <SelectValue />
+                        <SelectTrigger className="h-9 text-xs w-full min-w-0 box-border overflow-hidden truncate">
+                          <SelectValue className="truncate" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="lot_basis" className="text-xs">
@@ -321,35 +353,12 @@ export function TransmittalsPage() {
                     </Field>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <Field label="Approved Budget (ABC) (₱) *">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="1"
-                        value={approvedBudget}
-                        onChange={(e) => setApprovedBudget(Number(e.target.value))}
-                        className="h-9 text-xs font-semibold text-[#7b1e1e]"
-                        required
-                      />
-                    </Field>
-
-                    <Field label="Resolution Date">
-                      <Input
-                        value={dateResolved}
-                        onChange={(e) => setDateResolved(e.target.value)}
-                        placeholder="e.g. September 29, 2026"
-                        className="h-9 text-xs"
-                      />
-                    </Field>
-                  </div>
-
                   <Field label="Entity / Agency Name">
                     <Input
                       value={entityName}
                       onChange={(e) => setEntityName(e.target.value)}
                       placeholder="e.g. Batanes State College"
-                      className="h-9 text-xs"
+                      className="h-9 text-xs w-full min-w-0 box-border"
                     />
                   </Field>
 
@@ -358,7 +367,7 @@ export function TransmittalsPage() {
                       value={purposeOrItems}
                       onChange={(e) => setPurposeOrItems(e.target.value)}
                       rows={3}
-                      className="text-xs leading-relaxed"
+                      className="text-xs leading-relaxed w-full min-w-0 box-border resize-y"
                       placeholder="Specify goods/services, meals, snacks, or supplies..."
                       required
                     />
@@ -369,7 +378,7 @@ export function TransmittalsPage() {
                       value={endUserName}
                       onChange={(e) => setEndUserName(e.target.value)}
                       placeholder="e.g. MARIE FE E. PABLEO"
-                      className="h-9 text-xs"
+                      className="h-9 text-xs w-full min-w-0 box-border"
                     />
                   </Field>
 
@@ -378,12 +387,12 @@ export function TransmittalsPage() {
                       value={remarks}
                       onChange={(e) => setRemarks(e.target.value)}
                       placeholder="Additional notes for BAC review and signature..."
-                      className="h-9 text-xs"
+                      className="h-9 text-xs w-full min-w-0 box-border"
                     />
                   </Field>
 
                   {/* Collapsible Signatories & Officials Customizer */}
-                  <div className="rounded border border-[#e5e1d8] bg-[#faf8f5] overflow-hidden">
+                  <div className="rounded-lg border border-stone-200 bg-[#faf8f5] overflow-hidden w-full min-w-0">
                     <button
                       type="button"
                       onClick={() => setSignatoriesExpanded(!signatoriesExpanded)}
@@ -398,49 +407,49 @@ export function TransmittalsPage() {
                     </button>
 
                     {signatoriesExpanded && (
-                      <div className="p-3 pt-1 border-t border-[#e5e1d8] space-y-3 bg-white">
+                      <div className="p-3 pt-1 border-t border-stone-200 space-y-3 bg-white w-full min-w-0">
                         <p className="text-[10px] text-neutral-500">
                           Edit the official names, ranks, and roles of the BAC Committee and Approving Authority:
                         </p>
 
-                        <div className="space-y-2">
+                        <div className="space-y-2 w-full min-w-0">
                           <p className="text-[10px] font-bold text-[#7b1e1e] uppercase tracking-wide">
                             BAC Members & Chairperson
                           </p>
                           {bacMembers.map((member, i) => (
-                            <div key={i} className="grid grid-cols-2 gap-2 text-xs">
+                            <div key={i} className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs w-full min-w-0">
                               <Input
                                 value={member.name}
                                 onChange={(e) => handleSignatoryUpdate(i, "name", e.target.value)}
                                 placeholder="Full Name"
-                                className="h-8 text-[11px]"
+                                className="h-8 text-[11px] w-full min-w-0 box-border"
                               />
                               <Input
                                 value={member.role}
                                 onChange={(e) => handleSignatoryUpdate(i, "role", e.target.value)}
                                 placeholder="Role"
-                                className="h-8 text-[11px]"
+                                className="h-8 text-[11px] w-full min-w-0 box-border"
                               />
                             </div>
                           ))}
                         </div>
 
-                        <div className="pt-2 border-t border-neutral-200 space-y-2">
+                        <div className="pt-2 border-t border-neutral-200 space-y-2 w-full min-w-0">
                           <p className="text-[10px] font-bold text-[#7b1e1e] uppercase tracking-wide">
                             Head of the Procuring Entity (HoPE)
                           </p>
-                          <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs w-full min-w-0">
                             <Input
                               value={collegePresidentName}
                               onChange={(e) => setCollegePresidentName(e.target.value)}
                               placeholder="President Name"
-                              className="h-8 text-[11px]"
+                              className="h-8 text-[11px] w-full min-w-0 box-border"
                             />
                             <Input
                               value={collegePresidentDesignation}
                               onChange={(e) => setCollegePresidentDesignation(e.target.value)}
                               placeholder="Designation"
-                              className="h-8 text-[11px]"
+                              className="h-8 text-[11px] w-full min-w-0 box-border"
                             />
                           </div>
                         </div>
@@ -448,28 +457,28 @@ export function TransmittalsPage() {
                     )}
                   </div>
 
-                  {/* Actions */}
-                  <div className="pt-2 flex flex-col sm:flex-row items-center gap-3 justify-end">
+                  {/* Bottom Action Buttons: wrapped inside standard container at bottom of form */}
+                  <div className="mt-6 pt-4 border-t border-stone-200 flex flex-wrap items-center justify-end gap-3 w-full min-w-0">
                     <Button
                       type="button"
                       variant="outline"
                       onClick={handlePrintResolution}
-                      className="w-full sm:w-auto h-9 text-xs border-[#7b1e1e] text-[#7b1e1e] hover:bg-[#7b1e1e]/5"
+                      className="w-full sm:w-auto h-9 text-xs border-[#7b1e1e] text-[#7b1e1e] hover:bg-[#7b1e1e]/5 px-3 py-2 flex items-center justify-center gap-1.5"
                     >
-                      <Printer className="mr-1.5 h-3.5 w-3.5" />
-                      Print Official Resolution
+                      <Printer className="h-3.5 w-3.5 shrink-0" />
+                      <span>Print Official Resolution</span>
                     </Button>
                     <Button
                       type="submit"
                       disabled={endorseMutation.isPending}
-                      className="w-full sm:w-auto h-9 text-xs bg-[#7b1e1e] text-white hover:bg-[#641818]"
+                      className="w-full sm:w-auto h-9 text-xs bg-[#7b1e1e] text-white hover:bg-[#641818] px-4 py-2 flex items-center justify-center gap-1.5"
                     >
                       {endorseMutation.isPending ? (
-                        <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        <LoaderCircle className="h-3.5 w-3.5 animate-spin shrink-0" />
                       ) : (
-                        <Send className="mr-1.5 h-3.5 w-3.5" />
+                        <Send className="h-3.5 w-3.5 shrink-0" />
                       )}
-                      Endorse to End-User, BAC & HoPE
+                      <span>Endorse to End-User, BAC & HoPE</span>
                     </Button>
                   </div>
                 </form>
@@ -477,7 +486,7 @@ export function TransmittalsPage() {
             </div>
 
             {/* Live Canvas Preview Column (7 cols) */}
-            <div className="lg:col-span-7 space-y-4">
+            <div className="lg:col-span-7 min-w-0 w-full space-y-4">
               <div className="flex items-center justify-between bg-neutral-100 p-2.5 rounded-lg border border-neutral-200">
                 <div className="flex items-center gap-2">
                   <ScrollText className="h-4 w-4 text-[#7b1e1e]" />
