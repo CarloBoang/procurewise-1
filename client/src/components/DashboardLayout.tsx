@@ -434,7 +434,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (item.path === "/purchase-orders") return "Abstracts, PO & PMR (Award & contract signing)";
     }
     if (currentRole === "bac" || currentRole === "bac_secretariat") {
-      if (item.path === "/officer/transmittals") return "BAC Transmittals (PR review & resolution)";
+      if (item.path === "/officer/transmittals") return "BAC Resolutions & Transmittals (ABC & Endorsement)";
       if (item.path === "/purchase-orders") return "Abstracts, PO & PMR (Quotation evaluation)";
     }
     if (currentRole === "budget_officer") {

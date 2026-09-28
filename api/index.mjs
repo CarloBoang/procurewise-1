@@ -2013,6 +2013,47 @@ async function createBacTransmittal(input, user) {
   await writeAuditEvent({ entityType: "bac_transmittal", entityId: transmittal.id, action: input.sendNow ? "sent" : "created", performedById: user.id, performedByRole: normalizeProcurementRole(user.role), details: { transmittalNumber } });
   return transmittal;
 }
+async function endorseBacResolution(input, user) {
+  const db = await requireDb();
+  const transmittalNumber = `BAC-RES-${(/* @__PURE__ */ new Date()).getFullYear()}-${Date.now().toString().slice(-7)}`;
+  const subject = `BAC Resolution No. ${input.resolutionNumber} - Endorsement for Signature (${input.modeOfProcurement})`;
+  const formattedAbc = `\u20B1${Number(input.approvedBudget).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
+  const remarks = `BAC Secretariat prepared Resolution recommending Alternative Mode of Procurement under ${input.modeOfProcurement} with Approved Budget for the Contract (ABC) of ${formattedAbc} for ${input.purchaseRequestId ? `PR #${input.purchaseRequestId}` : "requisition"}. Endorsed to End-User, BAC Members, and HoPE for review and signature pursuant to RA 9184.${input.remarks ? ` Remarks: ${input.remarks}` : ""}`;
+  await db.insert(bacTransmittals).values({
+    transmittalNumber,
+    purchaseRequestId: input.purchaseRequestId ?? null,
+    fromOffice: "Bids and Awards Committee Secretariat",
+    toOffice: "End-User, BAC Members, & HoPE (College President)",
+    subject,
+    remarks,
+    status: "sent",
+    preparedById: user.id,
+    sentAt: /* @__PURE__ */ new Date()
+  });
+  const [transmittal] = await db.select().from(bacTransmittals).where(eq(bacTransmittals.transmittalNumber, transmittalNumber)).limit(1);
+  if (!transmittal) throw new Error("Resolution endorsement could not be recorded.");
+  await writeAuditEvent({
+    entityType: "bac_transmittal",
+    entityId: transmittal.id,
+    action: "endorsed_for_signature",
+    performedById: user.id,
+    performedByRole: normalizeProcurementRole(user.role),
+    details: {
+      resolutionNumber: input.resolutionNumber,
+      modeOfProcurement: input.modeOfProcurement,
+      approvedBudget: input.approvedBudget,
+      purchaseRequestId: input.purchaseRequestId
+    }
+  });
+  await notifyRoles(["bac", "hope", "end_user", "admin"], {
+    kind: "action_required",
+    title: "BAC Resolution Endorsed for Signature",
+    body: `BAC Secretariat endorsed Resolution No. ${input.resolutionNumber} (${input.modeOfProcurement}, ABC: ${formattedAbc}) to End-User, BAC Members, and HoPE for signature.`,
+    entityType: "bac_transmittal",
+    entityId: transmittal.id
+  });
+  return transmittal;
+}
 async function acknowledgeBacTransmittal(input, user) {
   const db = await requireDb();
   const [transmittal] = await db.select().from(bacTransmittals).where(eq(bacTransmittals.id, input.transmittalId)).limit(1);
@@ -6164,15 +6205,28 @@ var appRouter = router({
       }),
       transmittals: router({
         list: protectedProcedure.query(({ ctx }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "bac", "bac_secretariat", "admin"]);
           return listBacTransmittals();
         }),
         create: protectedProcedure.input(z2.object({ purchaseRequestId: z2.number().int().positive().optional(), fromOffice: z2.string().min(3).max(180), toOffice: z2.string().min(3).max(180), subject: z2.string().min(3).max(220), remarks: z2.string().max(5e3).optional(), sendNow: z2.boolean().optional() })).mutation(({ ctx, input }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "bac", "bac_secretariat", "admin"]);
           return createBacTransmittal(input, ctx.user);
         }),
+        endorseResolution: protectedProcedure.input(z2.object({
+          purchaseRequestId: z2.number().int().positive().optional(),
+          resolutionNumber: z2.string().min(3).max(120),
+          modeOfProcurement: z2.string().min(3).max(120),
+          approvedBudget: z2.number().positive(),
+          evaluationMode: z2.enum(["lot_basis", "per_item"]).default("lot_basis"),
+          purposeOrItems: z2.string().min(3).max(4e3),
+          endUserName: z2.string().max(180).optional(),
+          remarks: z2.string().max(3e3).optional()
+        })).mutation(({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "bac", "bac_secretariat", "admin"]);
+          return endorseBacResolution(input, ctx.user);
+        }),
         acknowledge: protectedProcedure.input(z2.object({ transmittalId: z2.number().int().positive(), acknowledgedByName: z2.string().min(3).max(180) })).mutation(({ ctx, input }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "bac", "bac_secretariat", "admin"]);
           return acknowledgeBacTransmittal(input, ctx.user);
         })
       }),

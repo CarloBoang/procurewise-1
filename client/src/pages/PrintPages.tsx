@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { ArrowLeft, Printer } from "lucide-react";
 import { useLocation, useSearch } from "wouter";
+import { OfficialBacResolutionCanvas } from "@/components/OfficialBacResolutionCanvas";
 
 const BSC_HEADER_URL = "/header.png";
 const BSC_FOOTER_URL = "/footer.png";
@@ -54,4 +55,67 @@ export function PrintTransmittalPage() {
 export function PrintPreCanvassAbstractPage() {
   const preCanvassId = useId("preCanvassId"); const dashboard = trpc.procurement.dashboard.useQuery(undefined, { retry: false }); const setup = trpc.procurement.setup.details.useQuery(undefined, { retry: false }); const abstract = dashboard.data?.abstractsOfCanvass.find((record) => record.preCanvassId === preCanvassId); const quotes = dashboard.data?.preCanvassQuotes.filter((quote) => quote.preCanvassId === preCanvassId) ?? [];
   return <PrintShell title="ABSTRACT OF QUOTATION">{dashboard.isLoading ? <Loading /> : !abstract ? <NotFound /> : <div className="pt-7"><div className="flex items-start justify-between gap-4 border-b border-[#d8d1c4] pb-4 text-[11px] leading-5 text-[#3f4a57]"><div><p className="font-bold text-[#7b1e1e]">Annex F</p><p className="mt-2">( x ) Furnishing/delivery of supplies, materials or equipment</p><p>(   ) Furnishing labor, services, etc.</p><p>(   ) Rental or use of transportation facilities, equipment, quarters, rooms, lot or space, etc.</p></div><div className="text-right"><p>Bids opened at {abstract.openingLocation}</p><p>{new Date(abstract.openingDate).toLocaleDateString("en-PH")}</p><p className="mt-2">To be furnished at the <strong>{setup.data?.settings?.entityName || "[Agency / Institution Name]"}</strong></p></div></div><p className="mt-5 text-center text-xs font-bold text-[#3f4a57]">NAME OF ARTICLES OR SERVICES TO BE FURNISHED, RENDERED OR FACILITIES TO BE RENTED</p><div className="mt-4 grid gap-3 text-[11px] sm:grid-cols-3"><p><strong>Abstract No.:</strong> {abstract.abstractNumber}</p><p><strong>Category:</strong> {abstract.procurementCategory}</p><p><strong>Status:</strong> {abstract.status.toUpperCase()}</p></div><table className="mt-4 w-full border-collapse text-xs"><thead><tr className="bg-[#f9f1e0] text-left text-[#7b1e1e]"><th className="border border-[#ddd6ca] p-2">Supplier quotation comparison</th><th className="border border-[#ddd6ca] p-2">Total quotation</th><th className="border border-[#ddd6ca] p-2">Delivery</th><th className="border border-[#ddd6ca] p-2">Compliance</th></tr></thead><tbody>{quotes.map((quote) => <tr key={quote.id}><td className="border border-[#ddd6ca] p-2">{setup.data?.suppliers.find((supplier) => supplier.id === quote.supplierId)?.companyName || `Supplier #${quote.supplierId}`}</td><td className="border border-[#ddd6ca] p-2">₱{Number(quote.totalPrice).toLocaleString("en-PH", { minimumFractionDigits: 2 })}</td><td className="border border-[#ddd6ca] p-2">{quote.deliveryDays} day(s)</td><td className="border border-[#ddd6ca] p-2">{quote.isCompliant ? "Compliant" : "Non-compliant"}</td></tr>)}</tbody></table><section className="mt-7 border-t border-[#d8d1c4] pt-5"><p className="text-xs font-bold text-[#7b1e1e]">CERTIFICATION / RECOMMENDATION</p><p className="mt-3 text-sm leading-7 text-[#3f4a57]">Recommended supplier: <strong>{setup.data?.suppliers.find((supplier) => supplier.id === abstract.recommendedSupplierId)?.companyName || `Supplier #${abstract.recommendedSupplierId}`}</strong></p><p className="mt-2 text-sm leading-7 text-[#3f4a57]">{abstract.recommendationReason}</p></section><div className="mt-16 grid grid-cols-2 gap-12 text-center text-xs text-[#566171]"><div className="border-t border-[#9f998f] pt-2">Prepared by Procurement / BAC</div><div className="border-t border-[#9f998f] pt-2">Recommended / approved by</div></div></div>}</PrintShell>;
+}
+
+export function PrintBacResolutionPage() {
+  const [, setLocation] = useLocation();
+  const search = new URLSearchParams(useSearch());
+  const prId = Number(search.get("prId") || 0);
+  const resNo = search.get("resNo") || "2601-GAS2-009";
+  const mode = search.get("mode") || "Small Value Procurement";
+  const evalMode = (search.get("evalMode") as "lot_basis" | "per_item") || "lot_basis";
+  const customAbc = search.get("abc");
+  const customPurpose = search.get("purpose");
+
+  const prQuery = trpc.purchaseRequests.detail.useQuery({ purchaseRequestId: prId }, { enabled: Boolean(prId), retry: false });
+  const setupQuery = trpc.procurement.setup.details.useQuery(undefined, { retry: false });
+
+  const pr = prQuery.data?.purchaseRequest;
+  const items = prQuery.data?.items ?? [];
+  const entityName = setupQuery.data?.settings?.entityName || "Batanes State College";
+  const hopeSignatory = setupQuery.data?.signatories?.find((s) => s.roleKey === "hope");
+  const collegePresidentName = hopeSignatory?.fullName || "Dr. Djovi R. Durante";
+  const collegePresidentDesignation = hopeSignatory?.title || "College President";
+
+  const totalCalculated = items.reduce((sum, item) => sum + Number(item.quantity) * Number(item.estimatedUnitCost), 0);
+  const approvedBudget = customAbc ? Number(customAbc) : (totalCalculated || (pr?.totalAmount ? Number(pr.totalAmount) : 53600));
+
+  const itemsSummary = items.length > 0
+    ? items.map((i) => `${i.description}${i.specification ? ` (${i.specification})` : ""}`).join(", ")
+    : "";
+  const purposeOrItems = customPurpose || (pr ? (itemsSummary ? `${itemsSummary} -- ${pr.purpose}` : pr.purpose) : "AM snacks (Burger and Canned Juice/Soda), Packed Meals (Pork,Chicken,Veggie,Rice,Dessert,and Drinking Water),and PM Snacks (Special spaghetti and Canned Juice/ Soda)--Snacks and meals for the evaluation and interview of applicants for private sector representative (PSR).");
+  const prNumber = pr?.prNumber || (search.get("prNo") || "2026-009");
+  const endUserName = pr?.requesterDesignation ? `${pr.requesterDesignation}` : (search.get("endUser") || undefined);
+
+  return (
+    <div className="mx-auto max-w-[900px] print:max-w-none print:m-0 print:p-0">
+      <div className="mb-6 flex items-center justify-between print:hidden no-print">
+        <Button
+          variant="outline"
+          onClick={() => window.history.back()}
+          className="rounded-[4px] border-[#d8d1c4] text-[#1f2933] hover:bg-[#f1f3f5] dark:border-[#46515c] dark:text-[#f1f5f8] dark:hover:bg-[#232c35]"
+        >
+          <ArrowLeft className="mr-1.5 h-4 w-4" />Back to workspace
+        </Button>
+        <Button
+          onClick={() => window.print()}
+          className="rounded-[4px] bg-[#7b1e1e] text-white hover:bg-[#641818] dark:bg-[#d65c50] dark:text-white dark:hover:bg-[#eb766a]"
+        >
+          <Printer className="mr-1.5 h-4 w-4 text-white" />Print Official Resolution
+        </Button>
+      </div>
+      <OfficialBacResolutionCanvas
+        resolutionNumber={resNo}
+        prNumber={prNumber}
+        purposeOrItems={purposeOrItems}
+        approvedBudget={approvedBudget}
+        modeOfProcurement={mode}
+        evaluationMode={evalMode}
+        entityName={entityName}
+        collegePresidentName={collegePresidentName}
+        collegePresidentDesignation={collegePresidentDesignation}
+        endUserName={endUserName}
+      />
+    </div>
+  );
 }

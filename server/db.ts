@@ -839,6 +839,65 @@ export async function createBacTransmittal(input: { purchaseRequestId?: number; 
   return transmittal;
 }
 
+export async function endorseBacResolution(
+  input: {
+    purchaseRequestId?: number;
+    resolutionNumber: string;
+    modeOfProcurement: string;
+    approvedBudget: number;
+    evaluationMode?: "lot_basis" | "per_item";
+    purposeOrItems: string;
+    endUserName?: string;
+    remarks?: string;
+  },
+  user: User
+) {
+  const db = await requireDb();
+  const transmittalNumber = `BAC-RES-${new Date().getFullYear()}-${Date.now().toString().slice(-7)}`;
+  const subject = `BAC Resolution No. ${input.resolutionNumber} - Endorsement for Signature (${input.modeOfProcurement})`;
+  const formattedAbc = `₱${Number(input.approvedBudget).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`;
+  const remarks = `BAC Secretariat prepared Resolution recommending Alternative Mode of Procurement under ${input.modeOfProcurement} with Approved Budget for the Contract (ABC) of ${formattedAbc} for ${input.purchaseRequestId ? `PR #${input.purchaseRequestId}` : "requisition"}. Endorsed to End-User, BAC Members, and HoPE for review and signature pursuant to RA 9184.${input.remarks ? ` Remarks: ${input.remarks}` : ""}`;
+
+  await db.insert(bacTransmittals).values({
+    transmittalNumber,
+    purchaseRequestId: input.purchaseRequestId ?? null,
+    fromOffice: "Bids and Awards Committee Secretariat",
+    toOffice: "End-User, BAC Members, & HoPE (College President)",
+    subject,
+    remarks,
+    status: "sent",
+    preparedById: user.id,
+    sentAt: new Date(),
+  });
+
+  const [transmittal] = await db.select().from(bacTransmittals).where(eq(bacTransmittals.transmittalNumber, transmittalNumber)).limit(1);
+  if (!transmittal) throw new Error("Resolution endorsement could not be recorded.");
+
+  await writeAuditEvent({
+    entityType: "bac_transmittal",
+    entityId: transmittal.id,
+    action: "endorsed_for_signature",
+    performedById: user.id,
+    performedByRole: normalizeProcurementRole(user.role),
+    details: {
+      resolutionNumber: input.resolutionNumber,
+      modeOfProcurement: input.modeOfProcurement,
+      approvedBudget: input.approvedBudget,
+      purchaseRequestId: input.purchaseRequestId,
+    },
+  });
+
+  await notifyRoles(["bac", "hope", "end_user", "admin"], {
+    kind: "action_required",
+    title: "BAC Resolution Endorsed for Signature",
+    body: `BAC Secretariat endorsed Resolution No. ${input.resolutionNumber} (${input.modeOfProcurement}, ABC: ${formattedAbc}) to End-User, BAC Members, and HoPE for signature.`,
+    entityType: "bac_transmittal",
+    entityId: transmittal.id,
+  });
+
+  return transmittal;
+}
+
 export async function acknowledgeBacTransmittal(input: { transmittalId: number; acknowledgedByName: string }, user: User) {
   const db = await requireDb();
   const [transmittal] = await db.select().from(bacTransmittals).where(eq(bacTransmittals.id, input.transmittalId)).limit(1);

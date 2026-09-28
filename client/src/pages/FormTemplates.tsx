@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { trpc } from "@/lib/trpc";
+import { OfficialBacResolutionCanvas } from "@/components/OfficialBacResolutionCanvas";
 import { normalizeProcurementRole } from "../../../shared/procurementRules";
 import {
   AlertCircle,
@@ -34,7 +35,7 @@ import React, { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 // ============================================================================
-// CORE FIVE FORM DEFINITIONS
+// CORE FORM DEFINITIONS
 // ============================================================================
 interface FormTabInfo {
   key: string;
@@ -55,6 +56,15 @@ const FIVE_CORE_FORMS: FormTabInfo[] = [
     isLandscape: false,
     color: "#7b1e1e",
     description: "Official requisition sheet with fund clusters, dynamic item lines, estimated costs, and required signatories.",
+  },
+  {
+    key: "bac_resolution",
+    name: "BAC Resolution (Mode of Procurement)",
+    shortCode: "BAC Res",
+    standard: "RA 9184 Alternative Mode",
+    isLandscape: false,
+    color: "#7b1e1e",
+    description: "Resolution recommending Alternative Mode of Procurement (Small Value Procurement) with ABC and full statutory signatories.",
   },
   {
     key: "rfq",
@@ -674,56 +684,62 @@ export default function FormTemplatesPage() {
                STANDARDIZED A4 PRINT CANVAS WITH EDGE-TO-EDGE HEADER/FOOTER
                ========================================================= */
             <div className="overflow-x-auto py-2 flex justify-center">
-              <article
-                className={`evaluation-document-sheet relative mx-auto flex flex-col justify-between bg-white text-[#202833] border border-[#dfd9ce] shadow-md transition-all dark:bg-white dark:text-[#202833] print:border-0 print:shadow-none print:m-0 print:p-0 ${
-                  currentTab.isLandscape
-                    ? "landscape max-w-[1120px] w-full"
-                    : "portrait max-w-[850px] w-full"
-                }`}
-                style={{
-                  boxSizing: "border-box",
-                  transform: previewScale !== 100 ? `scale(${previewScale / 100})` : "none",
-                  transformOrigin: "top center",
-                }}
-              >
-                {/* 1. HEADER CONTAINER: 100% width, 0 padding, edge-to-edge */}
-                <header className="evaluation-header-container official-form-header print-include w-full p-0 m-0 leading-none overflow-hidden select-none border-b border-[#9a6d19] print:border-b-0 print:p-0 print:m-0">
-                  <img
-                    src="/header.png"
-                    alt="Official Institutional Header"
-                    className="w-full h-auto block object-cover print:w-full"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLElement).style.display = "none";
-                    }}
-                  />
-                </header>
-
-                {/* 2. FORM CONTENT AREA: Excel populated HTML table */}
-                <main className="evaluation-content-area flex-1 px-4 sm:px-8 py-5 text-xs leading-normal print:px-[12mm] print:py-[6mm] print:text-[8pt] overflow-x-auto print:overflow-visible">
-                  {previewQuery.data?.htmlTable ? (
-                    <div
-                      className="print:w-full max-w-full overflow-x-auto"
-                      dangerouslySetInnerHTML={{ __html: previewQuery.data.htmlTable }}
+              {activeFormKey === "bac_resolution" ? (
+                <div style={{ transform: previewScale !== 100 ? `scale(${previewScale / 100})` : "none", transformOrigin: "top center" }}>
+                  <OfficialBacResolutionCanvas />
+                </div>
+              ) : (
+                <article
+                  className={`evaluation-document-sheet relative mx-auto flex flex-col justify-between bg-white text-[#202833] border border-[#dfd9ce] shadow-md transition-all dark:bg-white dark:text-[#202833] print:border-0 print:shadow-none print:m-0 print:p-0 ${
+                    currentTab.isLandscape
+                      ? "landscape max-w-[1120px] w-full"
+                      : "portrait max-w-[850px] w-full"
+                  }`}
+                  style={{
+                    boxSizing: "border-box",
+                    transform: previewScale !== 100 ? `scale(${previewScale / 100})` : "none",
+                    transformOrigin: "top center",
+                  }}
+                >
+                  {/* 1. HEADER CONTAINER: 100% width, 0 padding, edge-to-edge */}
+                  <header className="evaluation-header-container official-form-header print-include w-full p-0 m-0 leading-none overflow-hidden select-none border-b border-[#9a6d19] print:border-b-0 print:p-0 print:m-0">
+                    <img
+                      src="/header.png"
+                      alt="Official Institutional Header"
+                      className="w-full h-auto block object-cover print:w-full"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLElement).style.display = "none";
+                      }}
                     />
-                  ) : (
-                    <div className="p-8 text-center text-xs text-[#52606d]">
-                      No populated HTML content generated for this template.
-                    </div>
-                  )}
-                </main>
+                  </header>
 
-                {/* 3. FOOTER CONTAINER: 100% width, 0 padding, edge-to-edge flush to bottom */}
-                <footer className="evaluation-footer-container official-form-footer print-include w-full p-0 m-0 leading-none overflow-hidden select-none border-t border-[#d8b04d] mt-auto print:border-t-0 print:p-0 print:m-0">
-                  <img
-                    src="/footer.png"
-                    alt="Official Institutional Footer"
-                    className="w-full h-auto block object-cover print:w-full"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLElement).style.display = "none";
-                    }}
-                  />
-                </footer>
-              </article>
+                  {/* 2. FORM CONTENT AREA: Excel populated HTML table */}
+                  <main className="evaluation-content-area flex-1 px-4 sm:px-8 py-5 text-xs leading-normal print:px-[12mm] print:py-[6mm] print:text-[8pt] overflow-x-auto print:overflow-visible">
+                    {previewQuery.data?.htmlTable ? (
+                      <div
+                        className="print:w-full max-w-full overflow-x-auto"
+                        dangerouslySetInnerHTML={{ __html: previewQuery.data.htmlTable }}
+                      />
+                    ) : (
+                      <div className="p-8 text-center text-xs text-[#52606d]">
+                        No populated HTML content generated for this template.
+                      </div>
+                    )}
+                  </main>
+
+                  {/* 3. FOOTER CONTAINER: 100% width, 0 padding, edge-to-edge flush to bottom */}
+                  <footer className="evaluation-footer-container official-form-footer print-include w-full p-0 m-0 leading-none overflow-hidden select-none border-t border-[#d8b04d] mt-auto print:border-t-0 print:p-0 print:m-0">
+                    <img
+                      src="/footer.png"
+                      alt="Official Institutional Footer"
+                      className="w-full h-auto block object-cover print:w-full"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLElement).style.display = "none";
+                      }}
+                    />
+                  </footer>
+                </article>
+              )}
             </div>
           )}
         </div>
