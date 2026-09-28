@@ -1,15 +1,17 @@
 flowchart TD
-    L["1.1 Login (/login)"] --> W["1.2 Lands on /workspace"]
+    L["1.1 Login (/login)"] --> W["1.2 Lands on /purchase-requests"]
     W --> B1["1.3 Click: 'Create Purchase Request'"]
-    B1 --> D1{"1.4 PPMP Selection Decision"}
+    B1 --> S1["1.4 Step 1: PPMP Prerequisite Gate"]
+    S1 --> D1{"PPMP Method"}
+    D1 -- "Upload Own PPMP" --> PPMP_UPL["Upload PDF/Excel/Word/Scan & Enter Budget Ceiling"]
     D1 -- "Select Existing" --> PPMP_SEL["Choose from Registered PPMP Dropdown"]
-    D1 -- "Upload Custom" --> PPMP_UPL["Upload PDF/Excel/Word & Enter Budget"]
-    PPMP_SEL --> ITM["1.5 Enter Line Items & Specs"]
-    PPMP_UPL --> ITM
-    ITM --> CLS{"1.6 Section 5.1.1 Category Check"}
+    PPMP_UPL --> CONF["1.5 Click: 'Confirm PPMP & Proceed to PR'"]
+    PPMP_SEL --> CONF
+    CONF --> S2["1.6 Step 2: Formulate PR & Enter Line Items"]
+    S2 --> CLS{"1.7 Section 5.1.1 Category Check"}
     CLS -- "Mixed Categories" --> ACK["Alert: Check Acknowledge Box or Split Items"]
-    CLS -- "Single Category" --> QUO["1.7 Click: 'Open Pre-Canvass Workspace'"]
+    CLS -- "Single Category" --> QUO["1.8 Click: 'Open Pre-Canvass Workspace'"]
     ACK --> QUO
     QUO --> Q3["Attach Minimum 3 Supplier Quotations"]
-    Q3 --> B2["1.8 Click: 'Forward Package to Procurement'"]
+    Q3 --> B2["1.9 Click: 'Forward Package to Procurement'"]
     B2 --> H1["Package Status: procurement_review (Handed off to Officer)"]

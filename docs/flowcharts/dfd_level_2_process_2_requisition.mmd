@@ -3,24 +3,27 @@ graph LR
     classDef subproc fill:#e0f2fe,stroke:#0284c7,color:#0369a1;
     classDef ds fill:#fef3c7,stroke:#d97706,color:#92400e;
 
-    EU["End-User"]:::entity
-    P21["2.1 Select/Upload PPMP"]:::subproc
-    P22["2.2 Parse Line Items (Sec 5.1.1)"]:::subproc
-    P23["2.3 Attach Minimum 3 Quotations"]:::subproc
-    P24["2.4 Assemble & Seal Package"]:::subproc
+    EU["End-User (Requisitioner)"]:::entity
+    P21["2.1 PPMP Prerequisite:<br/>Upload / Select Dept PPMP"]:::subproc
+    P22["2.2 Initialize PR against<br/>Verified PPMP Ceiling"]:::subproc
+    P23["2.3 Parse Line Items<br/>(Sec 5.1.1 Classification)"]:::subproc
+    P24["2.4 Collect Min. 3<br/>Pre-Canvass Quotations"]:::subproc
+    P25["2.5 Assemble & Seal<br/>Requisition Package"]:::subproc
 
     D_PPMP[("D2: ppmp_records")]:::ds
     D_PR[("D3: purchase_requests")]:::ds
     D_QUOTES[("D4: canvass_quotes")]:::ds
     D_AUDIT[("D15: audit_trail")]:::ds
 
-    EU --> P21
-    P21 --> D_PPMP
-    P21 --> P22
-    EU --> P22
+    EU -- "1. Upload PPMP Document / Select Plan" --> P21
+    P21 <--> D_PPMP
+    D_PPMP -- "2. Verified PPMP Ceiling & Dept" --> P22
+    EU -- "3. PR Header & Purpose" --> P22
     P22 --> P23
-    EU --> P23
-    P23 --> D_QUOTES
+    EU -- "4. Item Specifications & Quantities" --> P23
     P23 --> P24
-    P24 --> D_PR
-    P24 --> D_AUDIT
+    EU -- "5. 3 Vendor Quotation Envelopes" --> P24
+    P24 --> D_QUOTES
+    P24 --> P25
+    P25 --> D_PR
+    P25 --> D_AUDIT

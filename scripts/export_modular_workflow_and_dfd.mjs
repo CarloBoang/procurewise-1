@@ -74,16 +74,17 @@ const diagrams = [
     CONN_A_RET --> DASH_EU
 
     DASH_EU --> CLK_NEW_PR["Click: '+ Create Purchase Request'"]:::actionNode
-    CLK_NEW_PR --> OPEN_PR_MOD["Open Purchase Request Drawer Form"]:::actionNode
+    CLK_NEW_PR --> STEP1_PPMP["Step 1: Department PPMP Prerequisite Gate<br/><i>(RA 12009 Art. II Mandatory PPMP Verification)</i>"]:::actionNode
 
-    OPEN_PR_MOD --> PPMP_DEC{"PPMP Source Decision"}:::decisionNode
+    STEP1_PPMP --> PPMP_DEC{"PPMP Method Decision"}:::decisionNode
+    PPMP_DEC -- "Upload Department PPMP" --> PPMP_UPLOAD["Upload Document (PDF/Excel/Word/Scan),<br/>Title, Office, Expenditure Object & Budget"]:::actionNode
+    PPMP_UPLOAD --> DB_PPMP[("DB: Create 'appPpmpEntry' Record<br/>& Store Attached Document")]:::dbNode
     PPMP_DEC -- "Select Existing" --> PPMP_LIST["Select Registered PPMP from Dropdown"]:::actionNode
-    PPMP_DEC -- "Upload Custom" --> PPMP_UPLOAD["Upload Document (PDF/Excel/Word) & Set Allocated Budget"]:::actionNode
-    PPMP_UPLOAD --> DB_PPMP[("DB: Create 'appPpmpEntry' Record & Attach Document")]:::dbNode
-    
-    PPMP_LIST --> PR_DETAILS["Fill PR Header: Purpose, Fund Cluster, Delivery Term"]:::actionNode
-    DB_PPMP --> PR_DETAILS
 
+    DB_PPMP --> LOCK_PPMP["Step 2: Lock Verified PPMP & Open PR Canvas"]:::actionNode
+    PPMP_LIST --> LOCK_PPMP
+
+    LOCK_PPMP --> PR_DETAILS["Fill PR Header: Purpose, Fund Cluster, Delivery Term<br/><i>(Office & Budget locked to Verified PPMP)</i>"]:::actionNode
     PR_DETAILS --> ADD_ITEMS["Click '+ Add Item Line': Input Description, Qty, Unit, Unit Cost"]:::actionNode
     ADD_ITEMS --> SEC_511_CHK{"Real-time Section 5.1.1 Category Parser"}:::decisionNode
     
@@ -427,33 +428,36 @@ const diagrams = [
   {
     id: "dfd_level_2_process_2_requisition",
     title: "DFD Level 2: Sub-Process 2.0 (PR & Pre-Canvass Creation)",
-    description: "Detailed decomposition of Process 2.0: PPMP selection/upload, line item parsing, 3-quote validation, and package assembly.",
+    description: "Detailed decomposition of Process 2.0: Department PPMP prerequisite gate, verified PR initialization, line item parsing, 3-quote validation, and package assembly.",
     code: `graph LR
     classDef entity fill:#1e293b,stroke:#0f172a,color:#ffffff;
     classDef subproc fill:#e0f2fe,stroke:#0284c7,color:#0369a1;
     classDef ds fill:#fef3c7,stroke:#d97706,color:#92400e;
 
-    EU["End-User"]:::entity
-    P21["2.1 Select/Upload PPMP"]:::subproc
-    P22["2.2 Parse Line Items (Sec 5.1.1)"]:::subproc
-    P23["2.3 Attach Minimum 3 Quotations"]:::subproc
-    P24["2.4 Assemble & Seal Package"]:::subproc
+    EU["End-User (Requisitioner)"]:::entity
+    P21["2.1 PPMP Prerequisite:<br/>Upload / Select Dept PPMP"]:::subproc
+    P22["2.2 Initialize PR against<br/>Verified PPMP Ceiling"]:::subproc
+    P23["2.3 Parse Line Items<br/>(Sec 5.1.1 Classification)"]:::subproc
+    P24["2.4 Collect Min. 3<br/>Pre-Canvass Quotations"]:::subproc
+    P25["2.5 Assemble & Seal<br/>Requisition Package"]:::subproc
 
     D_PPMP[("D2: ppmp_records")]:::ds
     D_PR[("D3: purchase_requests")]:::ds
     D_QUOTES[("D4: canvass_quotes")]:::ds
     D_AUDIT[("D15: audit_trail")]:::ds
 
-    EU --> P21
-    P21 --> D_PPMP
-    P21 --> P22
-    EU --> P22
+    EU -- "1. Upload PPMP Document / Select Plan" --> P21
+    P21 <--> D_PPMP
+    D_PPMP -- "2. Verified PPMP Ceiling & Dept" --> P22
+    EU -- "3. PR Header & Purpose" --> P22
     P22 --> P23
-    EU --> P23
-    P23 --> D_QUOTES
+    EU -- "4. Item Specifications & Quantities" --> P23
     P23 --> P24
-    P24 --> D_PR
-    P24 --> D_AUDIT`
+    EU -- "5. 3 Vendor Quotation Envelopes" --> P24
+    P24 --> D_QUOTES
+    P24 --> P25
+    P25 --> D_PR
+    P25 --> D_AUDIT`
   },
   {
     id: "dfd_level_2_process_5_mearb",
