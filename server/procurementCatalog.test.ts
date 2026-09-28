@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { createPurchaseRequest, getCatalogCodeFamily, listProcurementCatalogFavorites, listProcurementCatalogItems, setProcurementCatalogFavorite } from "./db";
+import { createProcurementCatalogItem, createPurchaseRequest, getCatalogCodeFamily, listProcurementCatalogFavorites, listProcurementCatalogItems, setProcurementCatalogFavorite } from "./db";
 
 describe("ProcureWise common-use procurement catalog", () => {
   it("retains exactly the validated user-supplied catalog records without product images", () => {
@@ -80,5 +80,76 @@ describe("ProcureWise common-use procurement catalog", () => {
     expect(styles).toContain("Common-use procurement catalog (optional)");
     expect(plans).toContain("All source code families");
     expect(workflow).toContain("Linked End-User item schedule");
+  });
+
+  it("permits PO and Procurement Staff to create catalog items with complete metadata and rejects incomplete items", async () => {
+    const inserts: any[] = [];
+    let selectCall = 0;
+    const supplierRow = { id: 5, supplierCode: "SUP-005", companyName: "Batanes Office Depot", isActive: 1 };
+    const createdItemRow = { id: 101, productCode: "CAT-2026-000101", description: "BINDING RING/COMB, plastic, 32mm", unit: "Bundle", referencePrice: "250.00", isActive: 1 };
+    const db = {
+      select: () => {
+        const call = selectCall++;
+        return { from: () => ({ where: () => ({ limit: async () => call === 0 ? [supplierRow] : [createdItemRow] }) }) };
+      },
+      insert: () => ({ values: async (val: unknown) => { inserts.push(val); } }),
+    } as any;
+
+    const poUser = { id: 2, role: "procurement_officer" } as any;
+    const staffUser = { id: 3, role: "procurement_staff" } as any;
+    const audits: any[] = [];
+    const mockAudit = async (audit: any) => { audits.push(audit); };
+
+    // 1. PO creates item with complete metadata
+    const poResult = await createProcurementCatalogItem({
+      description: "BINDING RING/COMB, plastic, 32mm",
+      technicalSpecifications: "Durable PVC plastic, 21 rings, compatible with standard comb-binding machine, 10 pcs/bundle",
+      unit: "Bundle",
+      referencePrice: 250,
+      supplierId: 5,
+    }, poUser, { db, recordAudit: mockAudit as any });
+
+    expect(poResult).toEqual(createdItemRow);
+    expect(inserts[0]).toMatchObject({
+      description: "BINDING RING/COMB, plastic, 32mm",
+      unit: "Bundle",
+      referencePrice: "250.00",
+      source: "Designated Supplier: Batanes Office Depot",
+    });
+    expect(inserts[0].remarks).toContain("Technical Specifications: Durable PVC plastic");
+    expect(inserts[0].remarks).toContain("Designated Supplier: Batanes Office Depot (SUP-005)");
+    expect(audits).toHaveLength(1);
+    expect(audits[0]).toMatchObject({ entityType: "procurement_catalog_item", action: "created" });
+
+    // 2. Reject incomplete metadata: missing specifications
+    await expect(createProcurementCatalogItem({
+      description: "BINDING RING",
+      technicalSpecifications: "   ",
+      unit: "Piece",
+      referencePrice: 100,
+      supplierId: 5,
+    }, staffUser, { db, recordAudit: mockAudit as any })).rejects.toThrow("Complete technical specifications are required");
+
+    // 3. Reject incomplete metadata: zero or invalid unit price
+    await expect(createProcurementCatalogItem({
+      description: "BINDING RING",
+      technicalSpecifications: "Complete technical specs here",
+      unit: "Piece",
+      referencePrice: 0,
+      supplierId: 5,
+    }, staffUser, { db, recordAudit: mockAudit as any })).rejects.toThrow("Unit price must be a valid positive amount");
+
+    // 4. Reject incomplete metadata: missing/unselected supplier
+    const dbNoSupplier = {
+      select: () => ({ from: () => ({ where: () => ({ limit: async () => [] }) }) }),
+      insert: () => ({ values: async () => undefined }),
+    } as any;
+    await expect(createProcurementCatalogItem({
+      description: "BINDING RING",
+      technicalSpecifications: "Complete technical specs here",
+      unit: "Piece",
+      referencePrice: 150,
+      supplierId: 999,
+    }, staffUser, { db: dbNoSupplier, recordAudit: mockAudit as any })).rejects.toThrow("A valid active designated supplier must be selected");
   });
 });

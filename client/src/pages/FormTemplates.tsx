@@ -364,7 +364,7 @@ export default function FormTemplatesPage() {
         {/* -------------------------------------------------------------
             2. FIVE CORE FORM SELECTOR TABS
             ------------------------------------------------------------- */}
-        <div className="mt-6 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="mt-6 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-5 items-stretch">
           {FIVE_CORE_FORMS.map((form) => {
             const isSelected = form.key === activeFormKey;
             return (
@@ -376,20 +376,22 @@ export default function FormTemplatesPage() {
                   setPlaceholderSearch("");
                   setSelectedCategory("all");
                 }}
-                className={`relative flex flex-col justify-between rounded-lg border p-3.5 text-left transition-all ${
+                className={`relative flex flex-col justify-between h-full rounded-lg border p-3.5 text-left transition-all ${
                   isSelected
                     ? "border-[#7b1e1e] bg-white shadow-md ring-2 ring-[#7b1e1e]/20"
                     : "border-[#e0dad0] bg-[#faf8f4] hover:border-[#c5bcad] hover:bg-white"
                 }`}
               >
-                <div>
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#7b1e1e]">
+                {/* Top content container */}
+                <div className="flex flex-col flex-1 w-full min-w-0">
+                  {/* Card Header & Badge */}
+                  <div className="relative flex items-start justify-between gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#7b1e1e] flex-1 min-w-0 break-words leading-tight">
                       {form.shortCode}
                     </span>
                     <Badge
                       variant="outline"
-                      className={`text-[9px] px-1.5 py-0 font-medium ${
+                      className={`shrink-0 whitespace-nowrap text-[9px] px-1.5 py-0 font-medium ${
                         form.isLandscape
                           ? "border-[#b45309] text-[#b45309] bg-[#fffbf2]"
                           : "border-[#52606d] text-[#52606d]"
@@ -398,6 +400,8 @@ export default function FormTemplatesPage() {
                       {form.isLandscape ? "A4 Landscape" : "A4 Portrait"}
                     </Badge>
                   </div>
+
+                  {/* Title & Description */}
                   <h3 className="mt-1.5 text-xs font-bold leading-snug text-[#1f2933]">
                     {form.name}
                   </h3>
@@ -406,13 +410,18 @@ export default function FormTemplatesPage() {
                   </p>
                 </div>
 
-                <div className="mt-3 flex items-center justify-between border-t border-[#ece7de] pt-2 text-[10px] font-semibold text-[#667280]">
-                  <span>{form.standard}</span>
-                  {isSelected && (
-                    <span className="flex items-center gap-1 font-bold text-[#7b1e1e]">
-                      Selected <Check className="h-3 w-3" />
+                {/* Auto-bottom aligned footer container */}
+                <div className="mt-auto w-full pt-3">
+                  <div className="flex items-center justify-between gap-2 border-t border-[#ece7de] pt-2 text-[10px] font-semibold text-[#667280]">
+                    <span className="truncate min-w-0 flex-1 text-left" title={form.standard}>
+                      {form.standard}
                     </span>
-                  )}
+                    {isSelected && (
+                      <span className="shrink-0 whitespace-nowrap flex items-center gap-1 font-bold text-[#7b1e1e]">
+                        Selected <Check className="h-3 w-3" />
+                      </span>
+                    )}
+                  </div>
                 </div>
               </button>
             );

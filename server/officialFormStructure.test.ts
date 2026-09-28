@@ -60,9 +60,8 @@ describe("official procurement form structure", () => {
     const catalog = readFileSync(new URL("../client/src/pages/Catalog.tsx", import.meta.url), "utf8");
     const appearanceControls = readFileSync(new URL("../client/src/components/GlobalAppearanceControls.tsx", import.meta.url), "utf8");
     const css = readFileSync(new URL("../client/src/index.css", import.meta.url), "utf8");
-    expect(navigation).not.toContain('label: "Catalog"');
-    expect(navigation).not.toContain('path: "/catalog"');
-    expect(routes).not.toContain('path={"/catalog"}');
+    expect(navigation).toContain('path: "/catalog"');
+    expect(routes).toContain('path={"/catalog"}');
     expect(navigation).not.toContain("Officer settings");
     expect(navigation).not.toContain("/officer/settings");
     expect(routes).not.toContain("/officer/settings");

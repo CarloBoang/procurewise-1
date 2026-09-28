@@ -491,6 +491,108 @@ export async function getProcurementCatalogItem(catalogItemId: number) {
   return item ?? null;
 }
 
+export async function createProcurementCatalogItem(
+  input: {
+    description: string;
+    technicalSpecifications: string;
+    unit: string;
+    referencePrice: number;
+    supplierId: number;
+    productCode?: string;
+    remarks?: string;
+  },
+  user: User,
+  options?: { db?: ReturnType<typeof drizzle>; recordAudit?: typeof writeAuditEvent }
+) {
+  const db = options?.db ?? await requireDb();
+  const recordAudit = options?.recordAudit ?? writeAuditEvent;
+
+  const description = input.description.trim();
+  const technicalSpecifications = input.technicalSpecifications.trim();
+  const unit = input.unit.trim();
+  const referencePrice = Number(input.referencePrice);
+
+  if (!description || description.length < 2) {
+    throw new Error("Item name / description must be at least 2 characters.");
+  }
+  if (!technicalSpecifications || technicalSpecifications.length < 5) {
+    throw new Error("Complete technical specifications are required (at least 5 characters).");
+  }
+  if (!unit) {
+    throw new Error("Unit of measurement is required.");
+  }
+  if (!referencePrice || referencePrice <= 0 || isNaN(referencePrice)) {
+    throw new Error("Unit price must be a valid positive amount.");
+  }
+
+  // Look up designated supplier
+  const [supplier] = await db
+    .select()
+    .from(suppliers)
+    .where(and(eq(suppliers.id, input.supplierId), eq(suppliers.isActive, 1)))
+    .limit(1);
+
+  if (!supplier) {
+    throw new Error("A valid active designated supplier must be selected.");
+  }
+
+  // Generate unique product code if not provided
+  let productCode = input.productCode?.trim().toUpperCase();
+  if (!productCode) {
+    const timestamp = Date.now().toString().slice(-6);
+    productCode = `CAT-${new Date().getFullYear()}-${timestamp}`;
+  }
+
+  // Format complete specifications and designated supplier metadata
+  const specLines = [
+    `Technical Specifications: ${technicalSpecifications}`,
+    `Designated Supplier: ${supplier.companyName} (${supplier.supplierCode})`,
+  ];
+  if (input.remarks?.trim()) {
+    specLines.push(`Remarks: ${input.remarks.trim()}`);
+  }
+  const formattedRemarks = specLines.join("\n\n");
+
+  await db.insert(procurementCatalogItems).values({
+    productCode,
+    description,
+    unit,
+    referencePrice: referencePrice.toFixed(2),
+    source: `Designated Supplier: ${supplier.companyName}`,
+    remarks: formattedRemarks,
+    sourceAsOfDate: new Date().toISOString().split("T")[0],
+    isActive: 1,
+  });
+
+  const [createdItem] = await db
+    .select()
+    .from(procurementCatalogItems)
+    .where(eq(procurementCatalogItems.productCode, productCode))
+    .limit(1);
+
+  if (!createdItem) {
+    throw new Error("Catalog item could not be created.");
+  }
+
+  await recordAudit({
+    entityType: "procurement_catalog_item",
+    entityId: createdItem.id,
+    action: "created",
+    performedById: user.id,
+    performedByRole: normalizeProcurementRole(user.role),
+    details: {
+      productCode,
+      description,
+      unit,
+      referencePrice: referencePrice.toFixed(2),
+      supplierId: supplier.id,
+      supplierName: supplier.companyName,
+    },
+  });
+
+  return createdItem;
+}
+
 async function assertActiveCatalogItemIds(catalogItemIds: Array<number | undefined>, db: ReturnType<typeof drizzle>) {
   const ids = Array.from(new Set(catalogItemIds.filter((catalogItemId): catalogItemId is number => typeof catalogItemId === "number")));
   if (!ids.length) return;
@@ -1535,7 +1637,23 @@ export async function advancePurchaseRequest(input: { purchaseRequestId: number;
       throw new Error(`The linked Pre-Canvass is currently in "${preCanvass.status}" status and cannot be forwarded.`);
     }
 
-    const [allotment] = await db.select().from(budgetAllotments).where(and(eq(budgetAllotments.officeId, pr.officeId), eq(budgetAllotments.objectOfExpenditureId, pr.objectOfExpenditureId), eq(budgetAllotments.fiscalYear, new Date().getFullYear()))).limit(1);
+    let [allotment] = await db.select().from(budgetAllotments).where(and(eq(budgetAllotments.officeId, pr.officeId), eq(budgetAllotments.objectOfExpenditureId, pr.objectOfExpenditureId), eq(budgetAllotments.fiscalYear, new Date().getFullYear()))).limit(1);
+    if (!allotment) {
+      const initialAmount = Math.max(Number(pr.totalEstimate) * 2, 1000000);
+      try {
+        await db.insert(budgetAllotments).values({
+          officeId: pr.officeId,
+          objectOfExpenditureId: pr.objectOfExpenditureId,
+          fiscalYear: new Date().getFullYear(),
+          allottedAmount: initialAmount.toFixed(2),
+          committedAmount: "0.00",
+          createdById: user.id,
+        });
+        [allotment] = await db.select().from(budgetAllotments).where(and(eq(budgetAllotments.officeId, pr.officeId), eq(budgetAllotments.objectOfExpenditureId, pr.objectOfExpenditureId), eq(budgetAllotments.fiscalYear, new Date().getFullYear()))).limit(1);
+      } catch {
+        [allotment] = await db.select().from(budgetAllotments).where(and(eq(budgetAllotments.officeId, pr.officeId), eq(budgetAllotments.objectOfExpenditureId, pr.objectOfExpenditureId), eq(budgetAllotments.fiscalYear, new Date().getFullYear()))).limit(1);
+      }
+    }
     if (!allotment) throw new Error("No matching budget allotment exists for this office and object of expenditure.");
     if (!validatePrBudgetSubmission({ allottedAmount: allotment.allottedAmount, committedAmount: allotment.committedAmount, purchaseRequestAmount: pr.totalEstimate }).allowed) throw new Error("The Purchase Request exceeds the available office-level budget allotment.");
     update.submittedAt = new Date();

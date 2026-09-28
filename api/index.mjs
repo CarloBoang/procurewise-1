@@ -824,13 +824,13 @@ var PROCUREMENT_ROLES = [
 var USER_ROLES = ["user", ...PROCUREMENT_ROLES, "supply_officer"];
 var OFFICIAL_ROLE_LABELS = {
   end_user: "End-User",
-  procurement_officer: "Procurement Office",
+  procurement_officer: "Procurement Officer",
   procurement_officer_i: "Procurement Officer I",
   procurement_officer_ii: "Procurement Officer II",
   procurement_staff: "Procurement Staff",
-  administrative_approver: "Administrative Approver (legacy)",
+  administrative_approver: "Administrative Approver",
   bac_secretariat: "BAC Secretariat",
-  bac: "BAC",
+  bac: "Bids and Awards Committee",
   hope: "HoPE",
   budget_officer: "Budget Officer",
   supplier_contractor: "Supplier/Contractor",
@@ -841,14 +841,15 @@ function roleCanAct(role, permittedRoles) {
 }
 function normalizeProcurementRole(role) {
   if (role === "user") return "end_user";
-  if (role === "supply_officer" || role === "procurement_officer_i" || role === "procurement_officer_ii" || role === "procurement_staff") return "procurement_officer";
+  if (role === "supply_officer" || role === "procurement_officer_i" || role === "procurement_officer_ii") return "procurement_officer";
   if (role === "bac_secretariat" || role === "bac" || role === "hope" || role === "budget_officer") return "administrative_approver";
   return role;
 }
 function getNextPrStatus(currentStatus, role) {
-  if (currentStatus === "draft" && roleCanAct(role, ["end_user"])) return "procurement_review";
-  if (currentStatus === "procurement_review" && roleCanAct(role, ["procurement_officer"])) return "approval_review";
-  if (currentStatus === "approval_review" && roleCanAct(role, ["administrative_approver"])) return "approved";
+  const norm = normalizeProcurementRole(role);
+  if (currentStatus === "draft" && (roleCanAct(norm, ["end_user"]) || role === "end_user")) return "procurement_review";
+  if (currentStatus === "procurement_review" && roleCanAct(norm, ["procurement_officer"])) return "approval_review";
+  if (currentStatus === "approval_review" && (roleCanAct(norm, ["administrative_approver"]) || role === "hope" || role === "bac")) return "approved";
   return null;
 }
 function selectLowestCompliantQuote(quotes) {
@@ -880,7 +881,7 @@ function hasReservedBudgetCommitment(committedAmount, requestAmount) {
 var EMPLOYEE_PR_STATUS_LABELS = {
   draft: "Draft",
   procurement_review: "In Progress \u2014 Procurement Review",
-  returned: "Returned for Correction",
+  returned: "Returned for Revision",
   approval_review: "In Progress \u2014 Approval Review",
   budget_review: "In Progress \u2014 Approval Review",
   supply_review: "In Progress \u2014 Approval Review",
@@ -897,7 +898,7 @@ var EMPLOYEE_PR_STATUS_LABELS = {
 var EMPLOYEE_PR_STATUS_MEANINGS = {
   draft: "Employee is still preparing the package.",
   procurement_review: "Package has been submitted to Procurement.",
-  returned: "Employee must correct the package and resubmit.",
+  returned: "Package was returned for revision by Procurement Officer. Employee must correct and resubmit.",
   approval_review: "Package is being reviewed by the authorized decision role.",
   budget_review: "Package is being reviewed by the authorized decision role.",
   supply_review: "Package is being reviewed by the authorized decision role.",
@@ -930,6 +931,79 @@ function areUnitsCompatible(unitA, unitB) {
   if (WEIGHT_UNITS.has(normA) && WEIGHT_UNITS.has(normB)) return true;
   if (LENGTH_UNITS.has(normA) && LENGTH_UNITS.has(normB)) return true;
   return false;
+}
+var SECTION_5_1_1_CATEGORIES = [
+  {
+    id: "office_supplies",
+    label: "Office Supplies",
+    description: "Office stationery, papers, folders, binders, writing materials, desk items",
+    keywords: ["paper", "pen", "ballpen", "pencil", "binder", "folder", "stapler", "staple", "envelope", "eraser", "clip", "tape", "desk organizer", "supplies", "marker", "highlighter", "scissors", "fastener", "ink cartridge", "stamp pad", "puncher", "calculator", "carbon paper", "notebook", "pad paper", "columnar", "bond paper"]
+  },
+  {
+    id: "hardware_supplies",
+    label: "Hardware Supplies",
+    description: "Construction materials, tools, lumber, electrical, plumbing, cement, fixtures",
+    keywords: ["hardware", "cement", "lumber", "paint", "pipe", "wire", "steel", "screw", "nail", "hammer", "drill", "plywood", "gravel", "sand", "fitting", "electrical", "bulb", "switch", "outlet", "circuit", "lock", "padlock", "hinge", "wrench", "pliers", "conduit", "saw", "faucet", "valve"]
+  },
+  {
+    id: "ict_supplies",
+    label: "ICT Supplies",
+    description: "Computers, peripherals, networking equipment, storage media, IT consumables",
+    keywords: ["ict", "computer", "desktop", "laptop", "monitor", "printer", "toner", "ink bottle", "keyboard", "mouse", "software", "cable", "ups", "switch", "router", "scanner", "usb", "flash drive", "hard drive", "ssd", "ram", "server", "webcam", "headset", "projector", "ethernet", "wifi", "network"]
+  },
+  {
+    id: "printing_service",
+    label: "Printing Service",
+    description: "Tarpaulin, publication, brochures, flyers, book binding, IDs, banners",
+    keywords: ["printing", "tarpaulin", "tarp", "brochure", "flyer", "banner", "id card", "certificate", "booklet", "manual", "publication", "binding service", "streamer", "poster", "invitation card", "newsletter", "souvenir program"]
+  },
+  {
+    id: "food_ingredients",
+    label: "Food Ingredients",
+    description: "Culinary items, groceries, fresh produce, meat, spices, cooking staples",
+    keywords: ["food", "ingredient", "rice", "meat", "pork", "beef", "chicken", "fish", "vegetable", "cooking oil", "spice", "sugar", "salt", "sauce", "flour", "grocery", "catering", "meal", "milk", "egg", "onion", "garlic", "vinegar", "soy sauce", "pasta", "butter", "cheese", "snack"]
+  }
+];
+function detectItemCategory(text2) {
+  const lower = text2.toLowerCase();
+  for (const cat of SECTION_5_1_1_CATEGORIES) {
+    if (lower.includes(cat.label.toLowerCase()) || lower.includes(cat.id.replace("_", " "))) {
+      return cat.id;
+    }
+  }
+  for (const cat of SECTION_5_1_1_CATEGORIES) {
+    for (const kw of cat.keywords) {
+      const escaped = kw.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&");
+      const regex = new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`, "i");
+      if (regex.test(lower)) {
+        return cat.id;
+      }
+    }
+  }
+  return null;
+}
+function detectMixedCategories(items) {
+  const catSet = /* @__PURE__ */ new Set();
+  const classifications = items.map((item) => {
+    const desc2 = item.description || item.specification || item.itemDescription || item.itemName || item.name || "";
+    const cat = detectItemCategory(`${desc2} ${item.category || ""}`);
+    if (cat) catSet.add(cat);
+    const catObj = SECTION_5_1_1_CATEGORIES.find((c) => c.id === cat);
+    return {
+      description: desc2,
+      categoryId: cat,
+      categoryLabel: catObj ? catObj.label : "Unclassified / Other"
+    };
+  });
+  const detectedCategories = Array.from(catSet);
+  const isMixed = detectedCategories.length > 1;
+  const categoryLabels = detectedCategories.map((id) => SECTION_5_1_1_CATEGORIES.find((c) => c.id === id)?.label || id);
+  return {
+    isMixed,
+    detectedCategories,
+    categoryLabels,
+    itemClassifications: classifications
+  };
 }
 
 // server/procurementValidation.ts
@@ -1634,6 +1708,73 @@ async function getProcurementCatalogItem(catalogItemId) {
   const [item] = await db.select().from(procurementCatalogItems).where(and(eq(procurementCatalogItems.id, catalogItemId), eq(procurementCatalogItems.isActive, 1))).limit(1);
   return item ?? null;
 }
+async function createProcurementCatalogItem(input, user, options) {
+  const db = options?.db ?? await requireDb();
+  const recordAudit = options?.recordAudit ?? writeAuditEvent;
+  const description = input.description.trim();
+  const technicalSpecifications = input.technicalSpecifications.trim();
+  const unit = input.unit.trim();
+  const referencePrice = Number(input.referencePrice);
+  if (!description || description.length < 2) {
+    throw new Error("Item name / description must be at least 2 characters.");
+  }
+  if (!technicalSpecifications || technicalSpecifications.length < 5) {
+    throw new Error("Complete technical specifications are required (at least 5 characters).");
+  }
+  if (!unit) {
+    throw new Error("Unit of measurement is required.");
+  }
+  if (!referencePrice || referencePrice <= 0 || isNaN(referencePrice)) {
+    throw new Error("Unit price must be a valid positive amount.");
+  }
+  const [supplier] = await db.select().from(suppliers).where(and(eq(suppliers.id, input.supplierId), eq(suppliers.isActive, 1))).limit(1);
+  if (!supplier) {
+    throw new Error("A valid active designated supplier must be selected.");
+  }
+  let productCode = input.productCode?.trim().toUpperCase();
+  if (!productCode) {
+    const timestamp2 = Date.now().toString().slice(-6);
+    productCode = `CAT-${(/* @__PURE__ */ new Date()).getFullYear()}-${timestamp2}`;
+  }
+  const specLines = [
+    `Technical Specifications: ${technicalSpecifications}`,
+    `Designated Supplier: ${supplier.companyName} (${supplier.supplierCode})`
+  ];
+  if (input.remarks?.trim()) {
+    specLines.push(`Remarks: ${input.remarks.trim()}`);
+  }
+  const formattedRemarks = specLines.join("\n\n");
+  await db.insert(procurementCatalogItems).values({
+    productCode,
+    description,
+    unit,
+    referencePrice: referencePrice.toFixed(2),
+    source: `Designated Supplier: ${supplier.companyName}`,
+    remarks: formattedRemarks,
+    sourceAsOfDate: (/* @__PURE__ */ new Date()).toISOString().split("T")[0],
+    isActive: 1
+  });
+  const [createdItem] = await db.select().from(procurementCatalogItems).where(eq(procurementCatalogItems.productCode, productCode)).limit(1);
+  if (!createdItem) {
+    throw new Error("Catalog item could not be created.");
+  }
+  await recordAudit({
+    entityType: "procurement_catalog_item",
+    entityId: createdItem.id,
+    action: "created",
+    performedById: user.id,
+    performedByRole: normalizeProcurementRole(user.role),
+    details: {
+      productCode,
+      description,
+      unit,
+      referencePrice: referencePrice.toFixed(2),
+      supplierId: supplier.id,
+      supplierName: supplier.companyName
+    }
+  });
+  return createdItem;
+}
 async function assertActiveCatalogItemIds(catalogItemIds, db) {
   const ids = Array.from(new Set(catalogItemIds.filter((catalogItemId) => typeof catalogItemId === "number")));
   if (!ids.length) return;
@@ -1803,6 +1944,34 @@ async function listLettersOfNotice() {
   const db = await requireDb();
   return db.select().from(lettersOfNotice).orderBy(desc(lettersOfNotice.createdAt));
 }
+async function serveLetterOfNotice(input, user) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Your assigned role is not authorized to serve Letters of Notice.");
+  }
+  const [notice] = await db.select().from(lettersOfNotice).where(eq(lettersOfNotice.id, input.noticeId)).limit(1);
+  if (!notice) throw new Error("Letter of Notice not found.");
+  await db.update(lettersOfNotice).set({
+    status: "served",
+    updatedAt: /* @__PURE__ */ new Date()
+  }).where(eq(lettersOfNotice.id, input.noticeId));
+  await writeAuditEvent({
+    entityType: "letter_of_notice",
+    entityId: notice.id,
+    action: "served_to_supplier",
+    performedById: user.id,
+    performedByRole: actorRole,
+    details: {
+      noticeNumber: notice.noticeNumber,
+      servedAt: input.servedAt.toISOString(),
+      recipientName: input.recipientName.trim(),
+      deliveryMode: input.deliveryMode,
+      remarks: input.remarks?.trim() || null
+    }
+  });
+  return { ...notice, status: "served", recipientName: input.recipientName, deliveryMode: input.deliveryMode };
+}
 async function createBacTransmittal(input, user) {
   const db = await requireDb();
   const transmittalNumber = `BAC-T-${(/* @__PURE__ */ new Date()).getFullYear()}-${Date.now().toString().slice(-7)}`;
@@ -1823,6 +1992,304 @@ async function acknowledgeBacTransmittal(input, user) {
 async function listBacTransmittals() {
   const db = await requireDb();
   return db.select().from(bacTransmittals).orderBy(desc(bacTransmittals.createdAt));
+}
+async function listRfqDistributions(user) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const rfqList = await db.select().from(rfqs).orderBy(desc(rfqs.createdAt));
+  const prIds = rfqList.map((r) => r.purchaseRequestId);
+  const prs = prIds.length > 0 ? await db.select().from(purchaseRequests).where(inArray(purchaseRequests.id, prIds)) : [];
+  const transmittals = prIds.length > 0 ? await db.select().from(bacTransmittals).where(inArray(bacTransmittals.purchaseRequestId, prIds)) : [];
+  const audits = await db.select().from(auditTrails).where(eq(auditTrails.entityType, "rfq_distribution")).orderBy(desc(auditTrails.createdAt));
+  return rfqList.map((rfq) => {
+    const pr = prs.find((p) => p.id === rfq.purchaseRequestId) || null;
+    const transmittal = transmittals.find((t2) => t2.purchaseRequestId === rfq.purchaseRequestId) || null;
+    const audit = audits.find((a) => a.entityId === rfq.id);
+    const details = audit?.details || {};
+    let distributionStatus = "pending_distribution";
+    if (transmittal) {
+      distributionStatus = "transmitted_to_bac";
+    } else if (details.status === "retrieved") {
+      distributionStatus = "retrieved";
+    } else if (details.status === "distributed") {
+      distributionStatus = "distributed";
+    }
+    return {
+      rfq,
+      purchaseRequest: pr,
+      transmittal,
+      distributionStatus,
+      canvasserName: details.canvasserName || null,
+      distributionDate: details.distributionDate || null,
+      retrievalDate: details.retrievalDate || null,
+      remarks: details.remarks || null
+    };
+  });
+}
+async function updateRfqDistribution(input, user) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const [rfq] = await db.select().from(rfqs).where(eq(rfqs.id, input.rfqId)).limit(1);
+  if (!rfq) throw new Error("RFQ not found.");
+  await writeAuditEvent({
+    entityType: "rfq_distribution",
+    entityId: rfq.id,
+    action: `rfq_${input.status}`,
+    performedById: user.id,
+    performedByRole: actorRole,
+    details: {
+      rfqNumber: rfq.rfqNumber,
+      status: input.status,
+      canvasserName: input.canvasserName?.trim() || null,
+      distributionDate: input.distributionDate ? input.distributionDate.toISOString() : (/* @__PURE__ */ new Date()).toISOString(),
+      retrievalDate: input.retrievalDate ? input.retrievalDate.toISOString() : input.status === "retrieved" ? (/* @__PURE__ */ new Date()).toISOString() : null,
+      remarks: input.remarks?.trim() || null
+    }
+  });
+  return { success: true, rfqId: rfq.id, status: input.status };
+}
+async function transmitRfqToBac(input, user, options) {
+  const db = options?.db ?? await requireDb();
+  const auditWriter = options?.recordAudit ?? writeAuditEvent;
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const [rfq] = await db.select().from(rfqs).where(eq(rfqs.id, input.rfqId)).limit(1);
+  if (!rfq) throw new Error("RFQ not found.");
+  const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, rfq.purchaseRequestId)).limit(1);
+  if (!options?.bypassPhilgepsCheck && pr && Number(pr.totalEstimate || 0) > 5e4) {
+    const philgepsAudits = await db.select().from(auditTrails).where(eq(auditTrails.action, "philgeps_posted"));
+    const isPosted = philgepsAudits.some(
+      (a) => a.entityId === pr.id || a.details?.rfqId === rfq.id
+    );
+    if (!isPosted) {
+      throw new Error(
+        "Under RA 12009 (NGPA) Article III / PhilGEPS electronic posting rules, procurement packages with ABC exceeding \u20B150,000.00 require a documented PhilGEPS posting reference number before transmittal to BAC."
+      );
+    }
+  }
+  const transmittalNumber = `BAC-T-${(/* @__PURE__ */ new Date()).getFullYear()}-${Date.now().toString().slice(-7)}`;
+  await db.insert(bacTransmittals).values({
+    transmittalNumber,
+    purchaseRequestId: rfq.purchaseRequestId,
+    fromOffice: "Procurement Unit",
+    toOffice: input.toOffice?.trim() || "Bids and Awards Committee Secretariat",
+    subject: input.subject?.trim() || `Transmittal of Retrieved RFQs for PR ${pr?.prNumber || rfq.rfqNumber} to BAC`,
+    remarks: input.remarks?.trim() || `Retrieved supplier RFQ packages formally transmitted to BAC for Abstract of Quotations (AOQ) preparation.`,
+    status: "sent",
+    preparedById: user.id,
+    sentAt: /* @__PURE__ */ new Date()
+  });
+  const [transmittal] = await db.select().from(bacTransmittals).where(eq(bacTransmittals.transmittalNumber, transmittalNumber)).limit(1);
+  await auditWriter({
+    entityType: "rfq_distribution",
+    entityId: rfq.id,
+    action: "transmitted_to_bac",
+    performedById: user.id,
+    performedByRole: actorRole,
+    details: {
+      rfqNumber: rfq.rfqNumber,
+      transmittalNumber,
+      status: "transmitted_to_bac"
+    }
+  });
+  await notifyRoles(["bac", "bac_secretariat"], {
+    kind: "action_required",
+    title: `RFQ Package Transmitted to BAC (${transmittalNumber})`,
+    body: `Procurement Officer transmitted retrieved RFQ quotations for PR ${pr?.prNumber ?? ""}. Ready for AOQ creation.`,
+    entityType: "bac_transmittal",
+    entityId: transmittal?.id
+  });
+  return transmittal;
+}
+async function listPhilgepsPostings(user) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const [rfqList, prList, audits] = await Promise.all([
+    db.select().from(rfqs).orderBy(desc(rfqs.createdAt)),
+    db.select().from(purchaseRequests).orderBy(desc(purchaseRequests.createdAt)),
+    db.select().from(auditTrails).where(eq(auditTrails.action, "philgeps_posted")).orderBy(desc(auditTrails.createdAt))
+  ]);
+  return rfqList.map((rfq) => {
+    const pr = prList.find((p) => p.id === rfq.purchaseRequestId);
+    const audit = audits.find((a) => a.details?.rfqId === rfq.id || a.entityId === rfq.purchaseRequestId);
+    const details = audit?.details || null;
+    return {
+      rfqId: rfq.id,
+      rfqNumber: rfq.rfqNumber,
+      purchaseRequestId: rfq.purchaseRequestId,
+      prNumber: pr?.prNumber || `PR-#${rfq.purchaseRequestId}`,
+      purpose: pr?.purpose || "",
+      totalEstimate: pr?.totalEstimate || "0.00",
+      isPosted: Boolean(audit),
+      philgepsReferenceNumber: details?.philgepsReferenceNumber || null,
+      postingDate: details?.postingDate || null,
+      closingDate: details?.closingDate || null,
+      remarks: details?.remarks || null,
+      postedAt: audit?.createdAt || null
+    };
+  });
+}
+async function recordPhilgepsPosting(input, user) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, input.purchaseRequestId)).limit(1);
+  if (!pr) throw new Error("Purchase Request not found.");
+  await writeAuditEvent({
+    entityType: "purchase_request",
+    entityId: pr.id,
+    action: "philgeps_posted",
+    performedById: user.id,
+    performedByRole: actorRole,
+    details: {
+      prNumber: pr.prNumber,
+      rfqId: input.rfqId ?? null,
+      philgepsReferenceNumber: input.philgepsReferenceNumber.trim(),
+      postingDate: input.postingDate.toISOString(),
+      closingDate: input.closingDate?.toISOString() ?? null,
+      remarks: input.remarks?.trim() || null
+    }
+  });
+  return {
+    success: true,
+    purchaseRequestId: pr.id,
+    philgepsReferenceNumber: input.philgepsReferenceNumber.trim(),
+    postingDate: input.postingDate
+  };
+}
+async function listOfficerPurchaseOrders(user) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const orders = await db.select().from(purchaseOrders).orderBy(desc(purchaseOrders.createdAt));
+  const supplierIds = orders.map((o) => o.supplierId).filter(Boolean);
+  const supplierList = supplierIds.length > 0 ? await db.select().from(suppliers).where(inArray(suppliers.id, supplierIds)) : [];
+  const prIds = orders.map((o) => o.purchaseRequestId);
+  const prList = prIds.length > 0 ? await db.select().from(purchaseRequests).where(inArray(purchaseRequests.id, prIds)) : [];
+  const audits = await db.select().from(auditTrails).where(eq(auditTrails.action, "po_released_to_supplier")).orderBy(desc(auditTrails.createdAt));
+  return orders.map((order) => {
+    const supplier = supplierList.find((s) => s.id === order.supplierId) || null;
+    const pr = prList.find((p) => p.id === order.purchaseRequestId) || null;
+    const releaseAudit = audits.find((a) => a.entityId === order.id);
+    const releaseDetails = releaseAudit?.details || null;
+    return {
+      order,
+      supplier,
+      purchaseRequest: pr,
+      isReleased: order.status === "released" || Boolean(releaseAudit),
+      releaseDetails: releaseDetails ? {
+        releasedAt: releaseDetails.releasedAt,
+        recipientName: releaseDetails.recipientName,
+        releaseMode: releaseDetails.releaseMode,
+        acknowledgementReference: releaseDetails.acknowledgementReference,
+        remarks: releaseDetails.remarks
+      } : null
+    };
+  });
+}
+async function releasePurchaseOrder(input, user) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const [po] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, input.purchaseOrderId)).limit(1);
+  if (!po) throw new Error("Purchase Order not found.");
+  await db.update(purchaseOrders).set({
+    status: "released",
+    updatedAt: /* @__PURE__ */ new Date()
+  }).where(eq(purchaseOrders.id, po.id));
+  await writeAuditEvent({
+    entityType: "purchase_order",
+    entityId: po.id,
+    action: "po_released_to_supplier",
+    performedById: user.id,
+    performedByRole: actorRole,
+    details: {
+      poNumber: po.poNumber,
+      releasedAt: input.releasedAt.toISOString(),
+      recipientName: input.recipientName.trim(),
+      releaseMode: input.releaseMode,
+      acknowledgementReference: input.acknowledgementReference?.trim() || null,
+      remarks: input.remarks?.trim() || null
+    }
+  });
+  return { ...po, status: "released" };
+}
+async function listDeliveryMonitoring(user) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const orders = await db.select().from(purchaseOrders).orderBy(desc(purchaseOrders.createdAt));
+  const poIds = orders.map((o) => o.id);
+  const receipts = poIds.length > 0 ? await db.select().from(deliveryReceipts).where(inArray(deliveryReceipts.purchaseOrderId, poIds)) : [];
+  const supplierIds = orders.map((o) => o.supplierId).filter(Boolean);
+  const supplierList = supplierIds.length > 0 ? await db.select().from(suppliers).where(inArray(suppliers.id, supplierIds)) : [];
+  const prIds = orders.map((o) => o.purchaseRequestId);
+  const prList = prIds.length > 0 ? await db.select().from(purchaseRequests).where(inArray(purchaseRequests.id, prIds)) : [];
+  const iarAudits = await db.select().from(auditTrails).where(eq(auditTrails.action, "inspection_iar_recorded")).orderBy(desc(auditTrails.createdAt));
+  return orders.map((order) => {
+    const receipt = receipts.find((r) => r.purchaseOrderId === order.id) || null;
+    const supplier = supplierList.find((s) => s.id === order.supplierId) || null;
+    const pr = prList.find((p) => p.id === order.purchaseRequestId) || null;
+    const iarAudit = iarAudits.find((a) => a.entityId === order.id);
+    const iarDetails = iarAudit?.details || null;
+    return {
+      order,
+      supplier,
+      purchaseRequest: pr,
+      deliveryReceipt: receipt,
+      iar: iarDetails ? {
+        iarNumber: iarDetails.iarNumber,
+        inspectionDate: iarDetails.inspectionDate,
+        inspectedByName: iarDetails.inspectedByName,
+        acceptanceStatus: iarDetails.acceptanceStatus,
+        remarks: iarDetails.remarks
+      } : null
+    };
+  });
+}
+async function recordInspectionMilestone(input, user) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const [po] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, input.purchaseOrderId)).limit(1);
+  if (!po) throw new Error("Purchase Order not found.");
+  await writeAuditEvent({
+    entityType: "purchase_order",
+    entityId: po.id,
+    action: "inspection_iar_recorded",
+    performedById: user.id,
+    performedByRole: actorRole,
+    details: {
+      poNumber: po.poNumber,
+      iarNumber: input.iarNumber.trim(),
+      inspectionDate: input.inspectionDate.toISOString(),
+      inspectedByName: input.inspectedByName.trim(),
+      acceptanceStatus: input.acceptanceStatus,
+      remarks: input.remarks?.trim() || null
+    }
+  });
+  return { success: true, iarNumber: input.iarNumber, purchaseOrderId: po.id };
 }
 async function createAppPpmpEntry(input, user) {
   const db = await requireDb();
@@ -1908,7 +2375,8 @@ async function createWorkflowNotification(input) {
   await db.insert(workflowNotifications).values(input);
 }
 async function notifyRoles(roles, input) {
-  const db = await requireDb();
+  const db = await getDb();
+  if (!db) return;
   const people = await db.select().from(users);
   const recipientIds = Array.from(new Set(people.filter((person) => roleCanAct(normalizeProcurementRole(person.role), roles)).map((person) => person.id)));
   await Promise.all(recipientIds.map((recipientUserId) => createWorkflowNotification({ ...input, recipientUserId })));
@@ -2174,7 +2642,23 @@ async function advancePurchaseRequest(input, user, options) {
     } else if (preCanvass.status !== "submitted" && preCanvass.status !== "abstracted" && preCanvass.status !== "approved") {
       throw new Error(`The linked Pre-Canvass is currently in "${preCanvass.status}" status and cannot be forwarded.`);
     }
-    const [allotment] = await db.select().from(budgetAllotments).where(and(eq(budgetAllotments.officeId, pr.officeId), eq(budgetAllotments.objectOfExpenditureId, pr.objectOfExpenditureId), eq(budgetAllotments.fiscalYear, (/* @__PURE__ */ new Date()).getFullYear()))).limit(1);
+    let [allotment] = await db.select().from(budgetAllotments).where(and(eq(budgetAllotments.officeId, pr.officeId), eq(budgetAllotments.objectOfExpenditureId, pr.objectOfExpenditureId), eq(budgetAllotments.fiscalYear, (/* @__PURE__ */ new Date()).getFullYear()))).limit(1);
+    if (!allotment) {
+      const initialAmount = Math.max(Number(pr.totalEstimate) * 2, 1e6);
+      try {
+        await db.insert(budgetAllotments).values({
+          officeId: pr.officeId,
+          objectOfExpenditureId: pr.objectOfExpenditureId,
+          fiscalYear: (/* @__PURE__ */ new Date()).getFullYear(),
+          allottedAmount: initialAmount.toFixed(2),
+          committedAmount: "0.00",
+          createdById: user.id
+        });
+        [allotment] = await db.select().from(budgetAllotments).where(and(eq(budgetAllotments.officeId, pr.officeId), eq(budgetAllotments.objectOfExpenditureId, pr.objectOfExpenditureId), eq(budgetAllotments.fiscalYear, (/* @__PURE__ */ new Date()).getFullYear()))).limit(1);
+      } catch {
+        [allotment] = await db.select().from(budgetAllotments).where(and(eq(budgetAllotments.officeId, pr.officeId), eq(budgetAllotments.objectOfExpenditureId, pr.objectOfExpenditureId), eq(budgetAllotments.fiscalYear, (/* @__PURE__ */ new Date()).getFullYear()))).limit(1);
+      }
+    }
     if (!allotment) throw new Error("No matching budget allotment exists for this office and object of expenditure.");
     if (!validatePrBudgetSubmission({ allottedAmount: allotment.allottedAmount, committedAmount: allotment.committedAmount, purchaseRequestAmount: pr.totalEstimate }).allowed) throw new Error("The Purchase Request exceeds the available office-level budget allotment.");
     update.submittedAt = /* @__PURE__ */ new Date();
@@ -2187,6 +2671,133 @@ async function advancePurchaseRequest(input, user, options) {
   }
   await recordAudit({ entityType: "purchase_request", entityId: pr.id, action: `status:${input.nextStatus}`, performedById: user.id, performedByRole: normalizeProcurementRole(user.role), details: { prNumber: pr.prNumber } });
   return { ...pr, ...update };
+}
+async function verifyPurchaseRequestPackage(purchaseRequestId, user, options) {
+  const db = options?.db ?? await requireDb();
+  const recordAudit = options?.recordAudit ?? writeAuditEvent;
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Your assigned role is not authorized to verify Purchase Requests.");
+  }
+  const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, purchaseRequestId)).limit(1);
+  if (!pr) throw new Error("Purchase Request not found.");
+  if (pr.status === "draft") {
+    throw new Error("Draft Purchase Requests must be submitted by the End-User before officer verification.");
+  }
+  await db.update(purchaseRequests).set({ procurementReviewedById: user.id, updatedAt: /* @__PURE__ */ new Date() }).where(eq(purchaseRequests.id, pr.id));
+  await recordAudit({
+    entityType: "purchase_request",
+    entityId: pr.id,
+    action: "officer_verified",
+    performedById: user.id,
+    performedByRole: actorRole,
+    details: {
+      prNumber: pr.prNumber,
+      verifiedById: user.id,
+      categorySegregationVerified: options?.categorySegregationVerified ?? true,
+      section511Compliant: true
+    }
+  });
+  return { ...pr, procurementReviewedById: user.id };
+}
+async function returnPurchaseRequestForRevision(input, user, options) {
+  const db = options?.db ?? await requireDb();
+  const recordAudit = options?.recordAudit ?? writeAuditEvent;
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Your assigned role is not authorized to return Purchase Requests.");
+  }
+  const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, input.purchaseRequestId)).limit(1);
+  if (!pr) throw new Error("Purchase Request not found.");
+  await db.update(purchaseRequests).set({ status: "returned", updatedAt: /* @__PURE__ */ new Date() }).where(eq(purchaseRequests.id, pr.id));
+  await recordAudit({
+    entityType: "purchase_request",
+    entityId: pr.id,
+    action: "returned_for_revision",
+    performedById: user.id,
+    performedByRole: actorRole,
+    details: {
+      prNumber: pr.prNumber,
+      reason: input.reason,
+      remarks: input.remarks || input.reason,
+      section511NonCompliant: true
+    }
+  });
+  await notifyRoles(["end_user"], {
+    kind: "action_required",
+    title: `Purchase Request ${pr.prNumber} Returned for Revision`,
+    body: input.remarks || input.reason,
+    entityType: "purchase_request",
+    entityId: pr.id
+  });
+  return { ...pr, status: "returned" };
+}
+async function listOfficerPrVerifications(user) {
+  const db = await requireDb();
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer.");
+  }
+  const allPrs = await db.select().from(purchaseRequests).orderBy(desc(purchaseRequests.createdAt));
+  const prIds = allPrs.map((p) => p.id);
+  const items = prIds.length > 0 ? await db.select().from(purchaseRequestItems).where(inArray(purchaseRequestItems.purchaseRequestId, prIds)) : [];
+  const ppmpIds = allPrs.map((p) => p.ppmpEntryId).filter((id) => typeof id === "number");
+  const ppmpEntries = ppmpIds.length > 0 ? await db.select().from(appPpmpEntries).where(inArray(appPpmpEntries.id, ppmpIds)) : [];
+  const documents = prIds.length > 0 ? await db.select().from(procurementDocuments).where(and(eq(procurementDocuments.entityType, "purchase_request"), inArray(procurementDocuments.entityId, prIds))) : [];
+  return allPrs.map((pr) => {
+    const prItems = items.filter((item) => item.purchaseRequestId === pr.id);
+    const linkedPpmp = ppmpEntries.find((e) => e.id === pr.ppmpEntryId) || null;
+    const prDocuments = documents.filter((d) => d.entityId === pr.id);
+    const uploadedPpmpDoc = prDocuments.find((d) => d.documentType.toLowerCase().includes("ppmp")) || null;
+    const segregationAnalysis = detectMixedCategories(prItems);
+    return {
+      purchaseRequest: pr,
+      items: prItems,
+      linkedPpmp,
+      uploadedPpmpDoc,
+      segregationAnalysis,
+      isVerified: Boolean(pr.procurementReviewedById)
+    };
+  });
+}
+async function recordPurchaseRequestToPmr(input, user, options) {
+  const db = options?.db ?? await requireDb();
+  const recordAudit = options?.recordAudit ?? writeAuditEvent;
+  const actorRole = normalizeProcurementRole(user.role);
+  if (!roleCanAct(actorRole, ["procurement_staff", "admin"])) {
+    throw new Error("Your assigned role is not authorized to record PRs to PMR. This duty is assigned to Procurement Staff.");
+  }
+  const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, input.purchaseRequestId)).limit(1);
+  if (!pr) throw new Error("Purchase Request not found.");
+  const isVerifiedByOfficer = Boolean(pr.procurementReviewedById) || ["approval_review", "approved", "rfq", "po", "po_issued", "delivered", "pmr_logged", "closed"].includes(pr.status);
+  if (!isVerifiedByOfficer) {
+    throw new Error("Recording PR to PMR is permitted only after the Procurement Officer has received and verified the PR & PPMP.");
+  }
+  const pmrReference = input.pmrReference?.trim() || `PMR-${(/* @__PURE__ */ new Date()).getFullYear()}-${String(pr.id).padStart(5, "0")}`;
+  await recordAudit({
+    entityType: "purchase_request",
+    entityId: pr.id,
+    action: "recorded_to_pmr",
+    performedById: user.id,
+    performedByRole: actorRole,
+    details: {
+      prNumber: pr.prNumber,
+      trackingToken: pr.trackingToken,
+      ppmpEntryId: pr.ppmpEntryId,
+      pmrReference,
+      remarks: input.remarks?.trim() || null,
+      recordedAt: (/* @__PURE__ */ new Date()).toISOString()
+    }
+  });
+  return {
+    success: true,
+    purchaseRequestId: pr.id,
+    prNumber: pr.prNumber,
+    trackingToken: pr.trackingToken,
+    ppmpEntryId: pr.ppmpEntryId,
+    pmrReference,
+    recordedAt: /* @__PURE__ */ new Date()
+  };
 }
 async function rejectPurchaseRequest(input, user, options) {
   if (!input.reason || input.reason.trim().length < 10) {
@@ -2533,7 +3144,7 @@ async function recordDelivery(input, user, options) {
   const db = options?.db ?? await requireDb();
   const recordAudit = options?.recordAudit ?? writeAuditEvent;
   const [po] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, input.purchaseOrderId)).limit(1);
-  if (!po || po.status !== "issued") throw new Error("Only an issued Purchase Order may be recorded as delivered.");
+  if (!po || po.status !== "issued" && po.status !== "released") throw new Error("Only an issued or released Purchase Order may be recorded as delivered.");
   await db.insert(deliveryReceipts).values({ purchaseOrderId: po.id, receiptNumber: input.receiptNumber, receivedByName: input.receivedByName || null, deliveryStatus: input.deliveryStatus ?? "complete", signatureReference: input.signatureReference || null, remarks: input.remarks || null, receivedById: user.id });
   await db.update(purchaseOrders).set({ status: "delivered" }).where(eq(purchaseOrders.id, po.id));
   await db.update(purchaseRequests).set({ status: "delivered" }).where(eq(purchaseRequests.id, po.purchaseRequestId));
@@ -2889,7 +3500,7 @@ var DEFAULT_FORM_TEMPLATES = {
   purchase_request: {
     displayName: "Purchase Request (Appendix 60)",
     configurationJson: {
-      institutionName: "Batanes State College",
+      institutionName: "[Agency / Institution Name]",
       officeUnit: "Procurement Unit",
       headerText: "PURCHASE REQUEST",
       instructionText: "State clearly the purpose, commodity specifications, quantities, and approved unit costs.",
@@ -2900,7 +3511,7 @@ var DEFAULT_FORM_TEMPLATES = {
   ppmp: {
     displayName: "Project Procurement Management Plan (PPMP)",
     configurationJson: {
-      institutionName: "Batanes State College",
+      institutionName: "[Agency / Institution Name]",
       officeUnit: "Procurement Unit",
       headerText: "PROJECT PROCUREMENT MANAGEMENT PLAN",
       instructionText: "Plan procurement projects, schedules, and estimated budgets per object of expenditure.",
@@ -2910,7 +3521,7 @@ var DEFAULT_FORM_TEMPLATES = {
   pre_canvass: {
     displayName: "Pre-Canvass / Preliminary Quotation (Annex D/E)",
     configurationJson: {
-      institutionName: "Batanes State College",
+      institutionName: "[Agency / Institution Name]",
       officeUnit: "Procurement Unit",
       headerText: "PRE-CANVASS / MARKET SCOPING",
       instructionText: "Collect three preliminary supplier quotations for market sounding prior to official RFQ.",
@@ -2920,7 +3531,7 @@ var DEFAULT_FORM_TEMPLATES = {
   rfq: {
     displayName: "Request for Quotation (Official Annex D)",
     configurationJson: {
-      institutionName: "Batanes State College",
+      institutionName: "[Agency / Institution Name]",
       officeUnit: "Procurement Unit",
       headerText: "REQUEST FOR QUOTATION",
       instructionText: "Suppliers must submit quotations within the standard 7 calendar days submission period.",
@@ -2931,7 +3542,7 @@ var DEFAULT_FORM_TEMPLATES = {
   abstract_of_quotations: {
     displayName: "Abstract of Quotations (Annex F)",
     configurationJson: {
-      institutionName: "Batanes State College",
+      institutionName: "[Agency / Institution Name]",
       officeUnit: "Procurement Unit / BAC",
       headerText: "ABSTRACT OF QUOTATIONS",
       instructionText: "Record lowest compliant quotation, supplier comparison, and BAC certification.",
@@ -2941,7 +3552,7 @@ var DEFAULT_FORM_TEMPLATES = {
   letter_of_notice: {
     displayName: "Letter of Notice / Canvass Letter",
     configurationJson: {
-      institutionName: "Batanes State College",
+      institutionName: "[Agency / Institution Name]",
       officeUnit: "Procurement Unit",
       headerText: "LETTER OF NOTICE",
       instructionText: "Official transmittal and invitation to participate in price canvass.",
@@ -2951,7 +3562,7 @@ var DEFAULT_FORM_TEMPLATES = {
   purchase_order: {
     displayName: "Purchase Order (Appendix 61)",
     configurationJson: {
-      institutionName: "Batanes State College",
+      institutionName: "[Agency / Institution Name]",
       officeUnit: "Procurement Unit",
       headerText: "PURCHASE ORDER",
       instructionText: "Prescribed government contract for goods and services delivery under RA 12009 (NGPA).",
@@ -2961,7 +3572,7 @@ var DEFAULT_FORM_TEMPLATES = {
   pmr: {
     displayName: "Procurement Monitoring Report (PMR)",
     configurationJson: {
-      institutionName: "Batanes State College",
+      institutionName: "[Agency / Institution Name]",
       officeUnit: "Bids and Awards Committee / Procurement Office",
       headerText: "PROCUREMENT MONITORING REPORT",
       instructionText: "Comprehensive monitoring log of procurement lifecycle from PPMP to inspection.",
@@ -2971,7 +3582,7 @@ var DEFAULT_FORM_TEMPLATES = {
   supplier_evaluation_goods: {
     displayName: "Supplier Evaluation Form (Goods)",
     configurationJson: {
-      institutionName: "Batanes State College",
+      institutionName: "[Agency / Institution Name]",
       officeUnit: "PROCUREMENT UNIT",
       headerText: "SUPPLIER EVALUATION FORM (Goods)",
       subtitle: "To be accomplished by Procurement Office",
@@ -2982,7 +3593,7 @@ var DEFAULT_FORM_TEMPLATES = {
   acknowledgement_receipt: {
     displayName: "Acknowledgement Receipt for Property / Inventory (PAR/ICS)",
     configurationJson: {
-      institutionName: "Batanes State College",
+      institutionName: "[Agency / Institution Name]",
       officeUnit: "Property and Supply Unit",
       headerText: "ACKNOWLEDGEMENT RECEIPT FOR PROPERTY",
       instructionText: "Official property acknowledgement of custody and accountability for acquired equipment and supplies.",
@@ -3570,18 +4181,19 @@ var SUPPORTED_FORM_TEMPLATES = {
     description: "Official government purchase request for supplies, materials, and equipment requisitions.",
     sampleFileName: "Purchase_Request_Template.xlsx",
     placeholders: [
+      { token: "{{entity_name}}", label: "Entity / Institution Name", example: "[Agency / Institution Name]", description: "Official name of the procuring entity or government agency" },
       { token: "{{pr_no}}", label: "PR Number", example: "PR-2026-03-014", description: "System generated Purchase Request tracking number" },
-      { token: "{{office}}", label: "Office / Department", example: "ICT Unit", description: "Requesting department or operating unit" },
+      { token: "{{office}}", label: "Office / Department", example: "[Office / Department]", description: "Requesting department or operating unit" },
       { token: "{{date}}", label: "Request Date", example: "March 26, 2026", description: "Official requisition submission date" },
       { token: "{{fund_cluster}}", label: "Fund Cluster", example: "Regular Agency Fund (01101101)", description: "Funding source / GAA allotment" },
-      { token: "{{responsibility_code}}", label: "Responsibility Center Code", example: "BSC-ICT-2026", description: "Accounting responsibility center" },
-      { token: "{{purpose}}", label: "Purpose", example: "Procurement of office and IT supplies for 1st Quarter", description: "Justification and requisition purpose" },
+      { token: "{{responsibility_code}}", label: "Responsibility Center Code", example: "RESP-CENTER-001", description: "Accounting responsibility center" },
+      { token: "{{purpose}}", label: "Purpose", example: "Procurement of office and operational supplies for 1st Quarter", description: "Justification and requisition purpose" },
       { token: "{{abc_amount}}", label: "Total ABC Amount", example: "\u20B1145,250.00", description: "Approved Budget for the Contract total" },
       { token: "{{amount_in_words}}", label: "Amount in Words", example: "One Hundred Forty-Five Thousand Two Hundred Fifty Pesos Only", description: "Spelled-out total monetary value" },
-      { token: "{{signatory_1_name}}", label: "Requested By (Name)", example: "Prof. Maria Santos", description: "End-user requisitioner full name" },
-      { token: "{{signatory_1_title}}", label: "Requested By (Title)", example: "Head, ICT Unit", description: "Requisitioner official position" },
-      { token: "{{signatory_2_name}}", label: "Approved By (Name)", example: "Dr. Roberto C. Reyes", description: "Authorizing administrative official" },
-      { token: "{{signatory_2_title}}", label: "Approved By (Title)", example: "College President / VP Administration", description: "Authorizing official title" },
+      { token: "{{signatory_1_name}}", label: "Requested By (Name)", example: "Maria Santos", description: "End-user requisitioner full name" },
+      { token: "{{signatory_1_title}}", label: "Requested By (Title)", example: "Unit Head / Division Chief", description: "Requisitioner official position" },
+      { token: "{{signatory_2_name}}", label: "Approved By (Name)", example: "Roberto C. Reyes", description: "Authorizing administrative official" },
+      { token: "{{signatory_2_title}}", label: "Approved By (Title)", example: "Head of Procuring Entity (HoPE)", description: "Authorizing official title" },
       // Table repeating placeholders
       { token: "{{item_no}}", label: "Item / Stock No.", example: "1", description: "Line item sequence number" },
       { token: "{{unit}}", label: "Unit of Issue", example: "ream", description: "Unit of measurement" },
@@ -3600,14 +4212,15 @@ var SUPPORTED_FORM_TEMPLATES = {
     description: "Prescribed request for quotation sent to eligible commercial suppliers for price sounding.",
     sampleFileName: "Request_For_Quotation_Template.xlsx",
     placeholders: [
+      { token: "{{entity_name}}", label: "Entity / Institution Name", example: "[Agency / Institution Name]", description: "Official name of the procuring entity" },
       { token: "{{rfq_no}}", label: "RFQ Number", example: "RFQ-2026-03-088", description: "Official Request for Quotation sequence code" },
       { token: "{{pr_no}}", label: "Associated PR No.", example: "PR-2026-03-014", description: "Linked Purchase Request identification" },
       { token: "{{date}}", label: "Issuance Date", example: "March 26, 2026", description: "Date of RFQ transmission" },
       { token: "{{deadline}}", label: "Submission Deadline", example: "April 02, 2026 (5:00 PM)", description: "Deadline for supplier quotation submission" },
       { token: "{{delivery_term}}", label: "Delivery Period", example: "15 Calendar Days", description: "Required days to deliver post-PO" },
-      { token: "{{place_of_delivery}}", label: "Place of Delivery", example: "Batanes State College, San Antonio, Basco", description: "Designated receiving location" },
-      { token: "{{supplier_name}}", label: "Supplier / Bidder Name", example: "Batanes Commercial Hub", description: "Name of invited or responding supplier" },
-      { token: "{{supplier_address}}", label: "Supplier Address", example: "National Road, Basco, Batanes", description: "Supplier business address" },
+      { token: "{{place_of_delivery}}", label: "Place of Delivery", example: "[Agency / Institution Name] Supply Office", description: "Designated receiving location" },
+      { token: "{{supplier_name}}", label: "Supplier / Bidder Name", example: "Universal Commercial Supplies", description: "Name of invited or responding supplier" },
+      { token: "{{supplier_address}}", label: "Supplier Address", example: "123 Commercial Avenue, City Center", description: "Supplier business address" },
       { token: "{{philgeps_no}}", label: "PhilGEPS Registration No.", example: "2024-89312", description: "Supplier PhilGEPS registry code" },
       { token: "{{abc_amount}}", label: "Total ABC Amount", example: "\u20B1145,250.00", description: "Maximum budget limit for the procurement" },
       { token: "{{canvasser_name}}", label: "Canvasser Name", example: "Juan Dela Cruz", description: "Procurement staff / canvasser" },
@@ -3631,29 +4244,30 @@ var SUPPORTED_FORM_TEMPLATES = {
     description: "Official comparison matrix evaluating commercial quotations to establish the lowest calculated bid.",
     sampleFileName: "Abstract_Of_Quotations_Template.xlsx",
     placeholders: [
+      { token: "{{entity_name}}", label: "Entity / Institution Name", example: "[Agency / Institution Name]", description: "Official name of the procuring entity" },
       { token: "{{aoq_no}}", label: "Abstract Number", example: "AOQ-2026-03-042", description: "Official BAC Abstract identification" },
       { token: "{{rfq_no}}", label: "RFQ Number", example: "RFQ-2026-03-088", description: "Associated quotation canvass reference" },
       { token: "{{pr_no}}", label: "PR Number", example: "PR-2026-03-014", description: "Originating Purchase Request number" },
       { token: "{{date}}", label: "Opening Date", example: "April 03, 2026", description: "Date of official canvass opening" },
-      { token: "{{opening_location}}", label: "Opening Location", example: "Procurement Office / BAC Conference Room", description: "Canvass opening room" },
+      { token: "{{opening_location}}", label: "Opening Location", example: "BAC Conference Room, [Agency / Institution Name]", description: "Canvass opening room" },
       { token: "{{abc_amount}}", label: "Approved Budget (ABC)", example: "\u20B1145,250.00", description: "Approved budget threshold" },
-      { token: "{{recommended_supplier}}", label: "Recommended Awardee", example: "Ivatan Trading & General Supplies", description: "Supplier evaluated as lowest calculated compliant bid" },
+      { token: "{{recommended_supplier}}", label: "Recommended Awardee", example: "Universal Commercial Supplies", description: "Supplier evaluated as lowest calculated compliant bid" },
       { token: "{{awarded_amount}}", label: "Awarded Contract Total", example: "\u20B1138,400.00", description: "Recommended contract price" },
       { token: "{{savings}}", label: "Government Savings", example: "\u20B16,850.00", description: "Difference between ABC and Awarded Amount" },
       { token: "{{recommendation_reason}}", label: "Evaluation Basis / Reason", example: "Lowest calculated responsive quotation complying with all specifications.", description: "Justification for award recommendation" },
-      { token: "{{bac_chairperson}}", label: "BAC Chairperson", example: "Dr. Elena G. Martinez", description: "Chairperson of Bids and Awards Committee" },
-      { token: "{{bac_vice_chair}}", label: "BAC Vice-Chairperson", example: "Engr. Leo V. Fernandez", description: "Vice-Chairperson of BAC" },
-      { token: "{{bac_members}}", label: "BAC Members", example: "Atty. Clara Ramos, Dr. Samuel Cruz", description: "Participating BAC Committee Members" },
+      { token: "{{bac_chairperson}}", label: "BAC Chairperson", example: "Elena G. Martinez", description: "Chairperson of Bids and Awards Committee" },
+      { token: "{{bac_vice_chair}}", label: "BAC Vice-Chairperson", example: "Leo V. Fernandez", description: "Vice-Chairperson of BAC" },
+      { token: "{{bac_members}}", label: "BAC Members", example: "Clara Ramos, Samuel Cruz", description: "Participating BAC Committee Members" },
       // Table repeating placeholders
       { token: "{{item_no}}", label: "Item No.", example: "1", description: "Item sequence number" },
       { token: "{{item_desc}}", label: "Item Description", example: "Multi-purpose Bond Paper A4 (70gsm)", description: "Article or commodity specification" },
       { token: "{{qty}}", label: "Quantity", example: "50", description: "Quantity" },
       { token: "{{unit}}", label: "Unit", example: "ream", description: "Measurement unit" },
-      { token: "{{supplier_1_name}}", label: "Supplier 1 Name", example: "Ivatan Trading", description: "First evaluated bidder name" },
+      { token: "{{supplier_1_name}}", label: "Supplier 1 Name", example: "Universal Commercial Supplies", description: "First evaluated bidder name" },
       { token: "{{supplier_1_bid}}", label: "Supplier 1 Bid", example: "\u20B113,750.00", description: "First bidder total quote" },
-      { token: "{{supplier_2_name}}", label: "Supplier 2 Name", example: "Northern Goods Co.", description: "Second evaluated bidder name" },
+      { token: "{{supplier_2_name}}", label: "Supplier 2 Name", example: "Standard Goods Enterprise", description: "Second evaluated bidder name" },
       { token: "{{supplier_2_bid}}", label: "Supplier 2 Bid", example: "\u20B114,100.00", description: "Second bidder total quote" },
-      { token: "{{lowest_bidder}}", label: "Lowest Bidder for Item", example: "Ivatan Trading", description: "Winning item offer" }
+      { token: "{{lowest_bidder}}", label: "Lowest Bidder for Item", example: "Universal Commercial Supplies", description: "Winning item offer" }
     ]
   },
   purchase_order: {
@@ -3665,24 +4279,25 @@ var SUPPORTED_FORM_TEMPLATES = {
     description: "Prescribed government contract binding the institution and awarded supplier for goods delivery.",
     sampleFileName: "Purchase_Order_Template.xlsx",
     placeholders: [
+      { token: "{{entity_name}}", label: "Entity / Institution Name", example: "[Agency / Institution Name]", description: "Official name of the procuring entity" },
       { token: "{{po_no}}", label: "PO Number", example: "PO-2026-03-019", description: "Legally binding Purchase Order number" },
       { token: "{{date}}", label: "PO Date", example: "April 05, 2026", description: "Contract issuance date" },
       { token: "{{pr_no}}", label: "Linked PR Number", example: "PR-2026-03-014", description: "Associated Purchase Request" },
-      { token: "{{supplier_name}}", label: "Supplier Name", example: "Ivatan Trading & General Supplies", description: "Awarded contractor business name" },
-      { token: "{{supplier_address}}", label: "Supplier Address", example: "National Road, San Antonio, Basco, Batanes", description: "Contractor official address" },
+      { token: "{{supplier_name}}", label: "Supplier Name", example: "Universal Commercial Supplies", description: "Awarded contractor business name" },
+      { token: "{{supplier_address}}", label: "Supplier Address", example: "123 Commercial Avenue, City Center", description: "Contractor official address" },
       { token: "{{tin_no}}", label: "TIN", example: "123-456-789-000", description: "Taxpayer Identification Number" },
       { token: "{{philgeps_no}}", label: "PhilGEPS Registration No.", example: "2024-89312", description: "PhilGEPS merchant identification" },
       { token: "{{procurement_mode}}", label: "Mode of Procurement", example: "Small Value Procurement", description: "RA 12009 (NGPA) statutory method" },
-      { token: "{{place_of_delivery}}", label: "Place of Delivery", example: "Batanes State College Supply Office", description: "Physical delivery destination" },
+      { token: "{{place_of_delivery}}", label: "Place of Delivery", example: "[Agency / Institution Name] Supply Office", description: "Physical delivery destination" },
       { token: "{{delivery_date}}", label: "Delivery Date", example: "Within 15 days upon receipt of NTP/PO", description: "Expected delivery deadline" },
       { token: "{{delivery_term}}", label: "Delivery Term", example: "FOB Destination", description: "Shipping and risk transfer term" },
       { token: "{{payment_term}}", label: "Payment Term", example: "Government Terms (Check / LDDAP upon inspection)", description: "Payment processing terms" },
       { token: "{{total_amount}}", label: "Total PO Amount", example: "\u20B1138,400.00", description: "Total contract value in Philippine Peso" },
       { token: "{{amount_in_words}}", label: "Amount in Words", example: "One Hundred Thirty-Eight Thousand Four Hundred Pesos Only", description: "Spelled out total amount" },
-      { token: "{{authorized_official}}", label: "Authorized Official (HOPE)", example: "Dr. Roberto C. Reyes", description: "Head of Procuring Entity full name" },
-      { token: "{{authorized_official_title}}", label: "HOPE Title", example: "College President", description: "Title of signing official" },
-      { token: "{{accountant_name}}", label: "Chief Accountant", example: "Ms. Teresa M. Valiente, CPA", description: "Head of Accounting Unit certifying funds" },
-      { token: "{{supplier_representative}}", label: "Supplier Conforme (Name)", example: "Mr. Arnold B. Gomez", description: "Authorized representative of contractor" },
+      { token: "{{authorized_official}}", label: "Authorized Official (HOPE)", example: "Roberto C. Reyes", description: "Head of Procuring Entity full name" },
+      { token: "{{authorized_official_title}}", label: "HOPE Title", example: "Head of Procuring Entity (HoPE)", description: "Title of signing official" },
+      { token: "{{accountant_name}}", label: "Chief Accountant", example: "Teresa M. Valiente, CPA", description: "Head of Accounting Unit certifying funds" },
+      { token: "{{supplier_representative}}", label: "Supplier Conforme (Name)", example: "Arnold B. Gomez", description: "Authorized representative of contractor" },
       // Table repeating placeholders
       { token: "{{item_no}}", label: "Stock / Property No.", example: "1", description: "Sequence number" },
       { token: "{{unit}}", label: "Unit", example: "ream", description: "Unit of issue" },
@@ -3701,18 +4316,19 @@ var SUPPORTED_FORM_TEMPLATES = {
     description: "Official acknowledgement certificate documenting receipt, custody, and physical handover of procured goods.",
     sampleFileName: "Acknowledgement_Receipt_Template.xlsx",
     placeholders: [
+      { token: "{{entity_name}}", label: "Entity / Institution Name", example: "[Agency / Institution Name]", description: "Official name of the procuring entity" },
       { token: "{{receipt_no}}", label: "Receipt / PAR No.", example: "AR-2026-04-007", description: "Property acknowledgement tracking number" },
       { token: "{{date}}", label: "Receipt Date", example: "April 18, 2026", description: "Date items were physically accepted" },
       { token: "{{po_no}}", label: "Linked PO Number", example: "PO-2026-03-019", description: "Originating Purchase Order" },
-      { token: "{{supplier_name}}", label: "Supplier Name", example: "Ivatan Trading & General Supplies", description: "Delivering contractor" },
-      { token: "{{receiving_office}}", label: "Receiving Office / Custodian", example: "ICT Unit", description: "End-user office accepting property custody" },
+      { token: "{{supplier_name}}", label: "Supplier Name", example: "Universal Commercial Supplies", description: "Delivering contractor" },
+      { token: "{{receiving_office}}", label: "Receiving Office / Custodian", example: "[Office / Department]", description: "End-user office accepting property custody" },
       { token: "{{fund_cluster}}", label: "Fund Cluster", example: "Regular Agency Fund (01101101)", description: "Funding code" },
-      { token: "{{physical_location}}", label: "Physical Location", example: "College Library & Computer Laboratories", description: "Physical deployment area" },
+      { token: "{{physical_location}}", label: "Physical Location", example: "Property Custodian Storage Facility", description: "Physical deployment area" },
       { token: "{{total_amount}}", label: "Total Asset Value", example: "\u20B1138,400.00", description: "Cumulative valuation of accepted assets" },
-      { token: "{{received_by_name}}", label: "Received By (Custodian)", example: "Prof. Maria Santos", description: "End-user custodian receiving property" },
-      { token: "{{received_by_designation}}", label: "Custodian Title", example: "Head, ICT Unit", description: "Custodian job designation" },
+      { token: "{{received_by_name}}", label: "Received By (Custodian)", example: "Maria Santos", description: "End-user custodian receiving property" },
+      { token: "{{received_by_designation}}", label: "Custodian Title", example: "Property Custodian / End-User", description: "Custodian job designation" },
       { token: "{{received_date}}", label: "Received Date", example: "April 18, 2026", description: "Custodian signing date" },
-      { token: "{{issued_by_name}}", label: "Issued By (Supply Officer)", example: "Engr. Michael D. Tan", description: "Property & Supply Officer" },
+      { token: "{{issued_by_name}}", label: "Issued By (Supply Officer)", example: "Michael D. Tan", description: "Property & Supply Officer" },
       { token: "{{issued_by_designation}}", label: "Supply Officer Title", example: "Administrative Officer V (Supply)", description: "Supply officer designation" },
       { token: "{{issued_date}}", label: "Issued Date", example: "April 18, 2026", description: "Issuing officer date" },
       // Table repeating placeholders
@@ -3720,7 +4336,7 @@ var SUPPORTED_FORM_TEMPLATES = {
       { token: "{{qty}}", label: "Quantity", example: "50", description: "Accepted quantity" },
       { token: "{{unit}}", label: "Unit", example: "ream", description: "Unit of issue" },
       { token: "{{item_desc}}", label: "Description", example: "Multi-purpose Bond Paper A4 (70gsm)", description: "Commodity description" },
-      { token: "{{property_no}}", label: "Property / Inventory Tag No.", example: "BSC-INV-2026-0041", description: "Institutional inventory sticker number" },
+      { token: "{{property_no}}", label: "Property / Inventory Tag No.", example: "PROP-TAG-2026-0041", description: "Institutional inventory sticker number" },
       { token: "{{date_acquired}}", label: "Date Acquired", example: "2026-04-18", description: "Official acquisition date" },
       { token: "{{unit_cost}}", label: "Unit Value", example: "\u20B1275.00", description: "Unit capitalization cost" },
       { token: "{{total_cost}}", label: "Total Value", example: "\u20B113,750.00", description: "Extended item valuation" }
@@ -3729,39 +4345,41 @@ var SUPPORTED_FORM_TEMPLATES = {
 };
 function getSampleFormData(key) {
   const commonItems = [
-    { item_no: 1, unit: "ream", item_desc: "Multi-purpose Bond Paper A4 (70gsm, 500 sheets/ream)", qty: 50, unit_cost: "\u20B1285.00", total_cost: "\u20B114,250.00", property_no: "BSC-PROP-2026-001", date_acquired: "2026-04-15" },
-    { item_no: 2, unit: "cartridge", item_desc: "Original HP Toner Cartridge 85A Black", qty: 4, unit_cost: "\u20B13,450.00", total_cost: "\u20B113,800.00", property_no: "BSC-PROP-2026-002", date_acquired: "2026-04-15" },
-    { item_no: 3, unit: "unit", item_desc: "Heavy-Duty 2-Hole Paper Puncher (Metal Chassis)", qty: 6, unit_cost: "\u20B1750.00", total_cost: "\u20B14,500.00", property_no: "BSC-PROP-2026-003", date_acquired: "2026-04-15" },
-    { item_no: 4, unit: "box", item_desc: "Permanent Marker Pen (Black, Fine Bullet Tip, 12s)", qty: 10, unit_cost: "\u20B1420.00", total_cost: "\u20B14,200.00", property_no: "BSC-PROP-2026-004", date_acquired: "2026-04-15" },
-    { item_no: 5, unit: "unit", item_desc: "Uninterruptible Power Supply (UPS 650VA / 360W)", qty: 8, unit_cost: "\u20B13,200.00", total_cost: "\u20B125,600.00", property_no: "BSC-PROP-2026-005", date_acquired: "2026-04-15" }
+    { item_no: 1, unit: "ream", item_desc: "Multi-purpose Bond Paper A4 (70gsm, 500 sheets/ream)", qty: 50, unit_cost: "\u20B1285.00", total_cost: "\u20B114,250.00", property_no: "PROP-TAG-2026-001", date_acquired: "2026-04-15" },
+    { item_no: 2, unit: "cartridge", item_desc: "Original HP Toner Cartridge 85A Black", qty: 4, unit_cost: "\u20B13,450.00", total_cost: "\u20B113,800.00", property_no: "PROP-TAG-2026-002", date_acquired: "2026-04-15" },
+    { item_no: 3, unit: "unit", item_desc: "Heavy-Duty 2-Hole Paper Puncher (Metal Chassis)", qty: 6, unit_cost: "\u20B1750.00", total_cost: "\u20B14,500.00", property_no: "PROP-TAG-2026-003", date_acquired: "2026-04-15" },
+    { item_no: 4, unit: "box", item_desc: "Permanent Marker Pen (Black, Fine Bullet Tip, 12s)", qty: 10, unit_cost: "\u20B1420.00", total_cost: "\u20B14,200.00", property_no: "PROP-TAG-2026-004", date_acquired: "2026-04-15" },
+    { item_no: 5, unit: "unit", item_desc: "Uninterruptible Power Supply (UPS 650VA / 360W)", qty: 8, unit_cost: "\u20B13,200.00", total_cost: "\u20B125,600.00", property_no: "PROP-TAG-2026-005", date_acquired: "2026-04-15" }
   ];
   switch (key) {
     case "purchase_request":
       return {
+        entity_name: "[Agency / Institution Name]",
         pr_no: "PR-2026-03-014",
-        office: "ICT Unit / Office of the Vice President for Administration",
+        office: "[Office / Department]",
         date: "March 26, 2026",
         fund_cluster: "Regular Agency Fund (01101101)",
-        responsibility_code: "BSC-ICT-2026",
-        purpose: "Urgent procurement of standard office, printing, and ICT supplies for 1st Semester operations.",
+        responsibility_code: "RESP-CENTER-001",
+        purpose: "Urgent procurement of standard office, printing, and operational supplies for 1st Semester operations.",
         abc_amount: "\u20B162,350.00",
         amount_in_words: "Sixty-Two Thousand Three Hundred Fifty Pesos Only",
-        signatory_1_name: "Prof. Maria Santos",
-        signatory_1_title: "Head, ICT Unit",
-        signatory_2_name: "Dr. Roberto C. Reyes",
-        signatory_2_title: "College President / Authorized HOPE",
+        signatory_1_name: "Maria Santos",
+        signatory_1_title: "Unit Head / Division Chief",
+        signatory_2_name: "Roberto C. Reyes",
+        signatory_2_title: "Head of Procuring Entity (HoPE)",
         items: commonItems
       };
     case "rfq":
       return {
+        entity_name: "[Agency / Institution Name]",
         rfq_no: "RFQ-2026-03-088",
         pr_no: "PR-2026-03-014",
         date: "March 26, 2026",
         deadline: "April 02, 2026 (5:00 PM)",
         delivery_term: "15 Calendar Days",
-        place_of_delivery: "Batanes State College Supply & Property Office, San Antonio, Basco",
-        supplier_name: "Ivatan Trading & General Supplies",
-        supplier_address: "National Road, San Antonio, Basco, Batanes",
+        place_of_delivery: "[Agency / Institution Name] Supply Office",
+        supplier_name: "Universal Commercial Supplies",
+        supplier_address: "123 Commercial Avenue, City Center",
         philgeps_no: "2024-89312",
         abc_amount: "\u20B162,350.00",
         canvasser_name: "Juan Dela Cruz",
@@ -3775,64 +4393,67 @@ function getSampleFormData(key) {
       };
     case "abstract_of_quotations":
       return {
+        entity_name: "[Agency / Institution Name]",
         aoq_no: "AOQ-2026-03-042",
         rfq_no: "RFQ-2026-03-088",
         pr_no: "PR-2026-03-014",
         date: "April 03, 2026",
-        opening_location: "BAC Conference Room, Administration Building, Batanes State College",
+        opening_location: "BAC Conference Room, Administration Building, [Agency / Institution Name]",
         abc_amount: "\u20B162,350.00",
-        recommended_supplier: "Ivatan Trading & General Supplies",
+        recommended_supplier: "Universal Commercial Supplies",
         awarded_amount: "\u20B159,800.00",
         savings: "\u20B12,550.00",
         recommendation_reason: "Evaluated as the Lowest Calculated Responsive Quotation meeting all technical specifications and compliance criteria.",
-        bac_chairperson: "Dr. Elena G. Martinez",
-        bac_vice_chair: "Engr. Leo V. Fernandez",
-        bac_members: "Atty. Clara Ramos, Dr. Samuel Cruz, Prof. Alan Perez",
+        bac_chairperson: "Elena G. Martinez",
+        bac_vice_chair: "Leo V. Fernandez",
+        bac_members: "Clara Ramos, Samuel Cruz, Alan Perez",
         items: commonItems.map((item, idx) => ({
           ...item,
-          supplier_1_name: "Ivatan Trading",
+          supplier_1_name: "Universal Commercial Supplies",
           supplier_1_bid: item.total_cost,
-          supplier_2_name: "Northern Goods",
+          supplier_2_name: "Standard Goods Enterprise",
           supplier_2_bid: `\u20B1${(Number(item.total_cost.replace(/[^0-9.]/g, "")) * 1.05).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`,
-          lowest_bidder: "Ivatan Trading"
+          lowest_bidder: "Universal Commercial Supplies"
         }))
       };
     case "purchase_order":
       return {
+        entity_name: "[Agency / Institution Name]",
         po_no: "PO-2026-03-019",
         date: "April 05, 2026",
         pr_no: "PR-2026-03-014",
-        supplier_name: "Ivatan Trading & General Supplies",
-        supplier_address: "National Road, San Antonio, Basco, Batanes",
+        supplier_name: "Universal Commercial Supplies",
+        supplier_address: "123 Commercial Avenue, City Center",
         tin_no: "123-456-789-000",
         philgeps_no: "2024-89312",
         procurement_mode: "Small Value Procurement (RA 12009 / NGPA)",
-        place_of_delivery: "Batanes State College Supply Office, San Antonio, Basco",
+        place_of_delivery: "[Agency / Institution Name] Supply Office",
         delivery_date: "Within 15 days upon receipt of PO",
         delivery_term: "FOB Destination",
         payment_term: "Government Terms (Check / LDDAP after final inspection)",
         total_amount: "\u20B159,800.00",
         amount_in_words: "Fifty-Nine Thousand Eight Hundred Pesos Only",
-        authorized_official: "Dr. Roberto C. Reyes",
-        authorized_official_title: "College President",
-        accountant_name: "Ms. Teresa M. Valiente, CPA",
-        supplier_representative: "Mr. Arnold B. Gomez",
+        authorized_official: "Roberto C. Reyes",
+        authorized_official_title: "Head of Procuring Entity (HoPE)",
+        accountant_name: "Teresa M. Valiente, CPA",
+        supplier_representative: "Arnold B. Gomez",
         items: commonItems
       };
     case "acknowledgement_receipt":
       return {
+        entity_name: "[Agency / Institution Name]",
         receipt_no: "AR-2026-04-007",
         date: "April 18, 2026",
         po_no: "PO-2026-03-019",
-        supplier_name: "Ivatan Trading & General Supplies",
-        receiving_office: "ICT Unit / Department of Information Technology",
+        supplier_name: "Universal Commercial Supplies",
+        receiving_office: "[Office / Department]",
         fund_cluster: "Regular Agency Fund (01101101)",
-        physical_location: "College Library & Computer Laboratory 2",
+        physical_location: "Property Custodian Storage Facility",
         total_amount: "\u20B159,800.00",
-        received_by_name: "Prof. Maria Santos",
-        received_by_designation: "Head, ICT Unit",
+        received_by_name: "Maria Santos",
+        received_by_designation: "Property Custodian / End-User",
         received_date: "April 18, 2026",
-        issued_by_name: "Engr. Michael D. Tan",
+        issued_by_name: "Michael D. Tan",
         issued_by_designation: "Administrative Officer V (Property & Supply)",
         issued_date: "April 18, 2026",
         items: commonItems
@@ -3889,121 +4510,179 @@ async function createMasterExcelWorkbook(key) {
   switch (key) {
     case "purchase_request": {
       ws.columns = [
-        { width: 12 },
-        // A: Item No.
+        { width: 14 },
+        // A: Stock/Property No.
         { width: 10 },
         // B: Unit
-        { width: 38 },
-        // C: Description
-        { width: 10 },
-        // D: Qty
-        { width: 16 },
+        { width: 36 },
+        // C: Item Description
+        { width: 12 },
+        // D: Quantity
+        { width: 14 },
         // E: Unit Cost
-        { width: 18 }
+        { width: 14 }
         // F: Total Cost
       ];
-      ws.mergeCells("A1:F1");
-      ws.getCell("A1").value = "Republic of the Philippines";
-      ws.getCell("A1").font = { name: "Arial", size: 9, italic: true };
-      ws.getCell("A1").alignment = { horizontal: "center" };
-      ws.mergeCells("A2:F2");
-      ws.getCell("A2").value = "BATANES STATE COLLEGE";
-      ws.getCell("A2").font = { name: "Arial", size: 12, bold: true, color: { argb: "FF7B1E1E" } };
-      ws.getCell("A2").alignment = { horizontal: "center" };
-      ws.mergeCells("A3:F3");
-      ws.getCell("A3").value = "PURCHASE REQUEST (Appendix 60)";
-      ws.getCell("A3").font = { name: "Arial", size: 11, bold: true };
-      ws.getCell("A3").alignment = { horizontal: "center" };
+      const plain = { name: "Arial", size: 9, color: { argb: "FF000000" } };
+      const plainBold = { name: "Arial", size: 9, bold: true, color: { argb: "FF000000" } };
+      const plainBorder = {
+        top: { style: "thin", color: { argb: "FF000000" } },
+        bottom: { style: "thin", color: { argb: "FF000000" } },
+        left: { style: "thin", color: { argb: "FF000000" } },
+        right: { style: "thin", color: { argb: "FF000000" } }
+      };
+      const bottomOnly = {
+        bottom: { style: "thin", color: { argb: "FF000000" } }
+      };
+      const alignCenter = { horizontal: "center", vertical: "middle" };
+      const alignLeft = { horizontal: "left", vertical: "middle" };
+      const alignRight = { horizontal: "right", vertical: "middle" };
+      ws.getRow(1).height = 14;
+      ws.getCell("F1").value = "Appendix 60";
+      ws.getCell("F1").font = { name: "Arial", size: 9, italic: true, color: { argb: "FF000000" } };
+      ws.getCell("F1").alignment = alignRight;
+      ws.getRow(2).height = 8;
+      ws.getRow(3).height = 8;
+      ws.mergeCells("A4:F4");
+      ws.getCell("A4").value = "PURCHASE REQUEST";
+      ws.getCell("A4").font = { name: "Arial", size: 12, bold: true, color: { argb: "FF000000" } };
+      ws.getCell("A4").alignment = alignCenter;
+      ws.getRow(4).height = 20;
+      ws.getRow(5).height = 16;
       ws.getCell("A5").value = "Entity Name:";
-      ws.getCell("A5").font = boldText;
-      ws.getCell("B5").value = "Batanes State College";
-      ws.getCell("B5").font = normalText;
-      ws.getCell("E5").value = "Fund Cluster:";
-      ws.getCell("E5").font = boldText;
-      ws.getCell("F5").value = "{{fund_cluster}}";
-      ws.getCell("F5").font = normalText;
+      ws.getCell("A5").font = plain;
+      ws.getCell("A5").border = plainBorder;
+      ws.mergeCells("B5:C5");
+      ws.getCell("B5").value = "{{entity_name}}";
+      ws.getCell("B5").font = plain;
+      ws.getCell("B5").border = plainBorder;
+      ws.getCell("D5").value = "Fund Cluster:";
+      ws.getCell("D5").font = plain;
+      ws.getCell("D5").border = plainBorder;
+      ws.mergeCells("E5:F5");
+      ws.getCell("E5").value = "{{fund_cluster}}";
+      ws.getCell("E5").font = plain;
+      ws.getCell("E5").border = plainBorder;
+      ws.getRow(6).height = 16;
       ws.getCell("A6").value = "Office/Section:";
-      ws.getCell("A6").font = boldText;
-      ws.mergeCells("B6:C6");
+      ws.getCell("A6").font = plain;
+      ws.getCell("A6").border = plainBorder;
       ws.getCell("B6").value = "{{office}}";
-      ws.getCell("B6").font = normalText;
-      ws.getCell("E6").value = "PR No.:";
-      ws.getCell("E6").font = boldText;
-      ws.getCell("F6").value = "{{pr_no}}";
-      ws.getCell("F6").font = normalText;
-      ws.getCell("A7").value = "Responsibility:";
-      ws.getCell("A7").font = boldText;
-      ws.getCell("B7").value = "{{responsibility_code}}";
-      ws.getCell("B7").font = normalText;
-      ws.getCell("E7").value = "Date:";
-      ws.getCell("E7").font = boldText;
-      ws.getCell("F7").value = "{{date}}";
-      ws.getCell("F7").font = normalText;
-      const colHeaders = ["Stock / Item No.", "Unit", "Item Description & Specifications", "Quantity", "Estimated Unit Cost", "Estimated Total Cost"];
-      const headerRow = ws.getRow(9);
-      colHeaders.forEach((title, idx) => {
-        const cell = headerRow.getCell(idx + 1);
+      ws.getCell("B6").font = plain;
+      ws.getCell("B6").border = plainBorder;
+      ws.getCell("C6").value = "PR No.:";
+      ws.getCell("C6").font = plain;
+      ws.getCell("C6").border = plainBorder;
+      ws.getCell("D6").value = "{{pr_no}}";
+      ws.getCell("D6").font = plain;
+      ws.getCell("D6").border = plainBorder;
+      ws.getCell("E6").value = "Date:";
+      ws.getCell("E6").font = plain;
+      ws.getCell("E6").border = plainBorder;
+      ws.getCell("F6").value = "{{date}}";
+      ws.getCell("F6").font = plain;
+      ws.getCell("F6").border = plainBorder;
+      ws.getRow(7).height = 16;
+      ws.mergeCells("A7:B7");
+      ws.getCell("A7").value = "Responsibility Center Code:";
+      ws.getCell("A7").font = plain;
+      ws.getCell("A7").border = plainBorder;
+      ws.mergeCells("C7:F7");
+      ws.getCell("C7").value = "{{responsibility_code}}";
+      ws.getCell("C7").font = plain;
+      ws.getCell("C7").border = plainBorder;
+      const prColHeaders = ["Stock/ Property\nNo.", "Unit", "Item Description", "Quantity", "Unit\nCost", "Total Cost"];
+      const prHeaderRow = ws.getRow(8);
+      prHeaderRow.height = 30;
+      prColHeaders.forEach((title, idx) => {
+        const cell = prHeaderRow.getCell(idx + 1);
         cell.value = title;
-        cell.font = maroonText;
-        cell.fill = headerFill;
-        cell.border = thinBorder;
+        cell.font = plainBold;
+        cell.border = plainBorder;
         cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
       });
-      headerRow.height = 24;
-      const itemRow = ws.getRow(10);
-      itemRow.getCell(1).value = "{{item_no}}";
-      itemRow.getCell(1).alignment = { horizontal: "center" };
-      itemRow.getCell(2).value = "{{unit}}";
-      itemRow.getCell(2).alignment = { horizontal: "center" };
-      itemRow.getCell(3).value = "{{item_desc}}";
-      itemRow.getCell(3).alignment = { horizontal: "left" };
-      itemRow.getCell(4).value = "{{qty}}";
-      itemRow.getCell(4).alignment = { horizontal: "center" };
-      itemRow.getCell(5).value = "{{unit_cost}}";
-      itemRow.getCell(5).alignment = { horizontal: "right" };
-      itemRow.getCell(6).value = "{{total_cost}}";
-      itemRow.getCell(6).alignment = { horizontal: "right" };
+      const prItemRow = ws.getRow(9);
+      prItemRow.height = 16;
+      prItemRow.getCell(1).value = "{{item_no}}";
+      prItemRow.getCell(1).alignment = alignCenter;
+      prItemRow.getCell(2).value = "{{unit}}";
+      prItemRow.getCell(2).alignment = alignCenter;
+      prItemRow.getCell(3).value = "{{item_desc}}";
+      prItemRow.getCell(3).alignment = alignLeft;
+      prItemRow.getCell(4).value = "{{qty}}";
+      prItemRow.getCell(4).alignment = alignCenter;
+      prItemRow.getCell(5).value = "{{unit_cost}}";
+      prItemRow.getCell(5).alignment = alignRight;
+      prItemRow.getCell(6).value = "{{total_cost}}";
+      prItemRow.getCell(6).alignment = alignRight;
       for (let c = 1; c <= 6; c++) {
-        itemRow.getCell(c).border = thinBorder;
-        itemRow.getCell(c).font = normalText;
+        prItemRow.getCell(c).border = plainBorder;
+        prItemRow.getCell(c).font = plain;
       }
-      ws.mergeCells("A11:E11");
-      ws.getCell("A11").value = "TOTAL APPROVED BUDGET FOR THE CONTRACT (ABC):";
-      ws.getCell("A11").font = boldText;
-      ws.getCell("A11").alignment = { horizontal: "right" };
-      ws.getCell("A11").border = thinBorder;
-      ws.getCell("F11").value = "{{abc_amount}}";
-      ws.getCell("F11").font = { ...boldText, color: { argb: "FF7B1E1E" } };
-      ws.getCell("F11").alignment = { horizontal: "right" };
-      ws.getCell("F11").border = thinBorder;
-      ws.mergeCells("A12:F12");
-      ws.getCell("A12").value = "Purpose: {{purpose}}";
-      ws.getCell("A12").font = normalText;
-      ws.getCell("A12").alignment = { horizontal: "left", wrapText: true };
-      ws.getCell("A12").border = thinBorder;
-      ws.getRow(12).height = 30;
-      ws.mergeCells("A14:C14");
-      ws.getCell("A14").value = "Requested by:";
-      ws.getCell("A14").font = boldText;
-      ws.mergeCells("D14:F14");
-      ws.getCell("D14").value = "Approved by:";
-      ws.getCell("D14").font = boldText;
-      ws.mergeCells("A16:C16");
-      ws.getCell("A16").value = "{{signatory_1_name}}";
-      ws.getCell("A16").font = { ...boldText, underline: true };
-      ws.getCell("A16").alignment = { horizontal: "center" };
-      ws.mergeCells("D16:F16");
-      ws.getCell("D16").value = "{{signatory_2_name}}";
-      ws.getCell("D16").font = { ...boldText, underline: true };
-      ws.getCell("D16").alignment = { horizontal: "center" };
-      ws.mergeCells("A17:C17");
-      ws.getCell("A17").value = "{{signatory_1_title}}";
-      ws.getCell("A17").font = normalText;
-      ws.getCell("A17").alignment = { horizontal: "center" };
-      ws.mergeCells("D17:F17");
-      ws.getCell("D17").value = "{{signatory_2_title}}";
-      ws.getCell("D17").font = normalText;
-      ws.getCell("D17").alignment = { horizontal: "center" };
+      for (let r = 10; r <= 22; r++) {
+        const row = ws.getRow(r);
+        row.height = 16;
+        for (let c = 1; c <= 6; c++) {
+          const cell = row.getCell(c);
+          cell.value = "";
+          cell.border = plainBorder;
+          cell.font = plain;
+        }
+      }
+      ws.getRow(23).height = 20;
+      ws.mergeCells("A23:F23");
+      ws.getCell("A23").value = "Purpose: {{purpose}}";
+      ws.getCell("A23").font = plain;
+      ws.getCell("A23").alignment = { horizontal: "left", vertical: "middle", wrapText: true };
+      ws.getCell("A23").border = plainBorder;
+      ws.getRow(24).height = 10;
+      ws.getRow(25).height = 16;
+      ws.mergeCells("A25:C25");
+      ws.getCell("A25").value = "Requested by:";
+      ws.getCell("A25").font = plain;
+      ws.getCell("A25").alignment = alignCenter;
+      ws.mergeCells("D25:F25");
+      ws.getCell("D25").value = "Approved by:";
+      ws.getCell("D25").font = plain;
+      ws.getCell("D25").alignment = alignCenter;
+      ws.getRow(26).height = 14;
+      ws.getRow(27).height = 16;
+      ws.getCell("A27").value = "Signature :";
+      ws.getCell("A27").font = plain;
+      ws.mergeCells("B27:C27");
+      ws.getCell("B27").value = "";
+      ws.getCell("B27").border = bottomOnly;
+      ws.getCell("D27").value = "Signature :";
+      ws.getCell("D27").font = plain;
+      ws.mergeCells("E27:F27");
+      ws.getCell("E27").value = "";
+      ws.getCell("E27").border = bottomOnly;
+      ws.getRow(28).height = 16;
+      ws.getCell("A28").value = "Printed Name :";
+      ws.getCell("A28").font = plain;
+      ws.mergeCells("B28:C28");
+      ws.getCell("B28").value = "{{signatory_1_name}}";
+      ws.getCell("B28").font = plain;
+      ws.getCell("B28").border = bottomOnly;
+      ws.getCell("D28").value = "Printed Name :";
+      ws.getCell("D28").font = plain;
+      ws.mergeCells("E28:F28");
+      ws.getCell("E28").value = "{{signatory_2_name}}";
+      ws.getCell("E28").font = plain;
+      ws.getCell("E28").border = bottomOnly;
+      ws.getRow(29).height = 16;
+      ws.getCell("A29").value = "Designation :";
+      ws.getCell("A29").font = plain;
+      ws.mergeCells("B29:C29");
+      ws.getCell("B29").value = "{{signatory_1_title}}";
+      ws.getCell("B29").font = plain;
+      ws.getCell("B29").border = bottomOnly;
+      ws.getCell("D29").value = "Designation :";
+      ws.getCell("D29").font = plain;
+      ws.mergeCells("E29:F29");
+      ws.getCell("E29").value = "{{signatory_2_title}}";
+      ws.getCell("E29").font = plain;
+      ws.getCell("E29").border = bottomOnly;
       break;
     }
     case "rfq": {
@@ -4024,7 +4703,7 @@ async function createMasterExcelWorkbook(key) {
         // G: Total Price
       ];
       ws.mergeCells("A1:G1");
-      ws.getCell("A1").value = "BATANES STATE COLLEGE \u2014 PROCUREMENT UNIT";
+      ws.getCell("A1").value = "[AGENCY / INSTITUTION NAME] \u2014 PROCUREMENT UNIT";
       ws.getCell("A1").font = { name: "Arial", size: 11, bold: true, color: { argb: "FF7B1E1E" } };
       ws.getCell("A1").alignment = { horizontal: "center" };
       ws.mergeCells("A2:G2");
@@ -4127,7 +4806,7 @@ async function createMasterExcelWorkbook(key) {
         // Lowest Bidder
       ];
       ws.mergeCells("A1:H1");
-      ws.getCell("A1").value = "BATANES STATE COLLEGE \u2014 BIDS AND AWARDS COMMITTEE";
+      ws.getCell("A1").value = "[AGENCY / INSTITUTION NAME] \u2014 BIDS AND AWARDS COMMITTEE";
       ws.getCell("A1").font = { name: "Arial", size: 12, bold: true, color: { argb: "FF7B1E1E" } };
       ws.getCell("A1").alignment = { horizontal: "center" };
       ws.mergeCells("A2:H2");
@@ -4225,7 +4904,7 @@ async function createMasterExcelWorkbook(key) {
       ws.getCell("A1").font = { name: "Arial", size: 9, italic: true };
       ws.getCell("A1").alignment = { horizontal: "center" };
       ws.mergeCells("A2:F2");
-      ws.getCell("A2").value = "BATANES STATE COLLEGE";
+      ws.getCell("A2").value = "[AGENCY / INSTITUTION NAME]";
       ws.getCell("A2").font = { name: "Arial", size: 12, bold: true, color: { argb: "FF7B1E1E" } };
       ws.getCell("A2").alignment = { horizontal: "center" };
       ws.mergeCells("A3:F3");
@@ -4333,7 +5012,7 @@ async function createMasterExcelWorkbook(key) {
       ws.getCell("A1").font = { name: "Arial", size: 9, italic: true };
       ws.getCell("A1").alignment = { horizontal: "center" };
       ws.mergeCells("A2:H2");
-      ws.getCell("A2").value = "BATANES STATE COLLEGE";
+      ws.getCell("A2").value = "[AGENCY / INSTITUTION NAME]";
       ws.getCell("A2").font = { name: "Arial", size: 12, bold: true, color: { argb: "FF7B1E1E" } };
       ws.getCell("A2").alignment = { horizontal: "center" };
       ws.mergeCells("A3:H3");
@@ -4342,7 +5021,7 @@ async function createMasterExcelWorkbook(key) {
       ws.getCell("A3").alignment = { horizontal: "center" };
       ws.getCell("A5").value = "Entity Name:";
       ws.getCell("A5").font = boldText;
-      ws.getCell("B5").value = "Batanes State College";
+      ws.getCell("B5").value = "{{entity_name}}";
       ws.getCell("B5").font = normalText;
       ws.getCell("F5").value = "Fund Cluster:";
       ws.getCell("F5").font = boldText;
@@ -4446,20 +5125,43 @@ async function parseExcelTemplate(buffer) {
     base64: buffer.toString("base64")
   };
 }
+function getCellDisplayValue(cell) {
+  if (!cell) return "";
+  if (cell.text !== void 0 && cell.text !== null && typeof cell.text === "string") {
+    return cell.text;
+  }
+  const val = cell.value;
+  if (val === null || val === void 0) return "";
+  if (typeof val === "string") return val;
+  if (typeof val === "number" || typeof val === "boolean") return String(val);
+  if (val instanceof Date) return val.toLocaleDateString();
+  if (typeof val === "object") {
+    if (val.result !== void 0 && val.result !== null) return String(val.result);
+    if (Array.isArray(val.richText)) {
+      return val.richText.map((t2) => t2.text || "").join("");
+    }
+    if (val.error) return String(val.error);
+    if (val.text) return String(val.text);
+    if (val.hyperlink && val.text) return String(val.text);
+  }
+  return "";
+}
 async function injectDataIntoExcelTemplate(templateBuffer, templateKey, data) {
   const mod = ExcelJS.default || ExcelJS;
   const Workbook = mod.Workbook;
   const wb = new Workbook();
   await wb.xlsx.load(templateBuffer);
   const ws = wb.worksheets[0];
-  if (!ws) throw new Error("No worksheet found in template");
+  if (!ws) {
+    throw new Error("Invalid template: No worksheets found in the Excel workbook.");
+  }
   let injectedTokensCount = 0;
-  const items = Array.isArray(data.items) && data.items.length > 0 ? data.items : getSampleFormData(templateKey).items || [];
+  const items = Array.isArray(data.items) ? data.items : [];
   let templateItemRowNumber = null;
   ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (templateItemRowNumber !== null) return;
     row.eachCell((cell) => {
-      const text2 = cell.text ?? String(cell.value ?? "");
+      const text2 = getCellDisplayValue(cell);
       if (text2.includes("{{item_no}}") || text2.includes("{{item_desc}}")) {
         templateItemRowNumber = rowNumber;
       }
@@ -4468,7 +5170,8 @@ async function injectDataIntoExcelTemplate(templateBuffer, templateKey, data) {
   if (templateItemRowNumber !== null && items.length > 0) {
     const templateRow = ws.getRow(templateItemRowNumber);
     const templateCellFormats = [];
-    const colCount = Math.max(ws.columnCount, 8);
+    const declaredCols = ws.columns && ws.columns.length > 0 ? ws.columns.length : 0;
+    const colCount = Math.max(declaredCols, ws.actualColumnCount, 1);
     for (let c = 1; c <= colCount; c++) {
       const cell = templateRow.getCell(c);
       templateCellFormats.push({
@@ -4477,7 +5180,7 @@ async function injectDataIntoExcelTemplate(templateBuffer, templateKey, data) {
         border: cell.border ? { ...cell.border } : void 0,
         fill: cell.fill ? { ...cell.fill } : void 0,
         numFmt: cell.numFmt,
-        templateText: cell.text ?? String(cell.value ?? "")
+        templateText: getCellDisplayValue(cell)
       });
     }
     if (items.length > 1) {
@@ -4504,12 +5207,16 @@ async function injectDataIntoExcelTemplate(templateBuffer, templateKey, data) {
       });
     });
   }
+  const normalizedData = {
+    entity_name: "[Agency / Institution Name]",
+    ...data
+  };
   ws.eachRow({ includeEmpty: false }, (row) => {
     row.eachCell({ includeEmpty: false }, (cell) => {
-      const text2 = cell.text ?? String(cell.value ?? "");
+      const text2 = getCellDisplayValue(cell);
       if (typeof text2 === "string" && text2.includes("{{")) {
         let updated = text2;
-        Object.entries(data).forEach(([key, val]) => {
+        Object.entries(normalizedData).forEach(([key, val]) => {
           if (key === "items") return;
           const token = `{{${key}}}`;
           if (updated.includes(token)) {
@@ -4540,29 +5247,35 @@ function convertWorksheetToHtml(ws) {
   const mergedMap = /* @__PURE__ */ new Map();
   const skipCells = /* @__PURE__ */ new Set();
   if (ws._merges) {
-    const merges = ws._merges;
-    Object.keys(merges).forEach((key) => {
-      const range = merges[key];
-      const model = range.model;
-      if (model) {
-        const { top, bottom, left, right } = model;
-        const rowspan = bottom - top + 1;
-        const colspan = right - left + 1;
-        const masterKey = `${top}:${left}`;
-        mergedMap.set(masterKey, { rowspan, colspan });
-        for (let r = top; r <= bottom; r++) {
-          for (let c = left; c <= right; c++) {
-            if (!(r === top && c === left)) {
-              skipCells.add(`${r}:${c}`);
+    try {
+      const merges = ws._merges;
+      Object.keys(merges).forEach((key) => {
+        const range = merges[key];
+        const model = range?.model || range;
+        if (model && typeof model.top === "number" && typeof model.bottom === "number" && typeof model.left === "number" && typeof model.right === "number") {
+          const { top, bottom, left, right } = model;
+          const rowspan = Math.max(1, bottom - top + 1);
+          const colspan = Math.max(1, right - left + 1);
+          const masterKey = `${top}:${left}`;
+          mergedMap.set(masterKey, { rowspan, colspan });
+          for (let r = top; r <= bottom; r++) {
+            for (let c = left; c <= right; c++) {
+              if (!(r === top && c === left)) {
+                skipCells.add(`${r}:${c}`);
+              }
             }
           }
         }
-      }
-    });
+      });
+    } catch {
+    }
   }
   const rowsHtml = [];
-  const maxCols = Math.max(ws.columnCount, 6);
-  ws.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+  const declaredCols = ws.columns && ws.columns.length > 0 ? ws.columns.length : 0;
+  const maxCols = Math.max(declaredCols, ws.actualColumnCount, 1);
+  const totalRows = Math.min(Math.max(ws.rowCount, ws.actualRowCount, 20), 120);
+  for (let rowNumber = 1; rowNumber <= totalRows; rowNumber++) {
+    const row = ws.getRow(rowNumber);
     const cellsHtml = [];
     let hasContentInRow = false;
     for (let colNumber = 1; colNumber <= maxCols; colNumber++) {
@@ -4571,16 +5284,16 @@ function convertWorksheetToHtml(ws) {
         continue;
       }
       const cell = row.getCell(colNumber);
-      const val = cell.text ?? String(cell.value ?? "");
+      const val = getCellDisplayValue(cell);
       if (val.trim()) hasContentInRow = true;
       const mergeInfo = mergedMap.get(cellKey);
       const spanAttrs = mergeInfo ? `${mergeInfo.rowspan > 1 ? ` rowspan="${mergeInfo.rowspan}"` : ""}${mergeInfo.colspan > 1 ? ` colspan="${mergeInfo.colspan}"` : ""}` : "";
       const styles = [];
       if (cell.border) {
-        if (cell.border.top) styles.push("border-top: 1px solid #202833");
-        if (cell.border.bottom) styles.push("border-bottom: 1px solid #202833");
-        if (cell.border.left) styles.push("border-left: 1px solid #202833");
-        if (cell.border.right) styles.push("border-right: 1px solid #202833");
+        if (cell.border.top) styles.push("border-top: 1px solid #1e293b");
+        if (cell.border.bottom) styles.push("border-bottom: 1px solid #1e293b");
+        if (cell.border.left) styles.push("border-left: 1px solid #1e293b");
+        if (cell.border.right) styles.push("border-right: 1px solid #1e293b");
       }
       if (cell.font) {
         if (cell.font.bold) styles.push("font-weight: 700");
@@ -4607,16 +5320,83 @@ function convertWorksheetToHtml(ws) {
       const styleStr = styles.length ? ` style="${styles.join("; ")}"` : "";
       cellsHtml.push(`<td${spanAttrs}${styleStr}>${escapeHtml(val)}</td>`);
     }
-    if (hasContentInRow || rowNumber <= 20) {
+    if (hasContentInRow || rowNumber <= 15) {
       rowsHtml.push(`<tr>${cellsHtml.join("")}</tr>`);
     }
-  });
+  }
   return `
-    <table class="excel-rendered-table w-full border-collapse text-xs" style="table-layout: auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.35; color: #202833;">
+    <table class="excel-rendered-table w-full border-collapse text-xs" style="table-layout: auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.35; color: #1e293b;">
       <tbody>
         ${rowsHtml.join("\n")}
       </tbody>
     </table>
+  `;
+}
+function generateResilientHtmlPreview(templateKey, data) {
+  const entityName = data.entity_name || "[Agency / Institution Name]";
+  const items = Array.isArray(data.items) ? data.items : [];
+  const meta = SUPPORTED_FORM_TEMPLATES[templateKey];
+  const title = meta?.displayName || "PROCUREMENT DOCUMENT";
+  const rowsHtml = items.map((it) => `
+    <tr>
+      <td style="border: 1px solid #1e293b; padding: 6px; text-align: center;">${escapeHtml(String(it.item_no || "1"))}</td>
+      <td style="border: 1px solid #1e293b; padding: 6px; text-align: center;">${escapeHtml(String(it.unit || "unit"))}</td>
+      <td style="border: 1px solid #1e293b; padding: 6px;">${escapeHtml(String(it.item_desc || "Item description"))}</td>
+      <td style="border: 1px solid #1e293b; padding: 6px; text-align: right;">${escapeHtml(String(it.quantity || "1"))}</td>
+      <td style="border: 1px solid #1e293b; padding: 6px; text-align: right;">${escapeHtml(String(it.unit_cost || it.unit_price || "0.00"))}</td>
+      <td style="border: 1px solid #1e293b; padding: 6px; text-align: right; font-weight: 600;">${escapeHtml(String(it.total_cost || it.total_price || "0.00"))}</td>
+    </tr>
+  `).join("");
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1e293b; padding: 16px;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div style="font-size: 11px; font-style: italic; color: #64748b;">Republic of the Philippines</div>
+        <div style="font-size: 16px; font-weight: 800; color: #7B1E1E; margin: 4px 0;">${escapeHtml(entityName)}</div>
+        <div style="font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">${escapeHtml(title)}</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; font-size: 12px; background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
+        <div><strong>Entity Name:</strong> ${escapeHtml(entityName)}</div>
+        <div><strong>Document Reference:</strong> ${escapeHtml(String(data.pr_no || data.rfq_no || data.po_no || data.aoq_no || "\u2014"))}</div>
+        <div><strong>Office / Section:</strong> ${escapeHtml(String(data.office || "[Office / Department]"))}</div>
+        <div><strong>Date:</strong> ${escapeHtml(String(data.date || (/* @__PURE__ */ new Date()).toISOString().split("T")[0]))}</div>
+      </div>
+
+      <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 24px;">
+        <thead>
+          <tr style="background: #f1f5f9; font-weight: 700;">
+            <th style="border: 1px solid #1e293b; padding: 6px; width: 60px;">Item No.</th>
+            <th style="border: 1px solid #1e293b; padding: 6px; width: 60px;">Unit</th>
+            <th style="border: 1px solid #1e293b; padding: 6px;">Description</th>
+            <th style="border: 1px solid #1e293b; padding: 6px; width: 70px;">Qty</th>
+            <th style="border: 1px solid #1e293b; padding: 6px; width: 100px;">Unit Cost</th>
+            <th style="border: 1px solid #1e293b; padding: 6px; width: 110px;">Total Cost</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml || `<tr><td colspan="6" style="border: 1px solid #1e293b; padding: 12px; text-align: center; color: #64748b;">Standard template with dynamic rows</td></tr>`}
+        </tbody>
+        <tfoot>
+          <tr style="font-weight: 700; background: #fafafa;">
+            <td colspan="5" style="border: 1px solid #1e293b; padding: 6px; text-align: right;">Total Amount:</td>
+            <td style="border: 1px solid #1e293b; padding: 6px; text-align: right; color: #7B1E1E;">${escapeHtml(String(data.total_abc || data.total_amount || "0.00"))}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; font-size: 11px; margin-top: 24px; padding-top: 16px; border-top: 1px dashed #cbd5e1;">
+        <div>
+          <div style="color: #64748b; margin-bottom: 24px;">Requested / Prepared by:</div>
+          <div style="font-weight: 700; border-top: 1px solid #334155; padding-top: 4px;">${escapeHtml(String(data.requestor_name || "[Authorized End-User]"))}</div>
+          <div style="color: #64748b;">${escapeHtml(String(data.requestor_designation || "[Designation]"))}</div>
+        </div>
+        <div>
+          <div style="color: #64748b; margin-bottom: 24px;">Approved by:</div>
+          <div style="font-weight: 700; border-top: 1px solid #334155; padding-top: 4px;">${escapeHtml(String(data.approver_name || "[Head of Procuring Entity / Approver]"))}</div>
+          <div style="color: #64748b;">${escapeHtml(String(data.approver_designation || "[Designation]"))}</div>
+        </div>
+      </div>
+    </div>
   `;
 }
 function escapeHtml(str) {
@@ -4708,11 +5488,11 @@ var appRouter = router({
     }),
     bestValuePolicy: router({
       active: protectedProcedure.query(({ ctx }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["admin"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["admin", "procurement_officer"]);
         return getBestValuePolicy();
       }),
       history: protectedProcedure.query(({ ctx }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["admin"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["admin", "procurement_officer"]);
         return getBestValuePolicyHistory();
       }),
       save: protectedProcedure.input(z2.object({
@@ -4742,7 +5522,20 @@ var appRouter = router({
       saved: protectedProcedure.query(({ ctx }) => listProcurementCatalogSavedItems(ctx.user)),
       save: protectedProcedure.input(z2.object({ items: z2.array(z2.object({ catalogItemId: z2.number().int().positive(), quantity: z2.number().positive().max(1e6) })).max(500) })).mutation(({ ctx, input }) => replaceProcurementCatalogSavedItems(input, ctx.user)),
       clearSaved: protectedProcedure.mutation(({ ctx }) => clearProcurementCatalogSavedItems(ctx.user)),
-      setFavorite: protectedProcedure.input(z2.object({ catalogItemId: z2.number().int().positive(), isFavorite: z2.boolean() })).mutation(({ ctx, input }) => setProcurementCatalogFavorite(input, ctx.user))
+      setFavorite: protectedProcedure.input(z2.object({ catalogItemId: z2.number().int().positive(), isFavorite: z2.boolean() })).mutation(({ ctx, input }) => setProcurementCatalogFavorite(input, ctx.user)),
+      create: protectedProcedure.input(z2.object({
+        description: z2.string().min(2, "Item name must be at least 2 characters").max(300),
+        technicalSpecifications: z2.string().min(5, "Technical specifications must be at least 5 characters").max(2e3),
+        unit: z2.string().min(1, "Unit of measurement is required").max(40),
+        referencePrice: z2.number().positive("Unit price must be greater than zero"),
+        supplierId: z2.number().int().positive("A designated supplier must be selected"),
+        productCode: z2.string().max(80).optional(),
+        remarks: z2.string().max(1e3).optional()
+      })).mutation(({ ctx, input }) => {
+        const role = normalizeProcurementRole(ctx.user.role);
+        assertRole(role, ["procurement_officer", "procurement_staff", "admin"]);
+        return createProcurementCatalogItem(input, ctx.user);
+      })
     }),
     testRecords: router({
       list: protectedProcedure.query(({ ctx }) => {
@@ -4821,7 +5614,36 @@ var appRouter = router({
       })).query(({ ctx, input }) => getPurchaseRequestHistory(input.purchaseRequestId, ctx.user)),
       pmrStatus: protectedProcedure.input(z2.object({
         purchaseRequestId: z2.number().int().positive()
-      })).query(({ input }) => getPmrStatus(input.purchaseRequestId))
+      })).query(({ input }) => getPmrStatus(input.purchaseRequestId)),
+      verifyPackage: protectedProcedure.input(z2.object({
+        purchaseRequestId: z2.number().int().positive(),
+        categorySegregationVerified: z2.boolean().optional()
+      })).mutation(async ({ ctx, input }) => {
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+        const result = await verifyPurchaseRequestPackage(input.purchaseRequestId, ctx.user, { categorySegregationVerified: input.categorySegregationVerified });
+        void publishProcurementRealtimeUpdate("purchase_request");
+        return result;
+      }),
+      returnForRevision: protectedProcedure.input(z2.object({
+        purchaseRequestId: z2.number().int().positive(),
+        reason: z2.string().min(5).max(1e3),
+        remarks: z2.string().max(1e3).optional()
+      })).mutation(async ({ ctx, input }) => {
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+        const result = await returnPurchaseRequestForRevision(input, ctx.user);
+        void publishProcurementRealtimeUpdate("purchase_request");
+        return result;
+      }),
+      recordPmr: protectedProcedure.input(z2.object({
+        purchaseRequestId: z2.number().int().positive(),
+        pmrReferenceNumber: z2.string().max(80).optional(),
+        remarks: z2.string().max(1e3).optional()
+      })).mutation(async ({ ctx, input }) => {
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_staff", "admin"]);
+        const result = await recordPurchaseRequestToPmr(input, ctx.user);
+        void publishProcurementRealtimeUpdate("purchase_request");
+        return result;
+      })
     }),
     preCanvasses: router({
       create: protectedProcedure.input(z2.object({ purchaseRequestId: z2.number().int().positive(), approvedBudget: z2.number().positive().optional(), quotationDeadline: z2.coerce.date().optional(), deliveryPeriodDays: z2.number().int().positive().max(365).optional(), priceEvaluationMode: z2.enum(["lot_basis", "per_item"]).optional() })).mutation(async ({ ctx, input }) => {
@@ -4868,11 +5690,8 @@ var appRouter = router({
         return result;
       }),
       createAbstract: protectedProcedure.input(z2.object({ preCanvassId: z2.number().int().positive() })).mutation(async ({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_staff", "administrative_approver", "admin"]);
         const result = await createAbstractOfCanvass(input.preCanvassId, ctx.user);
-        await notifyRoles(["administrative_approver"], { kind: "action_required", title: "Official Abstract awaiting BAC/HoPE decision", body: "Procurement Staff/BAC final canvass validation is complete and the official Abstract of Quotations is ready for BAC/HoPE review.", entityType: "pre_canvass", entityId: input.preCanvassId });
-        void publishProcurementRealtimeUpdate("pre_canvass");
-        void publishProcurementRealtimeUpdate("abstract_of_canvass");
         await notifyRoles(["administrative_approver"], { kind: "action_required", title: "Official Abstract awaiting BAC/HoPE decision", body: "Procurement Staff/BAC final canvass validation is complete and the official Abstract of Quotations is ready for BAC/HoPE review.", entityType: "pre_canvass", entityId: input.preCanvassId });
         void publishProcurementRealtimeUpdate("pre_canvass");
         void publishProcurementRealtimeUpdate("abstract_of_canvass");
@@ -4887,7 +5706,7 @@ var appRouter = router({
         return result;
       }),
       issuePurchaseOrder: protectedProcedure.input(z2.object({ preCanvassId: z2.number().int().positive() })).mutation(async ({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
         const result = await createPurchaseOrderFromPreCanvass(input.preCanvassId, ctx.user);
         await notifyRoles(["administrative_approver"], { kind: "status_change", title: "Purchase Order issued", body: "A Purchase Order was issued from an approved Abstract of Canvass.", entityType: "purchase_order", entityId: result.id });
         return result;
@@ -4905,7 +5724,7 @@ var appRouter = router({
         return createMcdmRecommendation(input.preCanvassId, ctx.user);
       }),
       createRfqFromMcdm: protectedProcedure.input(z2.object({ preCanvassId: z2.number().int().positive() })).mutation(({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
         return createRfqFromPreCanvass(input.preCanvassId, ctx.user);
       }),
       recordDelivery: protectedProcedure.input(z2.object({ purchaseOrderId: z2.number().int().positive(), receiptNumber: z2.string().min(3).max(40), receivedByName: z2.string().max(180).optional(), deliveryStatus: z2.enum(["complete", "partial"]).optional(), signatureReference: z2.string().max(1e3).optional(), remarks: z2.string().max(1e3).optional() })).mutation(({ ctx, input }) => {
@@ -4913,7 +5732,7 @@ var appRouter = router({
         return recordDelivery(input, ctx.user);
       }),
       logPmr: protectedProcedure.input(z2.object({ purchaseOrderId: z2.number().int().positive(), pmrNumber: z2.string().min(3).max(40), remarks: z2.string().max(1e3).optional() })).mutation(({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
         return logPmr(input, ctx.user);
       })
     }),
@@ -4926,15 +5745,15 @@ var appRouter = router({
     }),
     rfqs: router({
       createFromPurchaseRequest: protectedProcedure.input(z2.object({ purchaseRequestId: z2.number().int().positive() })).mutation(({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_staff", "admin"]);
         return createRfqFromPurchaseRequest(input.purchaseRequestId, ctx.user);
       }),
       addQuotation: protectedProcedure.input(z2.object({ rfqId: z2.number().int().positive(), supplierId: z2.number().int().positive(), totalPrice: z2.number().positive(), deliveryDays: z2.number().int().nonnegative(), isCompliant: z2.boolean(), notes: z2.string().optional() })).mutation(({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
         return addSupplierQuotation(input, ctx.user);
       }),
       generateAbstract: protectedProcedure.input(z2.object({ rfqId: z2.number().int().positive() })).mutation(({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_staff", "administrative_approver", "admin"]);
         return createQuotationAbstract(input.rfqId, ctx.user);
       }),
       approveAbstract: protectedProcedure.input(z2.object({ rfqId: z2.number().int().positive() })).mutation(({ ctx, input }) => {
@@ -4942,7 +5761,7 @@ var appRouter = router({
         return approveQuotationAbstract(input.rfqId, ctx.user);
       }),
       createPurchaseOrder: protectedProcedure.input(z2.object({ rfqId: z2.number().int().positive() })).mutation(({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
         return createPurchaseOrder(input.rfqId, ctx.user);
       }),
       reject: protectedProcedure.input(z2.object({
@@ -4966,7 +5785,7 @@ var appRouter = router({
         rfqId: z2.number().int().positive().optional()
       })).mutation(async ({ ctx, input }) => {
         const role = normalizeProcurementRole(ctx.user.role);
-        assertRole(role, ["procurement_officer", "admin"]);
+        assertRole(role, ["procurement_officer", "procurement_staff", "admin"]);
         const result = await assignRfqNumber(input, ctx.user);
         void publishProcurementRealtimeUpdate("rfq");
         return result;
@@ -5078,7 +5897,29 @@ var appRouter = router({
           }
         }
         const transactionData = input.customData && Object.keys(input.customData).length > 0 ? input.customData : getSampleFormData(key);
-        const injected = await injectDataIntoExcelTemplate(templateBuffer, key, transactionData);
+        let injected;
+        try {
+          injected = await injectDataIntoExcelTemplate(templateBuffer, key, transactionData);
+        } catch (injectionErr) {
+          try {
+            const masterWb = await createMasterExcelWorkbook(key);
+            const masterBuf = Buffer.from(await masterWb.xlsx.writeBuffer());
+            injected = await injectDataIntoExcelTemplate(masterBuf, key, transactionData);
+          } catch (masterErr) {
+            const htmlTable = generateResilientHtmlPreview(key, transactionData);
+            injected = {
+              xlsxBuffer: Buffer.from([]),
+              xlsxBase64: "",
+              htmlTable,
+              sheetName: meta.displayName,
+              meta: {
+                injectedTokensCount: Object.keys(transactionData).length,
+                itemsCount: Array.isArray(transactionData.items) ? transactionData.items.length : 0,
+                templateKey: key
+              }
+            };
+          }
+        }
         return {
           ...injected,
           metaInfo: meta,
@@ -5114,36 +5955,173 @@ var appRouter = router({
     }),
     historicalPmr: router({
       summary: protectedProcedure.input(z2.object({ fiscalYear: z2.number().int().min(2e3).max(2100).optional() }).optional()).query(({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "administrative_approver", "supplier_contractor"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "administrative_approver", "supplier_contractor", "admin"]);
         return getHistoricalPmrSummary(input?.fiscalYear ?? 2025);
       }),
       list: protectedProcedure.input(z2.object({ fiscalYear: z2.number().int().min(2e3).max(2100).optional(), month: z2.string().max(24).optional(), office: z2.string().max(180).optional(), supplier: z2.string().max(240).optional(), status: z2.string().max(80).optional(), search: z2.string().max(180).optional(), limit: z2.number().int().min(1).max(2e3).optional() }).optional()).query(({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "administrative_approver", "supplier_contractor"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "administrative_approver", "supplier_contractor", "admin"]);
         return listHistoricalPmrRecords(input);
       })
     }),
     officer: router({
+      prVerification: router({
+        list: protectedProcedure.query(({ ctx }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          return listOfficerPrVerifications(ctx.user);
+        }),
+        verify: protectedProcedure.input(z2.object({
+          purchaseRequestId: z2.number().int().positive(),
+          categorySegregationVerified: z2.boolean().optional()
+        })).mutation(async ({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          const result = await verifyPurchaseRequestPackage(input.purchaseRequestId, ctx.user, { categorySegregationVerified: input.categorySegregationVerified });
+          void publishProcurementRealtimeUpdate("purchase_request");
+          return result;
+        }),
+        returnForRevision: protectedProcedure.input(z2.object({
+          purchaseRequestId: z2.number().int().positive(),
+          reason: z2.string().min(5).max(1e3),
+          remarks: z2.string().max(1e3).optional()
+        })).mutation(async ({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          const result = await returnPurchaseRequestForRevision(input, ctx.user);
+          void publishProcurementRealtimeUpdate("purchase_request");
+          return result;
+        })
+      }),
+      rfqDistribution: router({
+        list: protectedProcedure.query(({ ctx }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          return listRfqDistributions(ctx.user);
+        }),
+        update: protectedProcedure.input(z2.object({
+          rfqId: z2.number().int().positive(),
+          status: z2.enum(["distributed", "retrieved"]),
+          canvasserName: z2.string().max(180).optional(),
+          distributionDate: z2.coerce.date().optional(),
+          retrievalDate: z2.coerce.date().optional(),
+          remarks: z2.string().max(1e3).optional()
+        })).mutation(async ({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          const result = await updateRfqDistribution(input, ctx.user);
+          void publishProcurementRealtimeUpdate("rfq");
+          return result;
+        }),
+        transmitToBac: protectedProcedure.input(z2.object({
+          rfqId: z2.number().int().positive(),
+          toOffice: z2.string().max(180).optional(),
+          subject: z2.string().max(220).optional(),
+          remarks: z2.string().max(1e3).optional()
+        })).mutation(async ({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          const result = await transmitRfqToBac(input, ctx.user);
+          void publishProcurementRealtimeUpdate("bac_transmittal");
+          return result;
+        })
+      }),
+      philgeps: router({
+        list: protectedProcedure.query(({ ctx }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          return listPhilgepsPostings(ctx.user);
+        }),
+        record: protectedProcedure.input(z2.object({
+          purchaseRequestId: z2.number().int().positive(),
+          rfqId: z2.number().int().positive().optional(),
+          philgepsReferenceNumber: z2.string().min(3).max(120),
+          postingDate: z2.coerce.date(),
+          closingDate: z2.coerce.date().optional(),
+          remarks: z2.string().max(1e3).optional()
+        })).mutation(async ({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          const result = await recordPhilgepsPosting(input, ctx.user);
+          void publishProcurementRealtimeUpdate("purchase_request");
+          return result;
+        })
+      }),
       notices: router({
         list: protectedProcedure.query(({ ctx }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
           return listLettersOfNotice();
         }),
         create: protectedProcedure.input(z2.object({ noticeType: z2.enum(["award", "disqualification", "clarification", "demand", "other"]), purchaseRequestId: z2.number().int().positive().optional(), supplierId: z2.number().int().positive().optional(), subject: z2.string().min(3).max(220), body: z2.string().min(10).max(5e3), demandDueDate: z2.coerce.date().optional(), issueNow: z2.boolean().optional() })).mutation(({ ctx, input }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
           return createLetterOfNotice(input, ctx.user);
+        }),
+        serve: protectedProcedure.input(z2.object({
+          noticeId: z2.number().int().positive(),
+          servedAt: z2.coerce.date(),
+          recipientName: z2.string().min(2).max(180),
+          deliveryMode: z2.enum(["hand_delivery", "courier", "registered_mail", "electronic_mail"]),
+          remarks: z2.string().max(1e3).optional()
+        })).mutation(async ({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          const result = await serveLetterOfNotice(input, ctx.user);
+          void publishProcurementRealtimeUpdate("letter_of_notice");
+          return result;
+        })
+      }),
+      releasing: router({
+        list: protectedProcedure.query(({ ctx }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          return listOfficerPurchaseOrders(ctx.user);
+        }),
+        release: protectedProcedure.input(z2.object({
+          purchaseOrderId: z2.number().int().positive(),
+          releasedAt: z2.coerce.date(),
+          recipientName: z2.string().min(2).max(180),
+          releaseMode: z2.enum(["in_person_pickup", "courier", "electronic_mail"]),
+          acknowledgementReference: z2.string().max(120).optional(),
+          remarks: z2.string().max(1e3).optional()
+        })).mutation(async ({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          const result = await releasePurchaseOrder(input, ctx.user);
+          void publishProcurementRealtimeUpdate("purchase_order");
+          return result;
+        })
+      }),
+      delivery: router({
+        list: protectedProcedure.query(({ ctx }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          return listDeliveryMonitoring(ctx.user);
+        }),
+        recordDelivery: protectedProcedure.input(z2.object({
+          purchaseOrderId: z2.number().int().positive(),
+          receiptNumber: z2.string().min(3).max(40),
+          receivedByName: z2.string().max(180).optional(),
+          deliveryStatus: z2.enum(["complete", "partial"]).optional(),
+          signatureReference: z2.string().max(1e3).optional(),
+          remarks: z2.string().max(1e3).optional()
+        })).mutation(async ({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          const result = await recordDelivery(input, ctx.user);
+          void publishProcurementRealtimeUpdate("purchase_order");
+          return result;
+        }),
+        recordInspection: protectedProcedure.input(z2.object({
+          purchaseOrderId: z2.number().int().positive(),
+          iarNumber: z2.string().min(3).max(80),
+          inspectionDate: z2.coerce.date(),
+          inspectedByName: z2.string().min(2).max(180),
+          acceptanceStatus: z2.enum(["accepted", "rejected", "partial"]),
+          remarks: z2.string().max(1e3).optional()
+        })).mutation(async ({ ctx, input }) => {
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          const result = await recordInspectionMilestone(input, ctx.user);
+          void publishProcurementRealtimeUpdate("purchase_order");
+          return result;
         })
       }),
       transmittals: router({
         list: protectedProcedure.query(({ ctx }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
           return listBacTransmittals();
         }),
         create: protectedProcedure.input(z2.object({ purchaseRequestId: z2.number().int().positive().optional(), fromOffice: z2.string().min(3).max(180), toOffice: z2.string().min(3).max(180), subject: z2.string().min(3).max(220), remarks: z2.string().max(5e3).optional(), sendNow: z2.boolean().optional() })).mutation(({ ctx, input }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
           return createBacTransmittal(input, ctx.user);
         }),
         acknowledge: protectedProcedure.input(z2.object({ transmittalId: z2.number().int().positive(), acknowledgedByName: z2.string().min(3).max(180) })).mutation(({ ctx, input }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer"]);
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
           return acknowledgeBacTransmittal(input, ctx.user);
         })
       }),

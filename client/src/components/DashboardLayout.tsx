@@ -95,8 +95,8 @@ const navigation: Array<{
     label: "Procurement Catalog",
     path: "/catalog",
     icon: PackageSearch,
-    // Strictly End-User only; removed from Procurement Officer, Staff, BAC, HoPE, Budget Officer
-    roles: ["end_user", "admin"],
+    // Accessible to PO, Staff, End-User, and Admin
+    roles: ["end_user", "procurement_officer", "procurement_officer_i", "procurement_officer_ii", "procurement_staff", "admin"],
     category: "workspace",
   },
   {
