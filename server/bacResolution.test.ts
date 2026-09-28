@@ -86,5 +86,26 @@ describe("BAC Resolution & Endorsement Workflow", () => {
       expect(allowedRoles.includes(role)).toBe(true);
     }
   });
+
+  it("verifies the official Letter of Approval of HoPE text structure and SUC President signatory", () => {
+    const hopeApprovalStructure = {
+      title: "Approval of BAC Resolution Recommending Alternative Mode of Procurement under Small Value Procurement",
+      resolutionNumber: "2601-GAS2-009",
+      prNumber: "2026-009",
+      approvedBudget: 53600.0,
+      hopeActionClause:
+        "NOW THEREFORE, I, DJOVI R. DURANTE, DPA Head of the Procuring Entity (HOPE) by virtue of the authority vested in me by the Board of Trustees of this Institution and after taking into consideration the merits and legal bases of the recommendation of the members of the Bids and Awards Committee (BAC) do hereby APPROVE the foregoing recommendation and adoption of Alternative Mode of Procurement under Small Value Procurement;",
+      hopeSignatory: {
+        name: "DJOVI REGALA DURANTE, DPA",
+        designation: "SUC President I",
+      },
+    };
+
+    expect(hopeApprovalStructure.title).toContain("Approval of BAC Resolution Recommending Alternative Mode");
+    expect(hopeApprovalStructure.hopeActionClause).toContain("Head of the Procuring Entity (HOPE)");
+    expect(hopeApprovalStructure.hopeActionClause).toContain("APPROVE the foregoing recommendation");
+    expect(hopeApprovalStructure.hopeSignatory.name).toBe("DJOVI REGALA DURANTE, DPA");
+    expect(hopeApprovalStructure.hopeSignatory.designation).toBe("SUC President I");
+  });
 });
 

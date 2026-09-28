@@ -67,6 +67,15 @@ const FIVE_CORE_FORMS: FormTabInfo[] = [
     description: "Resolution recommending Alternative Mode of Procurement (Small Value Procurement) with ABC and full statutory signatories.",
   },
   {
+    key: "hope_approval",
+    name: "Letter of Approval of HoPE (BAC Resolution)",
+    shortCode: "HoPE Appr",
+    standard: "RA 9184 Alternative Mode",
+    isLandscape: false,
+    color: "#7b1e1e",
+    description: "Approval of BAC Resolution Recommending Alternative Mode of Procurement by Head of the Procuring Entity (SUC President).",
+  },
+  {
     key: "rfq",
     name: "Request for Quotation (RFQ)",
     shortCode: "Annex D",
@@ -684,9 +693,9 @@ export default function FormTemplatesPage() {
                STANDARDIZED A4 PRINT CANVAS WITH EDGE-TO-EDGE HEADER/FOOTER
                ========================================================= */
             <div className="overflow-x-auto py-2 flex justify-center">
-              {activeFormKey === "bac_resolution" ? (
+              {activeFormKey === "bac_resolution" || activeFormKey === "hope_approval" ? (
                 <div style={{ transform: previewScale !== 100 ? `scale(${previewScale / 100})` : "none", transformOrigin: "top center" }}>
-                  <OfficialBacResolutionCanvas />
+                  <OfficialBacResolutionCanvas documentType={activeFormKey === "hope_approval" ? "hope_approval" : "resolution"} />
                 </div>
               ) : (
                 <article

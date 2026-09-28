@@ -67,6 +67,9 @@ export function PrintBacResolutionPage() {
   const customAbc = search.get("abc");
   const customPurpose = search.get("purpose");
 
+  const initialDocType = (search.get("docType") as "resolution" | "hope_approval" | "both") || "resolution";
+  const [docType, setDocType] = useState<"resolution" | "hope_approval" | "both">(initialDocType);
+
   const prQuery = trpc.purchaseRequests.detail.useQuery({ purchaseRequestId: prId }, { enabled: Boolean(prId), retry: false });
   const setupQuery = trpc.procurement.setup.details.useQuery(undefined, { retry: false });
 
@@ -74,8 +77,8 @@ export function PrintBacResolutionPage() {
   const items = prQuery.data?.items ?? [];
   const entityName = setupQuery.data?.settings?.entityName || "Batanes State College";
   const hopeSignatory = setupQuery.data?.signatories?.find((s) => s.roleKey === "hope");
-  const collegePresidentName = hopeSignatory?.fullName || "Dr. Djovi R. Durante";
-  const collegePresidentDesignation = hopeSignatory?.title || "College President";
+  const collegePresidentName = hopeSignatory?.fullName || "DJOVI REGALA DURANTE, DPA";
+  const collegePresidentDesignation = hopeSignatory?.title || "SUC President I";
 
   const totalCalculated = items.reduce((sum, item) => sum + Number(item.quantity) * Number(item.estimatedUnitCost), 0);
   const approvedBudget = customAbc ? Number(customAbc) : (totalCalculated || (pr?.totalAmount ? Number(pr.totalAmount) : 53600));
@@ -101,10 +104,17 @@ export function PrintBacResolutionPage() {
           onClick={() => window.print()}
           className="rounded-[4px] bg-[#7b1e1e] text-white hover:bg-[#641818] dark:bg-[#d65c50] dark:text-white dark:hover:bg-[#eb766a]"
         >
-          <Printer className="mr-1.5 h-4 w-4 text-white" />Print Official Resolution
+          <Printer className="mr-1.5 h-4 w-4 text-white" />
+          {docType === "hope_approval"
+            ? "Print HoPE Approval Letter"
+            : docType === "both"
+            ? "Print Full Package (Both Documents)"
+            : "Print Official BAC Resolution"}
         </Button>
       </div>
       <OfficialBacResolutionCanvas
+        documentType={docType}
+        onDocumentTypeChange={setDocType}
         resolutionNumber={resNo}
         prNumber={prNumber}
         purposeOrItems={purposeOrItems}

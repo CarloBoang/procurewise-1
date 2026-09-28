@@ -64,8 +64,9 @@ export function TransmittalsPage() {
   const [dateResolved, setDateResolved] = useState<string>(
     new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
   );
-  const [collegePresidentName, setCollegePresidentName] = useState<string>("Dr. Djovi R. Durante");
-  const [collegePresidentDesignation, setCollegePresidentDesignation] = useState<string>("College President");
+  const [docType, setDocType] = useState<"resolution" | "hope_approval" | "both">("resolution");
+  const [collegePresidentName, setCollegePresidentName] = useState<string>("DJOVI REGALA DURANTE, DPA");
+  const [collegePresidentDesignation, setCollegePresidentDesignation] = useState<string>("SUC President I");
   const [bacMembers, setBacMembers] = useState<BacSignatory[]>(DEFAULT_BSC_BAC_MEMBERS);
   const [isDirectCanvasEdit, setIsDirectCanvasEdit] = useState<boolean>(true);
   const [signatoriesExpanded, setSignatoriesExpanded] = useState<boolean>(false);
@@ -141,10 +142,11 @@ export function TransmittalsPage() {
     );
     setEndUserName("MARIE FE E. PABLEO");
     setEntityName(setup.data?.settings?.entityName || "Batanes State College");
-    setCollegePresidentName("Dr. Djovi R. Durante");
-    setCollegePresidentDesignation("College President");
+    setCollegePresidentName("DJOVI REGALA DURANTE, DPA");
+    setCollegePresidentDesignation("SUC President I");
     setBacMembers(DEFAULT_BSC_BAC_MEMBERS);
     setDateResolved(new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }));
+    setDocType("resolution");
     toast.info("BAC Resolution reset to official BSC default template.");
   };
 
@@ -158,6 +160,7 @@ export function TransmittalsPage() {
       abc: String(approvedBudget),
       purpose: purposeOrItems,
       endUser: endUserName,
+      docType: docType,
     });
     setLocation(`/print/bac-resolution?${params.toString()}`);
   };
@@ -264,6 +267,19 @@ export function TransmittalsPage() {
                 </div>
 
                 <form onSubmit={handleEndorse} className="space-y-4 w-full min-w-0">
+                  <Field label="Document to Prepare & Preview">
+                    <Select value={docType} onValueChange={(val: any) => setDocType(val)}>
+                      <SelectTrigger className="h-9 text-xs w-full min-w-0 box-border truncate overflow-hidden bg-[#fffaf0] border-[#ecdcc0] font-semibold text-[#7b1e1e]">
+                        <SelectValue className="truncate" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="resolution">1. BAC Resolution (Recommendation to HoPE)</SelectItem>
+                        <SelectItem value="hope_approval">2. Letter of Approval of HoPE (Approval of Resolution)</SelectItem>
+                        <SelectItem value="both">Complete Package (Both Documents)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+
                   <Field label="Auto-fill from Purchase Request (Optional)">
                     <Select value={selectedPrId} onValueChange={setSelectedPrId}>
                       <SelectTrigger className="h-9 text-xs w-full min-w-0 box-border truncate overflow-hidden">
@@ -518,6 +534,8 @@ export function TransmittalsPage() {
 
               <div className="overflow-x-auto max-h-[850px] overflow-y-auto rounded-lg border border-neutral-300 shadow-inner bg-neutral-200/50 p-4">
                 <OfficialBacResolutionCanvas
+                  documentType={docType}
+                  onDocumentTypeChange={setDocType}
                   resolutionNumber={resolutionNumber}
                   prNumber={customPrNumber}
                   purposeOrItems={purposeOrItems}
@@ -532,6 +550,7 @@ export function TransmittalsPage() {
                   endUserName={endUserName}
                   editable={isDirectCanvasEdit}
                   onFieldChange={(field, val) => {
+                    if (field === "documentType") setDocType(val);
                     if (field === "resolutionNumber") setResolutionNumber(val);
                     if (field === "prNumber") setCustomPrNumber(val);
                     if (field === "approvedBudget") setApprovedBudget(val);
