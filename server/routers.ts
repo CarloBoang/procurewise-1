@@ -5,7 +5,7 @@ import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { acknowledgeBacTransmittal, addPreCanvassQuote, addSupplierQuotation, advancePurchaseRequest, approveQuotationAbstract, archiveTestRecordPackage, cleanupArchivedTestRecordPackage, createAbstractOfCanvass, createAppPpmpEntry, createBacTransmittal, createBudgetAllotment, createLetterOfNotice, createMcdmRecommendation, createObjectOfExpenditure, createOffice, createPreCanvass, createProcurementCatalogItem, createProcurementDocument, createPurchaseOrder, createPurchaseOrderFromPreCanvass, createPurchaseRequest, createPurchaseRequestSignatory, createQuotationAbstract, createRfqFromPreCanvass, createRfqFromPurchaseRequest, createSupplier, createSupplierEvaluation, createSupplierEvaluationForm, createSupplierTag, decideAbstractOfCanvass, endorseBacResolution, getBestValuePolicy, getBestValuePolicyHistory, getBudgetUtilization, getProcurementCatalogItem, getProcurementDashboard, getProcurementForecast, getPublicPurchaseRequestTracking, getPurchaseRequestDetail, getSupplierTagData, getWorkspaceSetup, listAdminTestRecordPackages, listBacTransmittals, listDeliveryMonitoring, listEligibleSupplierEvaluationOrders, listLettersOfNotice, listOfficerPrVerifications, listOfficerPurchaseOrders, listPendingSupplierEvaluationApprovals, listPhilgepsPostings, listProcurementCatalogCodeFamilies, listProcurementCatalogFavorites, listProcurementCatalogItems, listProcurementCatalogSavedItems, listPurchaseRequestSignatories, listPurchaseRequests, listRfqDistributions, listSupplierEvaluations, listSupplierEvaluationsForEndUser, listUserProfiles, listWorkflowNotifications, logPmr, markWorkflowNotificationRead, notifyRoles, recordDelivery, recordHistoricalPrice, recordInspectionMilestone, recordPhilgepsPosting, recordPreCanvassResubmission, recordPurchaseRequestToPmr, releasePurchaseOrder, requestAbstractCorrection, requestPreCanvassCorrection, requestPurchaseOrderCorrection, replaceProcurementCatalogSavedItems, resubmitAbstract, resubmitPurchaseOrder, returnPurchaseRequestForRevision, saveBestValuePolicy, serveLetterOfNotice, setProcurementCatalogFavorite, clearProcurementCatalogSavedItems, setSupplierTags, signSupplierEvaluation, submitPreCanvass, transmitRfqToBac, updateProcurementSettings, updateRfqDistribution, updateSupplierEvaluation, updateUserProcurementRole, updateUserOffice, updateMyOffice, verifyPurchaseRequestPackage } from "./db";
 import { activateFormTemplate, assignPurchaseRequestOfficer, assignRfqNumber, getActiveFormTemplate, getEndUserPerformanceAnalytics, getHistoricalPriceAnalytics, getHistoricalPmrSummary, getPmrStatus, getPurchaseRequestHistory, listAuditTrails, listFormTemplates, listHistoricalPmrRecords, rejectPreCanvass, rejectPurchaseRequest, rejectRfq, restoreFormTemplateVersion, resubmitPurchaseRequest, returnPurchaseRequestForCorrection, saveFormTemplateDraft } from "./db";
 import { getSupabaseRealtimePublicConfig, publishProcurementRealtimeUpdate } from "./supabaseRealtime";
-import { getNextPrStatus, normalizeProcurementRole, roleCanAct, type ProcurementRole } from "../shared/procurementRules";
+import { getNextPrStatus, normalizeProcurementRole, roleCanAct, type ProcurementRole, type PersistedUserRole } from "../shared/procurementRules";
 import { BEST_VALUE_CRITERION_KEYS } from "../shared/bestValuePolicy";
 import { INSTITUTIONAL_OFFICES } from "../shared/institutionalOffices";
 import {
@@ -18,8 +18,23 @@ import {
   type FormTemplateKey,
 } from "./excelTemplateEngine";
 
-function assertRole(role: ProcurementRole, permittedRoles: ProcurementRole[]) {
-  if (!roleCanAct(role, permittedRoles)) throw new TRPCError({ code: "FORBIDDEN", message: "This procurement action is not permitted for your assigned role." });
+function assertRole(userRole: string, permittedRoles: string[]) {
+  const norm = normalizeProcurementRole(userRole as PersistedUserRole);
+  if (
+    userRole === "admin" ||
+    norm === "admin" ||
+    permittedRoles.includes(userRole) ||
+    permittedRoles.includes(norm) ||
+    (norm === "administrative_approver" && (
+      permittedRoles.includes("bac") ||
+      permittedRoles.includes("bac_secretariat") ||
+      permittedRoles.includes("hope") ||
+      permittedRoles.includes("administrative_approver")
+    ))
+  ) {
+    return;
+  }
+  throw new TRPCError({ code: "FORBIDDEN", message: "This procurement action is not permitted for your assigned role." });
 }
 
 export const appRouter = router({
@@ -693,8 +708,21 @@ export const appRouter = router({
         }),
       }),
       transmittals: router({
-        list: protectedProcedure.query(({ ctx }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "bac", "bac_secretariat", "admin"]); return listBacTransmittals(); }),
-        create: protectedProcedure.input(z.object({ purchaseRequestId: z.number().int().positive().optional(), fromOffice: z.string().min(3).max(180), toOffice: z.string().min(3).max(180), subject: z.string().min(3).max(220), remarks: z.string().max(5000).optional(), sendNow: z.boolean().optional() })).mutation(({ ctx, input }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "bac", "bac_secretariat", "admin"]); return createBacTransmittal(input, ctx.user); }),
+        list: protectedProcedure.query(({ ctx }) => {
+          assertRole(ctx.user.role, ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "supply_officer", "procurement_staff", "bac", "bac_secretariat", "administrative_approver", "hope", "budget_officer", "end_user", "admin"]);
+          return listBacTransmittals();
+        }),
+        create: protectedProcedure.input(z.object({
+          purchaseRequestId: z.number().int().positive().optional(),
+          fromOffice: z.string().min(3).max(180),
+          toOffice: z.string().min(3).max(180),
+          subject: z.string().min(3).max(220),
+          remarks: z.string().max(5000).optional(),
+          sendNow: z.boolean().optional()
+        })).mutation(({ ctx, input }) => {
+          assertRole(ctx.user.role, ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "supply_officer", "procurement_staff", "bac", "bac_secretariat", "administrative_approver", "hope", "budget_officer", "end_user", "admin"]);
+          return createBacTransmittal(input, ctx.user);
+        }),
         endorseResolution: protectedProcedure.input(z.object({
           purchaseRequestId: z.number().int().positive().optional(),
           resolutionNumber: z.string().min(3).max(120),
@@ -705,10 +733,16 @@ export const appRouter = router({
           endUserName: z.string().max(180).optional(),
           remarks: z.string().max(3000).optional(),
         })).mutation(({ ctx, input }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "bac", "bac_secretariat", "admin"]);
+          assertRole(ctx.user.role, ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "supply_officer", "procurement_staff", "bac", "bac_secretariat", "administrative_approver", "hope", "budget_officer", "end_user", "admin"]);
           return endorseBacResolution(input, ctx.user);
         }),
-        acknowledge: protectedProcedure.input(z.object({ transmittalId: z.number().int().positive(), acknowledgedByName: z.string().min(3).max(180) })).mutation(({ ctx, input }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "bac", "bac_secretariat", "admin"]); return acknowledgeBacTransmittal(input, ctx.user); }),
+        acknowledge: protectedProcedure.input(z.object({
+          transmittalId: z.number().int().positive(),
+          acknowledgedByName: z.string().min(3).max(180)
+        })).mutation(({ ctx, input }) => {
+          assertRole(ctx.user.role, ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "supply_officer", "procurement_staff", "bac", "bac_secretariat", "administrative_approver", "hope", "budget_officer", "end_user", "admin"]);
+          return acknowledgeBacTransmittal(input, ctx.user);
+        }),
       }),
       supplierEvaluations: router({
         list: protectedProcedure.query(({ ctx }) => { assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]); return listSupplierEvaluations(); }),

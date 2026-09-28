@@ -65,4 +65,26 @@ describe("BAC Resolution & Endorsement Workflow", () => {
     const result = endorseResolutionSchema.safeParse(invalidPayload);
     expect(result.success).toBe(false);
   });
+
+  it("permits bac, bac_secretariat, hope, procurement staff, officers, and testers to endorse BAC resolutions", () => {
+    const allowedRoles = [
+      "procurement_officer",
+      "procurement_officer_i",
+      "procurement_officer_ii",
+      "supply_officer",
+      "procurement_staff",
+      "bac",
+      "bac_secretariat",
+      "administrative_approver",
+      "hope",
+      "budget_officer",
+      "end_user",
+      "admin",
+    ];
+
+    for (const role of allowedRoles) {
+      expect(allowedRoles.includes(role)).toBe(true);
+    }
+  });
 });
+

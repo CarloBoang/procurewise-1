@@ -5477,8 +5477,12 @@ function escapeHtml(str) {
 }
 
 // server/routers.ts
-function assertRole(role, permittedRoles) {
-  if (!roleCanAct(role, permittedRoles)) throw new TRPCError3({ code: "FORBIDDEN", message: "This procurement action is not permitted for your assigned role." });
+function assertRole(userRole, permittedRoles) {
+  const norm = normalizeProcurementRole(userRole);
+  if (userRole === "admin" || norm === "admin" || permittedRoles.includes(userRole) || permittedRoles.includes(norm) || norm === "administrative_approver" && (permittedRoles.includes("bac") || permittedRoles.includes("bac_secretariat") || permittedRoles.includes("hope") || permittedRoles.includes("administrative_approver"))) {
+    return;
+  }
+  throw new TRPCError3({ code: "FORBIDDEN", message: "This procurement action is not permitted for your assigned role." });
 }
 var appRouter = router({
   system: systemRouter,
@@ -6205,11 +6209,18 @@ var appRouter = router({
       }),
       transmittals: router({
         list: protectedProcedure.query(({ ctx }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "bac", "bac_secretariat", "admin"]);
+          assertRole(ctx.user.role, ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "supply_officer", "procurement_staff", "bac", "bac_secretariat", "administrative_approver", "hope", "budget_officer", "end_user", "admin"]);
           return listBacTransmittals();
         }),
-        create: protectedProcedure.input(z2.object({ purchaseRequestId: z2.number().int().positive().optional(), fromOffice: z2.string().min(3).max(180), toOffice: z2.string().min(3).max(180), subject: z2.string().min(3).max(220), remarks: z2.string().max(5e3).optional(), sendNow: z2.boolean().optional() })).mutation(({ ctx, input }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "bac", "bac_secretariat", "admin"]);
+        create: protectedProcedure.input(z2.object({
+          purchaseRequestId: z2.number().int().positive().optional(),
+          fromOffice: z2.string().min(3).max(180),
+          toOffice: z2.string().min(3).max(180),
+          subject: z2.string().min(3).max(220),
+          remarks: z2.string().max(5e3).optional(),
+          sendNow: z2.boolean().optional()
+        })).mutation(({ ctx, input }) => {
+          assertRole(ctx.user.role, ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "supply_officer", "procurement_staff", "bac", "bac_secretariat", "administrative_approver", "hope", "budget_officer", "end_user", "admin"]);
           return createBacTransmittal(input, ctx.user);
         }),
         endorseResolution: protectedProcedure.input(z2.object({
@@ -6222,11 +6233,14 @@ var appRouter = router({
           endUserName: z2.string().max(180).optional(),
           remarks: z2.string().max(3e3).optional()
         })).mutation(({ ctx, input }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "bac", "bac_secretariat", "admin"]);
+          assertRole(ctx.user.role, ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "supply_officer", "procurement_staff", "bac", "bac_secretariat", "administrative_approver", "hope", "budget_officer", "end_user", "admin"]);
           return endorseBacResolution(input, ctx.user);
         }),
-        acknowledge: protectedProcedure.input(z2.object({ transmittalId: z2.number().int().positive(), acknowledgedByName: z2.string().min(3).max(180) })).mutation(({ ctx, input }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "bac", "bac_secretariat", "admin"]);
+        acknowledge: protectedProcedure.input(z2.object({
+          transmittalId: z2.number().int().positive(),
+          acknowledgedByName: z2.string().min(3).max(180)
+        })).mutation(({ ctx, input }) => {
+          assertRole(ctx.user.role, ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "supply_officer", "procurement_staff", "bac", "bac_secretariat", "administrative_approver", "hope", "budget_officer", "end_user", "admin"]);
           return acknowledgeBacTransmittal(input, ctx.user);
         })
       }),
