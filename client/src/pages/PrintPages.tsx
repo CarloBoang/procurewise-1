@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { ArrowLeft, Printer } from "lucide-react";
@@ -70,21 +71,20 @@ export function PrintBacResolutionPage() {
   const initialDocType = (search.get("docType") as "resolution" | "hope_approval" | "both") || "resolution";
   const [docType, setDocType] = useState<"resolution" | "hope_approval" | "both">(initialDocType);
 
-  const prQuery = trpc.purchaseRequests.detail.useQuery({ purchaseRequestId: prId }, { enabled: Boolean(prId), retry: false });
+  const prQuery = trpc.procurement.purchaseRequests.detail.useQuery({ purchaseRequestId: prId }, { enabled: Boolean(prId), retry: false });
   const setupQuery = trpc.procurement.setup.details.useQuery(undefined, { retry: false });
 
   const pr = prQuery.data?.purchaseRequest;
   const items = prQuery.data?.items ?? [];
   const entityName = setupQuery.data?.settings?.entityName || "Batanes State College";
-  const hopeSignatory = setupQuery.data?.signatories?.find((s) => s.roleKey === "hope");
-  const collegePresidentName = hopeSignatory?.fullName || "DJOVI REGALA DURANTE, DPA";
-  const collegePresidentDesignation = hopeSignatory?.title || "SUC President I";
+  const collegePresidentName = "DJOVI REGALA DURANTE, DPA";
+  const collegePresidentDesignation = "SUC President I";
 
-  const totalCalculated = items.reduce((sum, item) => sum + Number(item.quantity) * Number(item.estimatedUnitCost), 0);
-  const approvedBudget = customAbc ? Number(customAbc) : (totalCalculated || (pr?.totalAmount ? Number(pr.totalAmount) : 53600));
+  const totalCalculated = items.reduce((sum: number, item: any) => sum + Number(item.quantity) * Number(item.estimatedUnitCost), 0);
+  const approvedBudget = customAbc ? Number(customAbc) : (totalCalculated || (pr?.totalEstimate ? Number(pr.totalEstimate) : 53600));
 
   const itemsSummary = items.length > 0
-    ? items.map((i) => `${i.description}${i.specification ? ` (${i.specification})` : ""}`).join(", ")
+    ? items.map((i: any) => `${i.description}${i.specification ? ` (${i.specification})` : ""}`).join(", ")
     : "";
   const purposeOrItems = customPurpose || (pr ? (itemsSummary ? `${itemsSummary} -- ${pr.purpose}` : pr.purpose) : "AM snacks (Burger and Canned Juice/Soda), Packed Meals (Pork,Chicken,Veggie,Rice,Dessert,and Drinking Water),and PM Snacks (Special spaghetti and Canned Juice/ Soda)--Snacks and meals for the evaluation and interview of applicants for private sector representative (PSR).");
   const prNumber = pr?.prNumber || (search.get("prNo") || "2026-009");

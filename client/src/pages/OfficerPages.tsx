@@ -78,7 +78,7 @@ export function TransmittalsPage() {
   const [signatoriesExpanded, setSignatoriesExpanded] = useState<boolean>(false);
 
   // Query details for linked PR
-  const prDetailQuery = trpc.purchaseRequests.detail.useQuery(
+  const prDetailQuery = trpc.procurement.purchaseRequests.detail.useQuery(
     { purchaseRequestId: Number(selectedPrId) },
     { enabled: Boolean(selectedPrId) && Number(selectedPrId) > 0, retry: false }
   );
@@ -92,15 +92,15 @@ export function TransmittalsPage() {
       setCustomPrNumber(pr.prNumber);
       setResolutionNumber(`2601-GAS2-${cleanPrNum}`);
       if (items.length > 0) {
-        const itemSum = items.map((i) => `${i.description}${i.specification ? ` (${i.specification})` : ""}`).join(", ");
+        const itemSum = items.map((i: any) => `${i.description}${i.specification ? ` (${i.specification})` : ""}`).join(", ");
         setPurposeOrItems(`${itemSum} -- ${pr.purpose}`);
-        const total = items.reduce((sum, i) => sum + Number(i.quantity) * Number(i.estimatedUnitCost), 0);
+        const total = items.reduce((sum: number, i: any) => sum + Number(i.quantity) * Number(i.estimatedUnitCost), 0);
         if (total > 0) setApprovedBudget(total);
       } else {
         setPurposeOrItems(pr.purpose);
-        if (pr.totalAmount) setApprovedBudget(Number(pr.totalAmount));
+        if (pr.totalEstimate) setApprovedBudget(Number(pr.totalEstimate));
       }
-      if (pr.requestorName) setEndUserName(pr.requestorName);
+      if (pr.requestedSignatoryName) setEndUserName(pr.requestedSignatoryName);
       else if (pr.requesterDesignation) setEndUserName(pr.requesterDesignation);
     }
   }, [prDetailQuery.data]);

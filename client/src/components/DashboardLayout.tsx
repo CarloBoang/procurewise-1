@@ -227,7 +227,6 @@ const navigation: Array<{
       "procurement_officer",
       "procurement_officer_i",
       "procurement_officer_ii",
-      "supply_officer",
       "procurement_staff",
       "administrative_approver",
       "bac",
