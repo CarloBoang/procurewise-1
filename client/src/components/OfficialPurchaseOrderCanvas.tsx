@@ -152,9 +152,9 @@ export function OfficialPurchaseOrderCanvas({
   return (
     <div className="w-full flex flex-col gap-6">
       {/* Live Appendix 61 Document Paper */}
-      <div className="w-full max-w-[850px] mx-auto bg-white border border-stone-300 shadow-md p-6 sm:p-8 font-serif text-[11px] leading-tight text-neutral-900 select-text">
+      <div className="w-full max-w-[850px] mx-auto bg-white border border-stone-300 shadow-md p-4 sm:p-8 font-serif text-[11px] leading-tight text-neutral-900 select-text overflow-hidden box-border">
         {/* Top Header */}
-        <div className="relative text-center border-b border-stone-800 pb-3 mb-3">
+        <div className="relative text-center border-b border-stone-800 pb-3 mb-3 w-full min-w-0">
           <div className="absolute right-0 top-0 text-[10px] font-sans font-medium text-neutral-600 italic">
             Appendix 61
           </div>
@@ -164,65 +164,65 @@ export function OfficialPurchaseOrderCanvas({
         </div>
 
         {/* PO Metadata Grid */}
-        <div className="grid grid-cols-2 border border-stone-800 text-[10.5px]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 border border-stone-800 text-[10.5px] w-full min-w-0">
           {/* Left Metadata */}
-          <div className="p-2 border-r border-stone-800 space-y-1">
-            <div className="flex">
-              <span className="w-24 font-bold font-sans">Supplier:</span>
-              <span className="flex-1 font-semibold">{supplierName || "—"}</span>
+          <div className="p-2 border-b sm:border-b-0 sm:border-r border-stone-800 space-y-1 min-w-0">
+            <div className="flex items-baseline gap-1.5 min-w-0">
+              <span className="w-20 sm:w-24 font-bold font-sans shrink-0">Supplier:</span>
+              <span className="flex-1 font-semibold min-w-0 break-words">{supplierName || "—"}</span>
             </div>
-            <div className="flex">
-              <span className="w-24 font-bold font-sans">Address:</span>
-              <span className="flex-1">{supplierAddress || "—"}</span>
+            <div className="flex items-baseline gap-1.5 min-w-0">
+              <span className="w-20 sm:w-24 font-bold font-sans shrink-0">Address:</span>
+              <span className="flex-1 min-w-0 break-words">{supplierAddress || "—"}</span>
             </div>
-            <div className="flex">
-              <span className="w-24 font-bold font-sans">TIN:</span>
-              <span className="flex-1 font-mono">{supplierTin || "—"}</span>
+            <div className="flex items-baseline gap-1.5 min-w-0">
+              <span className="w-20 sm:w-24 font-bold font-sans shrink-0">TIN:</span>
+              <span className="flex-1 font-mono min-w-0 break-words">{supplierTin || "—"}</span>
             </div>
           </div>
 
           {/* Right Metadata */}
-          <div className="p-2 space-y-1">
-            <div className="flex">
-              <span className="w-32 font-bold font-sans">PO No.:</span>
-              <span className="flex-1 font-bold font-mono text-[#7b1e1e]">{poNumber}</span>
+          <div className="p-2 space-y-1 min-w-0">
+            <div className="flex items-baseline gap-1.5 min-w-0">
+              <span className="w-24 sm:w-32 font-bold font-sans shrink-0">PO No.:</span>
+              <span className="flex-1 font-bold font-mono text-[#7b1e1e] min-w-0 break-words">{poNumber}</span>
             </div>
-            <div className="flex">
-              <span className="w-32 font-bold font-sans">Date:</span>
-              <span className="flex-1">{poDate}</span>
+            <div className="flex items-baseline gap-1.5 min-w-0">
+              <span className="w-24 sm:w-32 font-bold font-sans shrink-0">Date:</span>
+              <span className="flex-1 min-w-0 break-words">{poDate}</span>
             </div>
-            <div className="flex">
-              <span className="w-32 font-bold font-sans">Mode of Procurement:</span>
-              <span className="flex-1 font-medium">{modeOfProcurement}</span>
+            <div className="flex items-baseline gap-1.5 min-w-0">
+              <span className="w-24 sm:w-32 font-bold font-sans shrink-0">Mode of Procurement:</span>
+              <span className="flex-1 font-medium min-w-0 break-words">{modeOfProcurement}</span>
             </div>
           </div>
         </div>
 
         {/* Instruction Subheader */}
-        <div className="border-x border-b border-stone-800 px-3 py-1.5 text-[10px] italic text-neutral-700 bg-neutral-50/50">
+        <div className="border-x border-b border-stone-800 px-3 py-1.5 text-[10px] italic text-neutral-700 bg-neutral-50/50 w-full min-w-0">
           Please furnish this office the following articles subject to the terms and conditions contained herein:
         </div>
 
         {/* Delivery Terms Grid */}
-        <div className="grid grid-cols-2 border-x border-b border-stone-800 text-[10.5px]">
-          <div className="p-2 border-r border-stone-800 space-y-1">
-            <div className="flex">
-              <span className="w-32 font-bold font-sans">Place of Delivery:</span>
-              <span className="flex-1">{placeOfDelivery}</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 border-x border-b border-stone-800 text-[10.5px] w-full min-w-0">
+          <div className="p-2 border-b sm:border-b-0 sm:border-r border-stone-800 space-y-1 min-w-0">
+            <div className="flex items-baseline gap-1.5 min-w-0">
+              <span className="w-28 sm:w-32 font-bold font-sans shrink-0">Place of Delivery:</span>
+              <span className="flex-1 min-w-0 break-words">{placeOfDelivery}</span>
             </div>
-            <div className="flex">
-              <span className="w-32 font-bold font-sans">Date of Delivery:</span>
-              <span className="flex-1">{dateOfDelivery}</span>
+            <div className="flex items-baseline gap-1.5 min-w-0">
+              <span className="w-28 sm:w-32 font-bold font-sans shrink-0">Date of Delivery:</span>
+              <span className="flex-1 min-w-0 break-words">{dateOfDelivery}</span>
             </div>
           </div>
-          <div className="p-2 space-y-1">
-            <div className="flex">
-              <span className="w-32 font-bold font-sans">Delivery Term:</span>
-              <span className="flex-1 font-semibold">{deliveryTerm}</span>
+          <div className="p-2 space-y-1 min-w-0">
+            <div className="flex items-baseline gap-1.5 min-w-0">
+              <span className="w-28 sm:w-32 font-bold font-sans shrink-0">Delivery Term:</span>
+              <span className="flex-1 font-semibold min-w-0 break-words">{deliveryTerm}</span>
             </div>
-            <div className="flex">
-              <span className="w-32 font-bold font-sans">Payment Term:</span>
-              <span className="flex-1">{paymentTerm}</span>
+            <div className="flex items-baseline gap-1.5 min-w-0">
+              <span className="w-28 sm:w-32 font-bold font-sans shrink-0">Payment Term:</span>
+              <span className="flex-1 min-w-0 break-words">{paymentTerm}</span>
             </div>
           </div>
         </div>

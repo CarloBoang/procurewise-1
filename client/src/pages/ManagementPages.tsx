@@ -859,8 +859,8 @@ export function PurchaseOrderPage() {
           <ScrollText className="h-4 w-4" />
           <span>Official Procurement Sequence (Serving → Staff PO → Contract Signing → Releasing → Delivery)</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 text-[11px]">
-          <div className="p-2.5 rounded-md border border-emerald-200 bg-white">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 text-[11px] w-full min-w-0">
+          <div className="p-2.5 rounded-md border border-emerald-200 bg-white min-w-0 overflow-hidden">
             <div className="flex items-center justify-between">
               <span className="font-bold text-emerald-800">1. Notice Serving</span>
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
@@ -870,21 +870,21 @@ export function PurchaseOrderPage() {
               Notice Serving Desk →
             </Link>
           </div>
-          <div className="p-2.5 rounded-md border border-[#7b1e1e]/20 bg-white">
+          <div className="p-2.5 rounded-md border border-[#7b1e1e]/20 bg-white min-w-0 overflow-hidden">
             <div className="flex items-center justify-between">
               <span className="font-bold text-[#7b1e1e]">2. Prepare Purchase Order</span>
               <FileCheck2 className="h-3.5 w-3.5 text-[#7b1e1e]" />
             </div>
             <p className="text-[#65717e] mt-1 text-[10px]"><strong>Procurement Staff</strong> · Purchase Order (App. 61)</p>
           </div>
-          <div className="p-2.5 rounded-md border border-amber-200 bg-white">
+          <div className="p-2.5 rounded-md border border-amber-200 bg-white min-w-0 overflow-hidden">
             <div className="flex items-center justify-between">
               <span className="font-bold text-amber-800">3. Contract Signing</span>
               <Clock className="h-3.5 w-3.5 text-amber-600" />
             </div>
             <p className="text-[#65717e] mt-1 text-[10px]"><strong>Budget Officer / HoPE</strong> · Purchase Order</p>
           </div>
-          <div className="p-2.5 rounded-md border border-blue-200 bg-white">
+          <div className="p-2.5 rounded-md border border-blue-200 bg-white min-w-0 overflow-hidden">
             <div className="flex items-center justify-between">
               <span className="font-bold text-blue-800">4. Purchase Order/Contract releasing</span>
               <Send className="h-3.5 w-3.5 text-blue-600" />
@@ -894,7 +894,7 @@ export function PurchaseOrderPage() {
               PO Releasing Desk →
             </Link>
           </div>
-          <div className="p-2.5 rounded-md border border-purple-200 bg-white">
+          <div className="p-2.5 rounded-md border border-purple-200 bg-white min-w-0 overflow-hidden">
             <div className="flex items-center justify-between">
               <span className="font-bold text-purple-800">5. Delivery of Goods</span>
               <Truck className="h-3.5 w-3.5 text-purple-600" />
@@ -908,36 +908,38 @@ export function PurchaseOrderPage() {
       </div>
 
       {/* 3 Workspace Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6 w-full">
-        <TabsList className="grid grid-cols-1 sm:grid-cols-3 max-w-2xl h-11 p-1 bg-stone-200/80 border border-stone-300 rounded-lg">
-          <TabsTrigger
-            value="create_po"
-            className="text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#7b1e1e] data-[state=active]:shadow-sm"
-          >
-            <FileCheck2 className="h-4 w-4 mr-1.5 text-[#7b1e1e]" />
-            1. Prepare Purchase Order (Staff)
-          </TabsTrigger>
-          <TabsTrigger
-            value="po_registry"
-            className="text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#7b1e1e] data-[state=active]:shadow-sm"
-          >
-            <FileText className="h-4 w-4 mr-1.5 text-[#7b1e1e]" />
-            2. PO Registry & Signing ({dashboard.data?.purchaseOrders?.length ?? 0})
-          </TabsTrigger>
-          <TabsTrigger
-            value="aoq_abstracts"
-            className="text-xs font-semibold data-[state=active]:bg-white data-[state=active]:text-[#7b1e1e] data-[state=active]:shadow-sm"
-          >
-            <Layers className="h-4 w-4 mr-1.5 text-[#7b1e1e]" />
-            3. Quotation Abstracts ({dashboard.data?.quotationAbstracts?.length ?? 0})
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6 w-full min-w-0">
+        <div className="w-full overflow-x-auto pb-1">
+          <TabsList className="inline-flex w-auto min-w-full sm:min-w-0 h-auto p-1.5 bg-stone-200/90 dark:bg-stone-800/90 border border-stone-300 dark:border-stone-700 rounded-xl gap-1.5 justify-start">
+            <TabsTrigger
+              value="create_po"
+              className="h-9 px-3.5 py-1.5 text-xs font-semibold rounded-lg shrink-0 transition-all data-[state=active]:bg-white dark:data-[state=active]:bg-stone-900 data-[state=active]:text-[#7b1e1e] data-[state=active]:shadow-sm inline-flex items-center gap-2 whitespace-nowrap"
+            >
+              <FileCheck2 className="h-4 w-4 text-[#7b1e1e] shrink-0" />
+              <span>1. Prepare Purchase Order (Staff)</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="po_registry"
+              className="h-9 px-3.5 py-1.5 text-xs font-semibold rounded-lg shrink-0 transition-all data-[state=active]:bg-white dark:data-[state=active]:bg-stone-900 data-[state=active]:text-[#7b1e1e] data-[state=active]:shadow-sm inline-flex items-center gap-2 whitespace-nowrap"
+            >
+              <FileText className="h-4 w-4 text-[#7b1e1e] shrink-0" />
+              <span>2. PO Registry & Signing ({dashboard.data?.purchaseOrders?.length ?? 0})</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="aoq_abstracts"
+              className="h-9 px-3.5 py-1.5 text-xs font-semibold rounded-lg shrink-0 transition-all data-[state=active]:bg-white dark:data-[state=active]:bg-stone-900 data-[state=active]:text-[#7b1e1e] data-[state=active]:shadow-sm inline-flex items-center gap-2 whitespace-nowrap"
+            >
+              <Layers className="h-4 w-4 text-[#7b1e1e] shrink-0" />
+              <span>3. Quotation Abstracts ({dashboard.data?.quotationAbstracts?.length ?? 0})</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* TAB 1: PREPARE PURCHASE ORDER STUDIO (APPENDIX 61) */}
-        <TabsContent value="create_po" className="mt-6">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left Column: Form Controls (5 cols) */}
-            <div className="lg:col-span-5 min-w-0 w-full space-y-5">
+        <TabsContent value="create_po" className="mt-6 w-full min-w-0">
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start w-full min-w-0">
+            {/* Left Column: Form Controls (5 cols on xl) */}
+            <div className="xl:col-span-5 min-w-0 w-full space-y-5">
               <section className="flat-panel p-5 sm:p-6 w-full min-w-0 rounded-xl border border-stone-200 bg-white">
                 <div className="flex items-center justify-between border-b border-[#ece8df] pb-3 mb-4">
                   <div>
@@ -1225,9 +1227,9 @@ export function PurchaseOrderPage() {
               </section>
             </div>
 
-            {/* Right Column: Live Official Document Canvas Preview (7 cols) */}
-            <div className="lg:col-span-7 min-w-0 w-full space-y-4">
-              <div className="flex items-center justify-between bg-stone-100 p-2.5 rounded-lg border border-stone-200">
+            {/* Right Column: Live Official Document Canvas Preview (7 cols on xl) */}
+            <div className="xl:col-span-7 min-w-0 w-full space-y-4">
+              <div className="flex items-center justify-between bg-stone-100 p-2.5 rounded-lg border border-stone-200 w-full min-w-0">
                 <div className="flex items-center gap-2">
                   <ScrollText className="h-4 w-4 text-[#7b1e1e]" />
                   <span className="text-xs font-semibold text-stone-800">
@@ -1239,7 +1241,7 @@ export function PurchaseOrderPage() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto max-h-[900px] overflow-y-auto rounded-lg border border-stone-300 shadow-inner bg-stone-200/50 p-4">
+              <div className="overflow-x-auto max-h-[900px] overflow-y-auto rounded-xl border border-stone-300 shadow-inner bg-stone-200/50 p-2 sm:p-4 w-full min-w-0">
                 <OfficialPurchaseOrderCanvas
                   entityName="BATANES STATE COLLEGE"
                   poNumber={poNumber}
