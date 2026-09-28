@@ -359,7 +359,18 @@ export function OfficerReleasingPage({
                                 Print
                               </Button>
                             </Link>
-                            {!isServed && (
+                            {isServed ? (
+                              <Link href="/purchase-orders">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs border-[#7b1e1e] text-[#7b1e1e] hover:bg-[#fffaf0]"
+                                  title="Letter served by PO. Procurement Staff can now prepare the Purchase Order"
+                                >
+                                  Prepare PO (Staff) →
+                                </Button>
+                              </Link>
+                            ) : (
                               <Button
                                 size="sm"
                                 onClick={() => handleOpenServeNotice(n)}

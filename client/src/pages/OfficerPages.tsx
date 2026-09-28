@@ -129,6 +129,17 @@ export function TransmittalsPage() {
     onError: (error) => toast.error(error.message),
   });
 
+  const directToPoMutation = trpc.procurement.officer.transmittals.directLetterToPo.useMutation({
+    onSuccess: (data) => {
+      toast.success(
+        `Letter of Approval for BAC Res. No. ${resolutionNumber} directed to PO. Notice of Award generated (${data.noticeNumber}).`
+      );
+      void utils.procurement.officer.transmittals.list.invalidate();
+      void utils.procurement.officer.notices.list.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
   const acknowledge = trpc.procurement.officer.transmittals.acknowledge.useMutation({
     onSuccess: () => {
       toast.success("Transmittal acknowledged.");
@@ -489,6 +500,31 @@ export function TransmittalsPage() {
                     >
                       <Printer className="h-3.5 w-3.5 shrink-0" />
                       <span>Print Official Resolution</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={directToPoMutation.isPending || !selectedPrId}
+                      onClick={() => {
+                        if (!selectedPrId) {
+                          toast.error("Select a linked Purchase Request first.");
+                          return;
+                        }
+                        directToPoMutation.mutate({
+                          purchaseRequestId: Number(selectedPrId),
+                          resolutionNumber,
+                          remarks,
+                        });
+                      }}
+                      className="w-full sm:w-auto h-9 text-xs border-emerald-700 text-emerald-800 hover:bg-emerald-50 px-3 py-2 flex items-center justify-center gap-1.5"
+                      title="Direct approved Letter of Approval to Procurement Officer (PO) for serving"
+                    >
+                      {directToPoMutation.isPending ? (
+                        <LoaderCircle className="h-3.5 w-3.5 animate-spin shrink-0" />
+                      ) : (
+                        <Send className="h-3.5 w-3.5 shrink-0" />
+                      )}
+                      <span>Direct Letter to PO to Serve</span>
                     </Button>
                     <Button
                       type="submit"

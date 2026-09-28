@@ -898,6 +898,84 @@ export async function endorseBacResolution(
   return transmittal;
 }
 
+export async function directLetterOfApprovalToPo(
+  input: {
+    purchaseRequestId: number;
+    resolutionNumber: string;
+    supplierId?: number;
+    remarks?: string;
+  },
+  user: User
+) {
+  const db = await requireDb();
+  const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, input.purchaseRequestId)).limit(1);
+  if (!pr) throw new Error("Purchase Request not found.");
+
+  let supplierId = input.supplierId;
+  if (!supplierId) {
+    const [rfq] = await db.select().from(rfqs).where(eq(rfqs.purchaseRequestId, pr.id)).limit(1);
+    if (rfq) {
+      const [abstract] = await db.select().from(quotationAbstracts).where(eq(quotationAbstracts.rfqId, rfq.id)).limit(1);
+      if (abstract?.recommendedSupplierId) supplierId = abstract.recommendedSupplierId;
+    }
+  }
+
+  const transmittalNumber = `BAC-T-PO-${new Date().getFullYear()}-${Date.now().toString().slice(-7)}`;
+  const subject = `Approved BAC Resolution No. ${input.resolutionNumber} & Letter of Approval - Directed to PO for Serving`;
+  const remarks = input.remarks?.trim() || `Approved by HoPE. Formally directed to Procurement Officer (PO) to serve the Letter of Notice / Letter of Approval to the winning supplier/contractor.`;
+
+  await db.insert(bacTransmittals).values({
+    transmittalNumber,
+    purchaseRequestId: pr.id,
+    fromOffice: "Office of the College President / Bids and Awards Committee",
+    toOffice: "Procurement Office (Procurement Officer)",
+    subject,
+    remarks,
+    status: "sent",
+    preparedById: user.id,
+    sentAt: new Date(),
+  });
+
+  const noticeNumber = `NOTICE-${new Date().getFullYear()}-${Date.now().toString().slice(-7)}`;
+  await db.insert(lettersOfNotice).values({
+    noticeNumber,
+    noticeType: "award",
+    purchaseRequestId: pr.id,
+    supplierId: supplierId || null,
+    subject: `Notice of Award / Letter of Approval - BAC Res. No. ${input.resolutionNumber}`,
+    body: `Pursuant to the approved BAC Resolution No. ${input.resolutionNumber} and Letter of Approval by the Head of the Procuring Entity (HoPE), you are hereby issued this Notice of Award. Please acknowledge service and coordinate with the Procurement Office for Purchase Order preparation and contract signing.`,
+    status: "issued",
+    issuedById: user.id,
+    issuedAt: new Date(),
+  });
+
+  const [notice] = await db.select().from(lettersOfNotice).where(eq(lettersOfNotice.noticeNumber, noticeNumber)).limit(1);
+
+  await writeAuditEvent({
+    entityType: "bac_transmittal",
+    entityId: pr.id,
+    action: "letter_of_approval_directed_to_po",
+    performedById: user.id,
+    performedByRole: normalizeProcurementRole(user.role),
+    details: {
+      resolutionNumber: input.resolutionNumber,
+      transmittalNumber,
+      noticeNumber,
+      purchaseRequestId: pr.id,
+    },
+  });
+
+  await notifyRoles(["procurement_officer", "procurement_staff", "admin"], {
+    kind: "action_required",
+    title: `Letter of Approval Directed to PO (${input.resolutionNumber})`,
+    body: `HoPE approved BAC Resolution No. ${input.resolutionNumber}. Procurement Officer can now serve the letter to supplier.`,
+    entityType: "letter_of_notice",
+    entityId: notice?.id,
+  });
+
+  return { success: true, transmittalNumber, noticeNumber };
+}
+
 export async function acknowledgeBacTransmittal(input: { transmittalId: number; acknowledgedByName: string }, user: User) {
   const db = await requireDb();
   const [transmittal] = await db.select().from(bacTransmittals).where(eq(bacTransmittals.id, input.transmittalId)).limit(1);
@@ -2436,7 +2514,18 @@ export async function approveQuotationAbstract(rfqId: number, user: User) {
   return { ...abstract, status: "approved" as const, approvedById: user.id };
 }
 
-export async function createPurchaseOrder(rfqId: number, user: User, options?: ProcurementWorkflowOptions) {
+export async function createPurchaseOrder(
+  rfqId: number,
+  user: User,
+  options?: ProcurementWorkflowOptions,
+  customDetails?: {
+    placeOfDelivery?: string;
+    deliveryTerm?: string;
+    paymentTerm?: string;
+    modeOfProcurement?: string;
+    fundCluster?: string;
+  }
+) {
   const db = options?.db ?? await requireDb();
   const recordAudit = options?.recordAudit ?? writeAuditEvent;
   const [rfq] = await db.select().from(rfqs).where(eq(rfqs.id, rfqId)).limit(1);
@@ -2449,12 +2538,125 @@ export async function createPurchaseOrder(rfqId: number, user: User, options?: P
   const [quote] = await db.select().from(supplierQuotations).where(and(eq(supplierQuotations.rfqId, rfqId), eq(supplierQuotations.supplierId, abstract.recommendedSupplierId))).limit(1);
   if (!quote) throw new Error("The recommended supplier quotation could not be found.");
   const poNumber = `PO-${new Date().getFullYear()}-${Date.now().toString().slice(-7)}`;
-  await db.insert(purchaseOrders).values({ poNumber, purchaseRequestId: rfq.purchaseRequestId, rfqId, supplierId: quote.supplierId, totalAmount: quote.totalPrice, generatedById: user.id, status: "pending_approval" });
+  await db.insert(purchaseOrders).values({
+    poNumber,
+    purchaseRequestId: rfq.purchaseRequestId,
+    rfqId,
+    supplierId: quote.supplierId,
+    totalAmount: quote.totalPrice,
+    generatedById: user.id,
+    status: "pending_approval",
+    placeOfDelivery: customDetails?.placeOfDelivery || "Batanes State College, San Antonio, Basco, Batanes",
+    deliveryTerm: customDetails?.deliveryTerm || `${quote.deliveryDays || 7} calendar days upon receipt of PO`,
+    paymentTerm: customDetails?.paymentTerm || "15 days upon complete delivery & inspection",
+    modeOfProcurement: customDetails?.modeOfProcurement || "Small Value Procurement (Sec. 53.9)",
+    fundCluster: customDetails?.fundCluster || "01 - Regular Agency Fund",
+  });
   await db.update(purchaseRequests).set({ status: "po" }).where(eq(purchaseRequests.id, rfq.purchaseRequestId));
   const [po] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.poNumber, poNumber)).limit(1);
   if (!po) throw new Error("Purchase Order could not be created.");
   await recordAudit({ entityType: "purchase_order", entityId: po.id, action: "generated", performedById: user.id, performedByRole: normalizeProcurementRole(user.role), details: { poNumber } });
+
+  await notifyRoles(["budget_officer", "hope", "admin"], {
+    kind: "action_required",
+    title: `Purchase Order Prepared (${poNumber})`,
+    body: `Procurement Staff prepared Purchase Order ${poNumber}. Awaiting Contract Signing: Budget Officer certification and HoPE signature.`,
+    entityType: "purchase_order",
+    entityId: po.id,
+  });
+
   return po;
+}
+
+export async function signPurchaseOrderContract(
+  input: {
+    purchaseOrderId: number;
+    signatoryRole: "budget_officer" | "hope";
+    orsBursNumber?: string;
+    fundsAvailable?: number;
+    chiefAccountantName?: string;
+    authorizedOfficialName?: string;
+    authorizedOfficialDesignation?: string;
+  },
+  user: User
+) {
+  const db = await requireDb();
+  const [po] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, input.purchaseOrderId)).limit(1);
+  if (!po) throw new Error("Purchase Order not found.");
+
+  const updates: Partial<typeof purchaseOrders.$inferInsert> = {
+    updatedAt: new Date(),
+  };
+
+  if (input.signatoryRole === "budget_officer") {
+    const actorRole = normalizeProcurementRole(user.role);
+    if (!roleCanAct(actorRole, ["administrative_approver", "admin"]) && user.role !== "budget_officer") {
+      throw new Error("Access restricted to Budget Officer or authorized administrative approver.");
+    }
+    updates.orsBursNumber = input.orsBursNumber?.trim() || po.orsBursNumber || `2026-01-${Date.now().toString().slice(-4)}`;
+    updates.fundsAvailable = input.fundsAvailable ? input.fundsAvailable.toFixed(2) : po.fundsAvailable || po.totalAmount;
+    updates.chiefAccountantName = input.chiefAccountantName?.trim() || po.chiefAccountantName || user.name || "Budget Officer / Chief Accountant";
+
+    // If HoPE has also already signed, advance status to approved (ready for release by PO I)
+    if (po.authorizedOfficialName || input.authorizedOfficialName) {
+      updates.status = "approved";
+      updates.approvedById = po.approvedById || user.id;
+    }
+
+    await writeAuditEvent({
+      entityType: "purchase_order",
+      entityId: po.id,
+      action: "po_budget_certified",
+      performedById: user.id,
+      performedByRole: actorRole,
+      details: {
+        poNumber: po.poNumber,
+        orsBursNumber: updates.orsBursNumber,
+        fundsAvailable: updates.fundsAvailable,
+      },
+    });
+  } else if (input.signatoryRole === "hope") {
+    const actorRole = normalizeProcurementRole(user.role);
+    if (!roleCanAct(actorRole, ["administrative_approver", "admin"]) && user.role !== "hope") {
+      throw new Error("Access restricted to Head of the Procuring Entity (HoPE) or authorized administrator.");
+    }
+    updates.authorizedOfficialName = input.authorizedOfficialName?.trim() || "DJOVI REGALA DURANTE, DPA";
+    updates.authorizedOfficialDesignation = input.authorizedOfficialDesignation?.trim() || "SUC President I / HoPE";
+    updates.approvedById = user.id;
+
+    // If Budget Officer has certified (or already has ORS/BURS), advance status to approved (ready for release by PO I)
+    if (po.orsBursNumber || input.orsBursNumber) {
+      updates.status = "approved";
+    }
+
+    await writeAuditEvent({
+      entityType: "purchase_order",
+      entityId: po.id,
+      action: "po_hope_signed",
+      performedById: user.id,
+      performedByRole: actorRole,
+      details: {
+        poNumber: po.poNumber,
+        authorizedOfficialName: updates.authorizedOfficialName,
+        authorizedOfficialDesignation: updates.authorizedOfficialDesignation,
+      },
+    });
+  }
+
+  await db.update(purchaseOrders).set(updates).where(eq(purchaseOrders.id, po.id));
+  const [updated] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, po.id)).limit(1);
+
+  if (updated && updated.status === "approved") {
+    await notifyRoles(["procurement_officer", "procurement_officer_i", "admin"], {
+      kind: "action_required",
+      title: `PO Contract Signed & Ready for Release (${po.poNumber})`,
+      body: `Budget Officer certified and HoPE signed Purchase Order ${po.poNumber}. Procurement Officer I can now release to supplier.`,
+      entityType: "purchase_order",
+      entityId: po.id,
+    });
+  }
+
+  return updated;
 }
 
 export async function recordHistoricalPrice(input: { itemDescription: string; unit: string; unitPrice: number; supplierId?: number; purchaseOrderId?: number; observedAt?: Date }, user: User) {

@@ -12,10 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { OfficeSelect } from "@/components/OfficeSelect";
 import { buildPpmpCsv, downloadCsv } from "@/lib/procurementExports";
-import { downloadPpmpPdf } from "@/lib/procurementPdf";
+import { downloadPpmpPdf, downloadPurchaseOrderPdf } from "@/lib/procurementPdf";
 import { trpc } from "@/lib/trpc";
 import { normalizeProcurementRole } from "../../../shared/procurementRules";
-import { AlertTriangle, ArrowUpDown, Ban, BarChart3, ChevronLeft, ChevronRight, Clock, Download, FileCheck2, FileSearch, FileSpreadsheet, FileText, LoaderCircle, Paperclip, Plus, ScrollText, Search, Send, Star, TrendingUp, Truck, UsersRound } from "lucide-react";
+import { AlertTriangle, ArrowRight, ArrowUpDown, Ban, BarChart3, CheckCircle2, ChevronLeft, ChevronRight, Clock, Download, FileCheck2, FileSearch, FileSpreadsheet, FileText, LoaderCircle, Paperclip, Plus, Printer, ScrollText, Search, Send, Star, TrendingUp, Truck, UsersRound } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { toast } from "sonner";
@@ -576,11 +576,28 @@ export function PurchaseOrderPage() {
     role === "procurement_officer" ||
     role === "procurement_staff" ||
     role === "admin";
+  const canBudget =
+    user?.role === "budget_officer" ||
+    role === "administrative_approver" ||
+    role === "admin";
+  const canHope =
+    user?.role === "hope" ||
+    role === "administrative_approver" ||
+    role === "admin";
+  const canPoi =
+    user?.role === "procurement_officer_i" ||
+    role === "procurement_officer" ||
+    role === "admin";
+
   const dashboard = trpc.procurement.dashboard.useQuery(undefined, { retry: false });
+  const setup = trpc.procurement.setup.details.useQuery(undefined, { retry: false });
   const utils = trpc.useUtils();
   const refresh = () => {
     void utils.procurement.dashboard.invalidate();
   };
+
+  const [orsInputs, setOrsInputs] = useState<Record<number, string>>({});
+
   const approve = trpc.procurement.rfqs.approveAbstract.useMutation({
     onSuccess: () => {
       toast.success("Quotation abstract approved by BAC.");
@@ -588,45 +605,164 @@ export function PurchaseOrderPage() {
     },
     onError: (error) => toast.error(error.message),
   });
+
   const createPo = trpc.procurement.rfqs.createPurchaseOrder.useMutation({
     onSuccess: () => {
-      toast.success("Purchase Order generated.");
+      toast.success("Purchase Order drafted by Procurement Staff. Awaiting Contract Signing by Budget Officer and HoPE.");
       refresh();
     },
     onError: (error) => toast.error(error.message),
   });
+
+  const signContract = trpc.procurement.rfqs.signContract.useMutation({
+    onSuccess: (data) => {
+      toast.success(
+        data.status === "approved"
+          ? "Contract successfully signed by both Budget Officer and HoPE! Ready for PO Releasing by Procurement Officer I."
+          : "Contract signatory record saved."
+      );
+      refresh();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  const handleBudgetSign = (poId: number, totalAmount: string) => {
+    const orsNum = (orsInputs[poId] || "").trim() || `2026-01-${String(poId).padStart(4, "0")}`;
+    signContract.mutate({
+      purchaseOrderId: poId,
+      signatoryRole: "budget_officer",
+      orsBursNumber: orsNum,
+      fundsAvailable: Number(totalAmount),
+      chiefAccountantName: user?.name || "Budget Officer / Chief Accountant",
+    });
+  };
+
+  const handleHopeSign = (poId: number) => {
+    signContract.mutate({
+      purchaseOrderId: poId,
+      signatoryRole: "hope",
+      authorizedOfficialName: "DJOVI REGALA DURANTE, DPA",
+      authorizedOfficialDesignation: "SUC President I / HoPE",
+    });
+  };
+
+  const handleDownloadPo = async (po: any) => {
+    try {
+      const supplier = setup.data?.suppliers.find((s) => s.id === po.supplierId);
+      await downloadPurchaseOrderPdf({
+        purchaseOrder: {
+          poNumber: po.poNumber,
+          totalAmount: String(po.totalAmount),
+          status: po.status,
+          placeOfDelivery: po.placeOfDelivery || "Batanes State College, San Antonio, Basco, Batanes",
+          scheduledDeliveryDate: po.scheduledDeliveryDate ? new Date(po.scheduledDeliveryDate) : null,
+          deliveryTerm: po.deliveryTerm || "7 calendar days upon receipt of PO",
+          paymentTerm: po.paymentTerm || "15 days upon complete delivery & inspection",
+          modeOfProcurement: po.modeOfProcurement || "Small Value Procurement (Sec. 53.9)",
+          fundCluster: po.fundCluster || "01 - Regular Agency Fund",
+          orsBursNumber: po.orsBursNumber || null,
+          fundsAvailable: po.fundsAvailable ? String(po.fundsAvailable) : null,
+          authorizedOfficialName: po.authorizedOfficialName || null,
+          authorizedOfficialDesignation: po.authorizedOfficialDesignation || null,
+          chiefAccountantName: po.chiefAccountantName || null,
+        },
+        supplierName: supplier?.companyName,
+        supplierTin: supplier?.tin,
+      });
+      toast.success(`Downloaded official Purchase Order ${po.poNumber}`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to download Purchase Order PDF");
+    }
+  };
 
   return (
     <div className="mx-auto max-w-[1240px]">
       <PageHeader
         eyebrow="Purchase execution"
         title="Abstracts & Purchase Orders"
-        description="Review quotation abstracts and create a Purchase Order only after BAC approval of the recommended compliant supplier."
+        description="Review quotation abstracts, prepare Purchase Orders, and execute Contract Signing by Budget Officer & HoPE prior to PO Releasing."
       />
-      <div className="mt-7 grid gap-6 xl:grid-cols-2">
-        <div className="flat-panel">
+
+      {/* Statutory Sequence Workflow Tracker */}
+      <div className="mt-6 rounded-lg border border-[#e2d8c3] bg-[#fbf9f4] p-4 text-xs shadow-xs">
+        <div className="flex items-center gap-2 font-semibold text-[#7b1e1e] mb-2.5">
+          <ScrollText className="h-4 w-4" />
+          <span>Official Procurement Sequence (Serving → Staff PO → Contract Signing → Releasing → Delivery)</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 text-[11px]">
+          <div className="p-2.5 rounded-md border border-emerald-200 bg-white">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-emerald-800">1. Notice Serving</span>
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+            </div>
+            <p className="text-[#65717e] mt-1 text-[10px]">PO serves Letter of Approval / Award to supplier</p>
+            <Link href="/officer/notices-serving" className="mt-1.5 text-[10px] text-emerald-700 font-semibold block hover:underline">
+              Notice Serving Desk →
+            </Link>
+          </div>
+          <div className="p-2.5 rounded-md border border-[#7b1e1e]/20 bg-white">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-[#7b1e1e]">2. Staff PO</span>
+              <FileCheck2 className="h-3.5 w-3.5 text-[#7b1e1e]" />
+            </div>
+            <p className="text-[#65717e] mt-1 text-[10px]">Procurement Staff prepares official PO (App. 61)</p>
+          </div>
+          <div className="p-2.5 rounded-md border border-amber-200 bg-white">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-amber-800">3. Contract Signing</span>
+              <Clock className="h-3.5 w-3.5 text-amber-600" />
+            </div>
+            <p className="text-[#65717e] mt-1 text-[10px]">Budget Officer (ORS/BURS) & HoPE signatures</p>
+          </div>
+          <div className="p-2.5 rounded-md border border-blue-200 bg-white">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-blue-800">4. PO Releasing</span>
+              <Send className="h-3.5 w-3.5 text-blue-600" />
+            </div>
+            <p className="text-[#65717e] mt-1 text-[10px]">Procurement Officer I releases PO to supplier</p>
+            <Link href="/officer/releasing" className="mt-1.5 text-[10px] text-blue-700 font-semibold block hover:underline">
+              PO Releasing Desk →
+            </Link>
+          </div>
+          <div className="p-2.5 rounded-md border border-purple-200 bg-white">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-purple-800">5. Delivery of Goods</span>
+              <Truck className="h-3.5 w-3.5 text-purple-600" />
+            </div>
+            <p className="text-[#65717e] mt-1 text-[10px]">Supplier delivers goods; IAR inspection logged</p>
+            <Link href="/officer/delivery-monitoring" className="mt-1.5 text-[10px] text-purple-700 font-semibold block hover:underline">
+              Delivery Tracker →
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-7 grid gap-6 xl:grid-cols-12 items-start">
+        {/* Left Column: Abstracts of Quotation (5 cols) */}
+        <div className="xl:col-span-5 flat-panel">
           <div className="border-b border-[#ece8df] px-5 py-4">
             <p className="text-sm font-semibold text-[#34404e]">Abstracts of Quotation</p>
             <p className="mt-1 text-[11px] text-[#77818d]">
-              Lowest compliant quote is proposed after the three-supplier canvass.
+              Lowest compliant quote proposed from the 3-supplier canvass.
             </p>
           </div>
           {dashboard.data?.quotationAbstracts.length ? (
             <div className="divide-y divide-[#efebe4]">
               {dashboard.data.quotationAbstracts.map((abstract) => (
-                <div key={abstract.id} className="flex flex-wrap items-center justify-between gap-4 p-5">
-                  <div>
-                    <p className="text-xs font-semibold text-[#3e4855]">RFQ #{abstract.rfqId}</p>
-                    <p className="mt-1 text-[11px] text-[#72808c]">
-                      Recommended Supplier #{abstract.recommendedSupplierId}
-                    </p>
-                    <div className="mt-1.5">
-                      <StatusBadge tone={abstract.status === "approved" ? "approved" : "pending"}>
-                        {abstract.status.toUpperCase()}
-                      </StatusBadge>
+                <div key={abstract.id} className="p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-[#3e4855]">RFQ #{abstract.rfqId}</p>
+                      <p className="mt-0.5 text-[11px] text-[#72808c]">
+                        Recommended Supplier #{abstract.recommendedSupplierId}
+                      </p>
                     </div>
+                    <StatusBadge tone={abstract.status === "approved" ? "approved" : "pending"}>
+                      {abstract.status.toUpperCase()}
+                    </StatusBadge>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-[#f0ece5]">
                     <Link href="/form-templates?form=abstract_of_quotations">
                       <Button
                         size="sm"
@@ -651,11 +787,26 @@ export function PurchaseOrderPage() {
                     {canSupply && abstract.status === "approved" && (
                       <Button
                         size="sm"
-                        onClick={() => createPo.mutate({ rfqId: abstract.rfqId })}
+                        onClick={() =>
+                          createPo.mutate({
+                            rfqId: abstract.rfqId,
+                            placeOfDelivery: "Batanes State College, San Antonio, Basco, Batanes",
+                            deliveryTerm: "7 calendar days upon receipt of PO",
+                            paymentTerm: "15 days upon complete delivery & inspection",
+                            modeOfProcurement: "Small Value Procurement (Sec. 53.9)",
+                            fundCluster: "01 - Regular Agency Fund",
+                          })
+                        }
                         disabled={createPo.isPending}
-                        className="h-7 rounded-[4px] bg-[#7b1e1e] text-[10px] hover:bg-[#641818]"
+                        className="h-7 rounded-[4px] bg-[#7b1e1e] text-[10px] text-white hover:bg-[#641818] font-medium"
+                        title="Procurement Staff prepares official Purchase Order (Appendix 61)"
                       >
-                        Generate PO
+                        {createPo.isPending ? (
+                          <LoaderCircle className="mr-1 h-3 w-3 animate-spin" />
+                        ) : (
+                          <FileCheck2 className="mr-1 h-3 w-3" />
+                        )}
+                        Prepare Purchase Order (Staff)
                       </Button>
                     )}
                   </div>
@@ -668,32 +819,218 @@ export function PurchaseOrderPage() {
             </div>
           )}
         </div>
-        <div className="flat-panel">
+
+        {/* Right Column: Purchase Orders & Contract Signing (7 cols) */}
+        <div className="xl:col-span-7 flat-panel">
           <div className="border-b border-[#ece8df] px-5 py-4">
-            <p className="text-sm font-semibold text-[#34404e]">Purchase Orders</p>
+            <p className="text-sm font-semibold text-[#34404e]">Purchase Orders & Contract Execution</p>
             <p className="mt-1 text-[11px] text-[#77818d]">
-              Generated POs remain traceable to their RFQ and linked Purchase Request.
+              Appendix 61 contracts requiring Budget Officer funds certification & HoPE signature before release by Procurement Officer I.
             </p>
           </div>
           {dashboard.data?.purchaseOrders.length ? (
             <div className="divide-y divide-[#efebe4]">
-              {dashboard.data.purchaseOrders.map((po) => (
-                <div key={po.id} className="flex items-center justify-between gap-4 p-5">
-                  <div>
-                    <p className="text-xs font-semibold text-[#7b1e1e]">{po.poNumber}</p>
-                    <p className="mt-1 text-[11px] text-[#72808c]">
-                      {formatMoney(po.totalAmount)} · Supplier #{po.supplierId}
-                    </p>
+              {dashboard.data.purchaseOrders.map((po) => {
+                const isBudgetCertified = Boolean(po.orsBursNumber);
+                const isHopeSigned = Boolean(po.authorizedOfficialName);
+                const isContractFullySigned = po.status === "approved" || (isBudgetCertified && isHopeSigned);
+                const isReleased = po.status === "released";
+
+                return (
+                  <div key={po.id} className="p-5 space-y-3.5">
+                    {/* Header */}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-bold font-mono text-[#7b1e1e]">{po.poNumber}</p>
+                          <Badge variant="outline" className="text-[10px] py-0">
+                            PR #{po.purchaseRequestId}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 text-sm font-semibold text-[#3f4a57]">
+                          {formatMoney(po.totalAmount)} · Supplier #{po.supplierId}
+                        </p>
+                      </div>
+                      <StatusBadge
+                        tone={
+                          isReleased
+                            ? "approved"
+                            : isContractFullySigned
+                            ? "approved"
+                            : "pending"
+                        }
+                      >
+                        {isReleased
+                          ? "RELEASED TO SUPPLIER"
+                          : isContractFullySigned
+                          ? "CONTRACT SIGNED"
+                          : po.status.replaceAll("_", " ").toUpperCase()}
+                      </StatusBadge>
+                    </div>
+
+                    {/* Meta Info */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-[#65717e] bg-stone-50 p-2.5 rounded border border-stone-200">
+                      <div>
+                        <span className="font-semibold text-[#34404e]">Place of Delivery: </span>
+                        <span>{po.placeOfDelivery || "Batanes State College"}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-[#34404e]">Delivery Term: </span>
+                        <span>{po.deliveryTerm || "7 calendar days"}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-[#34404e]">Mode: </span>
+                        <span>{po.modeOfProcurement || "Small Value Procurement"}</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold text-[#34404e]">Fund Cluster: </span>
+                        <span>{po.fundCluster || "01 - Regular Agency Fund"}</span>
+                      </div>
+                    </div>
+
+                    {/* Step 3: Contract Signing Box */}
+                    <div className="rounded-lg border border-amber-200/80 bg-amber-50/50 p-3 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wide">
+                          Step 3: Contract Signing (Budget Officer & HoPE)
+                        </span>
+                        {isContractFullySigned ? (
+                          <Badge className="bg-emerald-600 text-white text-[10px]">
+                            Fully Signed ✓
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="border-amber-400 text-amber-800 text-[10px]">
+                            Pending Signature
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                        {/* Budget Officer Signature */}
+                        <div className="rounded bg-white p-2.5 border border-stone-200 text-[11px] space-y-1.5">
+                          <span className="font-semibold text-[#34404e] block">
+                            Budget Officer Certification
+                          </span>
+                          {isBudgetCertified ? (
+                            <div className="text-emerald-700 text-[11px]">
+                              <p className="font-semibold">✓ Funds Certified</p>
+                              <p className="text-[10px] text-stone-500">ORS/BURS No.: {po.orsBursNumber}</p>
+                              <p className="text-[10px] text-stone-500">By: {po.chiefAccountantName || "Budget Officer"}</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-1.5">
+                              <Input
+                                placeholder="ORS/BURS No. (e.g. 2026-01-0089)"
+                                value={orsInputs[po.id] ?? `2026-01-${String(po.id).padStart(4, "0")}`}
+                                onChange={(e) =>
+                                  setOrsInputs({ ...orsInputs, [po.id]: e.target.value })
+                                }
+                                className="h-7 text-xs"
+                              />
+                              {canBudget ? (
+                                <Button
+                                  size="sm"
+                                  disabled={signContract.isPending}
+                                  onClick={() => handleBudgetSign(po.id, String(po.totalAmount))}
+                                  className="w-full h-7 text-[10px] bg-amber-700 hover:bg-amber-800 text-white"
+                                >
+                                  {signContract.isPending && (
+                                    <LoaderCircle className="mr-1 h-3 w-3 animate-spin" />
+                                  )}
+                                  Certify Funds Available
+                                </Button>
+                              ) : (
+                                <p className="text-[10px] text-stone-500 italic">
+                                  Awaiting Budget Officer certification
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* HoPE Signature */}
+                        <div className="rounded bg-white p-2.5 border border-stone-200 text-[11px] space-y-1.5">
+                          <span className="font-semibold text-[#34404e] block">
+                            HoPE / Authorized Official
+                          </span>
+                          {isHopeSigned ? (
+                            <div className="text-emerald-700 text-[11px]">
+                              <p className="font-semibold">✓ Contract Approved & Signed</p>
+                              <p className="text-[10px] text-stone-500">{po.authorizedOfficialName}</p>
+                              <p className="text-[10px] text-stone-500">{po.authorizedOfficialDesignation || "SUC President I"}</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-1.5">
+                              <p className="text-[10px] text-stone-600">
+                                Signatory: <strong>DJOVI REGALA DURANTE, DPA</strong> (SUC President I)
+                              </p>
+                              {canHope ? (
+                                <Button
+                                  size="sm"
+                                  disabled={signContract.isPending}
+                                  onClick={() => handleHopeSign(po.id)}
+                                  className="w-full h-7 text-[10px] bg-[#7b1e1e] hover:bg-[#641818] text-white"
+                                >
+                                  {signContract.isPending && (
+                                    <LoaderCircle className="mr-1 h-3 w-3 animate-spin" />
+                                  )}
+                                  Sign & Approve Contract
+                                </Button>
+                              ) : (
+                                <p className="text-[10px] text-stone-500 italic">
+                                  Awaiting HoPE approval & signature
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step 4 & 5 Action Footer */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-stone-200">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownloadPo(po)}
+                        className="h-7 rounded-[4px] text-[10px] text-[#34404e]"
+                      >
+                        <Printer className="mr-1 h-3 w-3 text-[#7b1e1e]" />
+                        Official Appendix 61 PO
+                      </Button>
+
+                      <div className="flex items-center gap-2">
+                        {isReleased ? (
+                          <Link href="/officer/delivery-monitoring">
+                            <Button
+                              size="sm"
+                              className="h-7 rounded-[4px] text-[10px] bg-emerald-700 hover:bg-emerald-800 text-white gap-1"
+                            >
+                              <Truck className="h-3 w-3" />
+                              Delivery of Goods (Supplier) →
+                            </Button>
+                          </Link>
+                        ) : isContractFullySigned ? (
+                          <Link href="/officer/releasing">
+                            <Button
+                              size="sm"
+                              className="h-7 rounded-[4px] text-[10px] bg-[#7b1e1e] hover:bg-[#641818] text-white gap-1 font-medium"
+                              title="Procurement Officer I formally releases the Purchase Order to the supplier"
+                            >
+                              <Send className="h-3 w-3" />
+                              Release PO / Contract (PO I) →
+                            </Button>
+                          </Link>
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
-                  <StatusBadge tone={po.status === "approved" ? "approved" : "pending"}>
-                    {po.status.replaceAll("_", " ").toUpperCase()}
-                  </StatusBadge>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
             <div className="p-8 text-center text-[11px] leading-5 text-[#72808c]">
-              No Purchase Orders have been generated.
+              No Purchase Orders have been generated yet.
             </div>
           )}
         </div>
