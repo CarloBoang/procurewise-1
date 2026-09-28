@@ -162,7 +162,7 @@ export function IntegratedPreCanvassModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto border-border dark:border-[#46515c] dark:bg-[#1b2229]">
+      <DialogContent className="w-full max-w-4xl sm:max-w-4xl max-h-[90vh] overflow-y-auto border-border dark:border-[#46515c] dark:bg-[#1b2229] p-6">
         <DialogHeader className="border-b border-border dark:border-[#46515c] pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -199,22 +199,22 @@ export function IntegratedPreCanvassModal({
         </div>
 
         {/* Step Indicator */}
-        <div className="mt-4 flex items-center justify-between border-y border-border dark:border-[#46515c] py-2.5 px-2 text-xs">
-          <div className={`flex items-center gap-1.5 ${existingPreCanvass ? "text-[#27633b] font-semibold" : "text-[#7b1e1e] font-bold"}`}>
+        <div className="mt-4 flex items-center justify-between gap-2 overflow-x-auto border-y border-border dark:border-[#46515c] py-2.5 px-2 text-xs whitespace-nowrap">
+          <div className={`shrink-0 flex items-center gap-1.5 ${existingPreCanvass ? "text-[#27633b] font-semibold" : "text-[#7b1e1e] font-bold"}`}>
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#eff9f2] text-[#27633b] dark:bg-[#1a3824]">
               {existingPreCanvass ? "✓" : "1"}
             </span>
             <span>1. Canvass Terms</span>
           </div>
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          <div className={`flex items-center gap-1.5 ${quotesCount >= 3 ? "text-[#27633b] font-semibold" : existingPreCanvass ? "text-[#7b1e1e] font-bold" : "text-muted-foreground"}`}>
+          <ChevronRight className="shrink-0 h-4 w-4 text-muted-foreground" />
+          <div className={`shrink-0 flex items-center gap-1.5 ${quotesCount >= 3 ? "text-[#27633b] font-semibold" : existingPreCanvass ? "text-[#7b1e1e] font-bold" : "text-muted-foreground"}`}>
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#f5f3ee] dark:bg-[#232c35]">
               {quotesCount >= 3 ? "✓" : "2"}
             </span>
             <span>2. 3 Supplier Quotes ({quotesCount}/3)</span>
           </div>
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-          <div className={`flex items-center gap-1.5 ${isReadyToForward ? "text-[#7b1e1e] font-bold" : "text-muted-foreground"}`}>
+          <ChevronRight className="shrink-0 h-4 w-4 text-muted-foreground" />
+          <div className={`shrink-0 flex items-center gap-1.5 ${isReadyToForward ? "text-[#7b1e1e] font-bold" : "text-muted-foreground"}`}>
             <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#f5f3ee] dark:bg-[#232c35]">
               3
             </span>
@@ -247,29 +247,29 @@ export function IntegratedPreCanvassModal({
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3 pt-2">
-              <div>
+              <div className="w-full min-w-0">
                 <Label className="text-[11px] font-semibold">Quotation Deadline</Label>
                 <Input
                   type="date"
                   value={quotationDeadline}
                   onChange={(e) => setQuotationDeadline(e.target.value)}
-                  className="mt-1 h-8 text-xs"
+                  className="mt-1 h-8 text-xs w-full min-w-0"
                 />
               </div>
-              <div>
+              <div className="w-full min-w-0">
                 <Label className="text-[11px] font-semibold">Delivery Period (Days)</Label>
                 <Input
                   type="number"
                   min="1"
                   value={deliveryPeriodDays}
                   onChange={(e) => setDeliveryPeriodDays(Number(e.target.value))}
-                  className="mt-1 h-8 text-xs"
+                  className="mt-1 h-8 text-xs w-full min-w-0"
                 />
               </div>
-              <div>
+              <div className="w-full min-w-0">
                 <Label className="text-[11px] font-semibold">Evaluation Mode</Label>
                 <Select value={priceEvaluationMode} onValueChange={(v: "lot_basis" | "per_item") => setPriceEvaluationMode(v)}>
-                  <SelectTrigger className="mt-1 h-8 text-xs">
+                  <SelectTrigger className="mt-1 h-8 text-xs w-full min-w-0">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -364,11 +364,12 @@ export function IntegratedPreCanvassModal({
                   <span>Add Supplier Quote #{quotesCount + 1}</span>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  <div>
-                    <Label className="text-[11px] font-semibold">Filter by Category</Label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Row 1, Col 1: Filter by Category */}
+                  <div className="w-full min-w-0">
+                    <Label className="text-[11px] font-semibold text-foreground">Filter by Category</Label>
                     <Select value={tagFilter} onValueChange={(v) => { setTagFilter(v); setSupplierId(""); }}>
-                      <SelectTrigger className="mt-1 h-8 text-xs">
+                      <SelectTrigger className="mt-1 h-8 text-xs w-full min-w-0">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -382,10 +383,13 @@ export function IntegratedPreCanvassModal({
                     </Select>
                   </div>
 
-                  <div>
-                    <Label className="text-[11px] font-semibold">Select Supplier *</Label>
+                  {/* Row 1, Col 2: Select Supplier * */}
+                  <div className="w-full min-w-0">
+                    <Label className="text-[11px] font-semibold text-foreground">
+                      Select Supplier <span className="text-rose-600">*</span>
+                    </Label>
                     <Select value={supplierId} onValueChange={setSupplierId}>
-                      <SelectTrigger className="mt-1 h-8 text-xs">
+                      <SelectTrigger className="mt-1 h-8 text-xs w-full min-w-0">
                         <SelectValue placeholder="Choose supplier" />
                       </SelectTrigger>
                       <SelectContent>
@@ -402,8 +406,11 @@ export function IntegratedPreCanvassModal({
                     </Select>
                   </div>
 
-                  <div>
-                    <Label className="text-[11px] font-semibold">Quoted Total Price (₱) *</Label>
+                  {/* Row 1, Col 3: Quoted Total Price (₱) * */}
+                  <div className="w-full min-w-0">
+                    <Label className="text-[11px] font-semibold text-foreground">
+                      Quoted Total Price (₱) <span className="text-rose-600">*</span>
+                    </Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -411,25 +418,27 @@ export function IntegratedPreCanvassModal({
                       placeholder="0.00"
                       value={totalPrice}
                       onChange={(e) => setTotalPrice(e.target.value)}
-                      className="mt-1 h-8 text-xs"
+                      className="mt-1 h-8 text-xs w-full min-w-0"
                     />
                   </div>
 
-                  <div>
-                    <Label className="text-[11px] font-semibold">Delivery Time (Days)</Label>
+                  {/* Row 2, Col 1: Delivery Time (Days) */}
+                  <div className="w-full min-w-0">
+                    <Label className="text-[11px] font-semibold text-foreground">Delivery Time (Days)</Label>
                     <Input
                       type="number"
                       min="1"
                       value={deliveryDays}
                       onChange={(e) => setDeliveryDays(e.target.value)}
-                      className="mt-1 h-8 text-xs"
+                      className="mt-1 h-8 text-xs w-full min-w-0"
                     />
                   </div>
 
-                  <div>
-                    <Label className="text-[11px] font-semibold">Compliance Status</Label>
+                  {/* Row 2, Col 2: Compliance Status */}
+                  <div className="w-full min-w-0">
+                    <Label className="text-[11px] font-semibold text-foreground">Compliance Status</Label>
                     <Select value={isCompliant} onValueChange={setIsCompliant}>
-                      <SelectTrigger className="mt-1 h-8 text-xs">
+                      <SelectTrigger className="mt-1 h-8 text-xs w-full min-w-0">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -439,26 +448,29 @@ export function IntegratedPreCanvassModal({
                     </Select>
                   </div>
 
-                  <div>
-                    <Label className="text-[11px] font-semibold">Quote Reference / Invoice #</Label>
+                  {/* Row 2, Col 3: Quote Reference / Invoice # */}
+                  <div className="w-full min-w-0">
+                    <Label className="text-[11px] font-semibold text-foreground">Quote Reference / Invoice #</Label>
                     <Input
                       placeholder="e.g. Q-2026-001"
                       value={quotationReference}
                       onChange={(e) => setQuotationReference(e.target.value)}
-                      className="mt-1 h-8 text-xs"
+                      className="mt-1 h-8 text-xs w-full min-w-0"
                     />
                   </div>
                 </div>
 
-                <div className="mt-3 flex justify-end">
+                {/* Full-width bottom action row aligned to the right */}
+                <div className="mt-4 flex justify-end pt-3 border-t border-border/50">
                   <Button
                     type="submit"
                     size="sm"
                     disabled={addQuoteMutation.isPending || !supplierId || !totalPrice}
-                    className="h-8 rounded-[4px] bg-[#7b1e1e] text-xs text-white hover:bg-[#641818]"
+                    className="h-8 px-4 rounded-[4px] bg-[#7b1e1e] text-xs font-semibold text-white hover:bg-[#641818] flex items-center gap-1.5 shadow-sm"
                   >
                     {addQuoteMutation.isPending && <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                    Record Quote #{quotesCount + 1}
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Record Quote #{quotesCount + 1}</span>
                   </Button>
                 </div>
               </form>
