@@ -42,6 +42,7 @@ export function TransmittalsPage() {
 
   // BAC Resolution State
   const [selectedPrId, setSelectedPrId] = useState<string>("");
+  const [customPrNumber, setCustomPrNumber] = useState<string>("2026-009");
   const [resolutionNumber, setResolutionNumber] = useState<string>("2601-GAS2-009");
   const [modeOfProcurement, setModeOfProcurement] = useState<string>("Small Value Procurement");
   const [evaluationMode, setEvaluationMode] = useState<"lot_basis" | "per_item">("lot_basis");
@@ -51,6 +52,15 @@ export function TransmittalsPage() {
   );
   const [endUserName, setEndUserName] = useState<string>("MARIE FE E. PABLEO");
   const [remarks, setRemarks] = useState<string>("");
+  const [entityName, setEntityName] = useState<string>("Batanes State College");
+  const [dateResolved, setDateResolved] = useState<string>(
+    new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+  );
+  const [collegePresidentName, setCollegePresidentName] = useState<string>("Dr. Djovi R. Durante");
+  const [collegePresidentDesignation, setCollegePresidentDesignation] = useState<string>("College President");
+  const [bacMembers, setBacMembers] = useState<BacSignatory[]>(DEFAULT_BSC_BAC_MEMBERS);
+  const [isDirectCanvasEdit, setIsDirectCanvasEdit] = useState<boolean>(true);
+  const [signatoriesExpanded, setSignatoriesExpanded] = useState<boolean>(false);
 
   // Query details for linked PR
   const prDetailQuery = trpc.purchaseRequests.detail.useQuery(
@@ -64,6 +74,7 @@ export function TransmittalsPage() {
       const pr = prDetailQuery.data.purchaseRequest;
       const items = prDetailQuery.data.items ?? [];
       const cleanPrNum = pr.prNumber.replace(/^PR-/, "");
+      setCustomPrNumber(pr.prNumber);
       setResolutionNumber(`2601-GAS2-${cleanPrNum}`);
       if (items.length > 0) {
         const itemSum = items.map((i) => `${i.description}${i.specification ? ` (${i.specification})` : ""}`).join(", ");
@@ -111,18 +122,28 @@ export function TransmittalsPage() {
     onError: (error) => toast.error(error.message),
   });
 
-  const selectedPr = dashboard.data?.purchaseRequests?.find((p) => p.id === Number(selectedPrId));
-  const prDisplayNum = selectedPr?.prNumber || (selectedPrId ? `PR #${selectedPrId}` : "2026-009");
-
-  const hopeSignatory = setup.data?.signatories?.find((s) => s.roleKey === "hope");
-  const collegePresidentName = hopeSignatory?.fullName || "Dr. Djovi R. Durante";
-  const collegePresidentDesignation = hopeSignatory?.title || "College President";
-  const entityName = setup.data?.settings?.entityName || "Batanes State College";
+  const handleResetDefaults = () => {
+    setResolutionNumber("2601-GAS2-009");
+    setCustomPrNumber("2026-009");
+    setModeOfProcurement("Small Value Procurement");
+    setEvaluationMode("lot_basis");
+    setApprovedBudget(53600);
+    setPurposeOrItems(
+      "AM snacks (Burger and Canned Juice/Soda), Packed Meals (Pork,Chicken,Veggie,Rice,Dessert,and Drinking Water),and PM Snacks (Special spaghetti and Canned Juice/ Soda)--Snacks and meals for the evaluation and interview of applicants for private sector representative (PSR)."
+    );
+    setEndUserName("MARIE FE E. PABLEO");
+    setEntityName(setup.data?.settings?.entityName || "Batanes State College");
+    setCollegePresidentName("Dr. Djovi R. Durante");
+    setCollegePresidentDesignation("College President");
+    setBacMembers(DEFAULT_BSC_BAC_MEMBERS);
+    setDateResolved(new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }));
+    toast.info("BAC Resolution reset to official BSC default template.");
+  };
 
   const handlePrintResolution = () => {
     const params = new URLSearchParams({
       prId: selectedPrId || "0",
-      prNo: prDisplayNum,
+      prNo: customPrNumber,
       resNo: resolutionNumber,
       mode: modeOfProcurement,
       evalMode: evaluationMode,
@@ -158,6 +179,12 @@ export function TransmittalsPage() {
       endUserName: endUserName.trim() || undefined,
       remarks: remarks.trim() || undefined,
     });
+  };
+
+  const handleSignatoryUpdate = (index: number, field: keyof BacSignatory, val: string) => {
+    const updated = [...bacMembers];
+    updated[index] = { ...updated[index], [field]: val };
+    setBacMembers(updated);
   };
 
   return (
@@ -208,20 +235,31 @@ export function TransmittalsPage() {
             <div className="lg:col-span-5 space-y-5">
               <section className="flat-panel p-5">
                 <div className="flex items-center justify-between border-b border-[#ece8df] pb-3 mb-4">
-                  <h3 className="font-semibold text-sm text-[#202833] flex items-center gap-2">
-                    <FileCheck className="h-4 w-4 text-[#7b1e1e]" />
-                    Resolution Parameters
-                  </h3>
-                  <Badge variant="outline" className="text-[10px] text-[#7b1e1e] border-[#7b1e1e]">
-                    RA 9184 Compliant
-                  </Badge>
+                  <div>
+                    <h3 className="font-semibold text-sm text-[#202833] flex items-center gap-2">
+                      <FileCheck className="h-4 w-4 text-[#7b1e1e]" />
+                      Editable Resolution Form
+                    </h3>
+                    <p className="text-[10px] text-neutral-500 mt-0.5">
+                      All fields, recitals, and signatories are editable
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleResetDefaults}
+                    className="h-7 text-[11px] text-neutral-600 hover:text-[#7b1e1e]"
+                  >
+                    Reset Defaults
+                  </Button>
                 </div>
 
                 <form onSubmit={handleEndorse} className="space-y-4">
-                  <Field label="Select Linked Purchase Request (Auto-fill)">
+                  <Field label="Auto-fill from Purchase Request (Optional)">
                     <Select value={selectedPrId} onValueChange={setSelectedPrId}>
                       <SelectTrigger className="h-9 text-xs">
-                        <SelectValue placeholder="Choose Purchase Request to resolve..." />
+                        <SelectValue placeholder="Choose Purchase Request to load..." />
                       </SelectTrigger>
                       <SelectContent>
                         {(dashboard.data?.purchaseRequests ?? []).map((pr) => (
@@ -239,57 +277,29 @@ export function TransmittalsPage() {
                         value={resolutionNumber}
                         onChange={(e) => setResolutionNumber(e.target.value)}
                         placeholder="e.g. 2601-GAS2-009"
-                        className="h-9 text-xs font-mono"
+                        className="h-9 text-xs font-mono font-semibold"
                         required
                       />
                     </Field>
 
-                    <Field label="Purchase Request No.">
+                    <Field label="Purchase Request No. *">
                       <Input
-                        value={prDisplayNum}
-                        readOnly
-                        className="h-9 text-xs font-mono bg-neutral-50 text-neutral-600"
+                        value={customPrNumber}
+                        onChange={(e) => setCustomPrNumber(e.target.value)}
+                        placeholder="e.g. 2026-009"
+                        className="h-9 text-xs font-mono"
+                        required
                       />
                     </Field>
                   </div>
 
-                  <Field label="Mode of Procurement *">
-                    <Select value={modeOfProcurement} onValueChange={setModeOfProcurement}>
-                      <SelectTrigger className="h-9 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Small Value Procurement" className="text-xs">
-                          Small Value Procurement (Sec. 53.9)
-                        </SelectItem>
-                        <SelectItem value="Shopping" className="text-xs">
-                          Shopping (Sec. 52.1.b)
-                        </SelectItem>
-                        <SelectItem value="Direct Contracting" className="text-xs">
-                          Direct Contracting (Sec. 50)
-                        </SelectItem>
-                        <SelectItem value="Negotiated Procurement (Two Failed Biddings)" className="text-xs">
-                          Negotiated - Two Failed Biddings (Sec. 53.1)
-                        </SelectItem>
-                        <SelectItem value="Emergency Cases" className="text-xs">
-                          Emergency Cases (Sec. 53.2)
-                        </SelectItem>
-                        <SelectItem value="Agency-to-Agency" className="text-xs">
-                          Agency-to-Agency (Sec. 53.5)
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-
                   <div className="grid grid-cols-2 gap-3">
-                    <Field label="Approved Budget (ABC) (₱) *">
+                    <Field label="Mode of Procurement *">
                       <Input
-                        type="number"
-                        step="0.01"
-                        min="1"
-                        value={approvedBudget}
-                        onChange={(e) => setApprovedBudget(Number(e.target.value))}
-                        className="h-9 text-xs font-semibold text-[#7b1e1e]"
+                        value={modeOfProcurement}
+                        onChange={(e) => setModeOfProcurement(e.target.value)}
+                        placeholder="e.g. Small Value Procurement"
+                        className="h-9 text-xs font-semibold"
                         required
                       />
                     </Field>
@@ -311,6 +321,38 @@ export function TransmittalsPage() {
                     </Field>
                   </div>
 
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Approved Budget (ABC) (₱) *">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="1"
+                        value={approvedBudget}
+                        onChange={(e) => setApprovedBudget(Number(e.target.value))}
+                        className="h-9 text-xs font-semibold text-[#7b1e1e]"
+                        required
+                      />
+                    </Field>
+
+                    <Field label="Resolution Date">
+                      <Input
+                        value={dateResolved}
+                        onChange={(e) => setDateResolved(e.target.value)}
+                        placeholder="e.g. September 29, 2026"
+                        className="h-9 text-xs"
+                      />
+                    </Field>
+                  </div>
+
+                  <Field label="Entity / Agency Name">
+                    <Input
+                      value={entityName}
+                      onChange={(e) => setEntityName(e.target.value)}
+                      placeholder="e.g. Batanes State College"
+                      className="h-9 text-xs"
+                    />
+                  </Field>
+
                   <Field label="Particulars / Items & Purpose *">
                     <Textarea
                       value={purposeOrItems}
@@ -322,7 +364,7 @@ export function TransmittalsPage() {
                     />
                   </Field>
 
-                  <Field label="End-User / Provisional Member Name">
+                  <Field label="End-User / Project In-Charge Name">
                     <Input
                       value={endUserName}
                       onChange={(e) => setEndUserName(e.target.value)}
@@ -340,17 +382,70 @@ export function TransmittalsPage() {
                     />
                   </Field>
 
-                  {/* Statutory Signatories Overview */}
-                  <div className="rounded border border-[#e5e1d8] bg-[#faf8f5] p-3 text-[11px] space-y-1.5">
-                    <p className="font-semibold text-neutral-800 uppercase tracking-wider text-[10px]">
-                      Required Signatories upon Endorsement:
-                    </p>
-                    <ul className="list-disc pl-4 text-neutral-600 space-y-0.5">
-                      <li><strong>BAC Members:</strong> Rhoupheline Aya Cadiz, Fortunato Cabugao, Emilyn Alueta</li>
-                      <li><strong>End-User / Provisional Member:</strong> {endUserName || "Designated End-User"}</li>
-                      <li><strong>BAC Vice Chair & Chair:</strong> Philip Ulysses Castillo & Doreen Castillo</li>
-                      <li><strong>HoPE Approval:</strong> {collegePresidentName} ({collegePresidentDesignation})</li>
-                    </ul>
+                  {/* Collapsible Signatories & Officials Customizer */}
+                  <div className="rounded border border-[#e5e1d8] bg-[#faf8f5] overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setSignatoriesExpanded(!signatoriesExpanded)}
+                      className="w-full flex items-center justify-between p-3 text-[11px] font-semibold text-neutral-800 hover:bg-[#f3ede3] transition-colors"
+                    >
+                      <span className="flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
+                        Edit Signatories & Designations ({bacMembers.length + 1} Officials)
+                      </span>
+                      <span className="text-xs text-neutral-500 font-normal">
+                        {signatoriesExpanded ? "Hide ▲" : "Expand ▼"}
+                      </span>
+                    </button>
+
+                    {signatoriesExpanded && (
+                      <div className="p-3 pt-1 border-t border-[#e5e1d8] space-y-3 bg-white">
+                        <p className="text-[10px] text-neutral-500">
+                          Edit the official names, ranks, and roles of the BAC Committee and Approving Authority:
+                        </p>
+
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold text-[#7b1e1e] uppercase tracking-wide">
+                            BAC Members & Chairperson
+                          </p>
+                          {bacMembers.map((member, i) => (
+                            <div key={i} className="grid grid-cols-2 gap-2 text-xs">
+                              <Input
+                                value={member.name}
+                                onChange={(e) => handleSignatoryUpdate(i, "name", e.target.value)}
+                                placeholder="Full Name"
+                                className="h-8 text-[11px]"
+                              />
+                              <Input
+                                value={member.role}
+                                onChange={(e) => handleSignatoryUpdate(i, "role", e.target.value)}
+                                placeholder="Role"
+                                className="h-8 text-[11px]"
+                              />
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="pt-2 border-t border-neutral-200 space-y-2">
+                          <p className="text-[10px] font-bold text-[#7b1e1e] uppercase tracking-wide">
+                            Head of the Procuring Entity (HoPE)
+                          </p>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <Input
+                              value={collegePresidentName}
+                              onChange={(e) => setCollegePresidentName(e.target.value)}
+                              placeholder="President Name"
+                              className="h-8 text-[11px]"
+                            />
+                            <Input
+                              value={collegePresidentDesignation}
+                              onChange={(e) => setCollegePresidentDesignation(e.target.value)}
+                              placeholder="Designation"
+                              className="h-8 text-[11px]"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Actions */}
@@ -384,33 +479,60 @@ export function TransmittalsPage() {
             {/* Live Canvas Preview Column (7 cols) */}
             <div className="lg:col-span-7 space-y-4">
               <div className="flex items-center justify-between bg-neutral-100 p-2.5 rounded-lg border border-neutral-200">
-                <span className="text-xs font-semibold text-neutral-700 flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   <ScrollText className="h-4 w-4 text-[#7b1e1e]" />
-                  Live Official Document Canvas Preview
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handlePrintResolution}
-                  className="h-7 text-[11px] bg-white text-[#7b1e1e] hover:bg-neutral-50"
-                >
-                  <Printer className="mr-1 h-3 w-3" />
-                  Print / Save PDF
-                </Button>
+                  <span className="text-xs font-semibold text-neutral-700">
+                    Live Official Document Canvas Preview
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 text-[11px] font-medium text-neutral-600 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={isDirectCanvasEdit}
+                      onChange={(e) => setIsDirectCanvasEdit(e.target.checked)}
+                      className="accent-[#7b1e1e] rounded h-3.5 w-3.5"
+                    />
+                    Direct Canvas Editing
+                  </label>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handlePrintResolution}
+                    className="h-7 text-[11px] bg-white text-[#7b1e1e] hover:bg-neutral-50 ml-2"
+                  >
+                    <Printer className="mr-1 h-3 w-3" />
+                    Print / Save PDF
+                  </Button>
+                </div>
               </div>
 
               <div className="overflow-x-auto max-h-[850px] overflow-y-auto rounded-lg border border-neutral-300 shadow-inner bg-neutral-200/50 p-4">
                 <OfficialBacResolutionCanvas
                   resolutionNumber={resolutionNumber}
-                  prNumber={prDisplayNum}
+                  prNumber={customPrNumber}
                   purposeOrItems={purposeOrItems}
                   approvedBudget={approvedBudget}
                   modeOfProcurement={modeOfProcurement}
                   evaluationMode={evaluationMode}
                   entityName={entityName}
+                  dateResolved={dateResolved}
                   collegePresidentName={collegePresidentName}
                   collegePresidentDesignation={collegePresidentDesignation}
+                  bacMembers={bacMembers}
                   endUserName={endUserName}
+                  editable={isDirectCanvasEdit}
+                  onFieldChange={(field, val) => {
+                    if (field === "resolutionNumber") setResolutionNumber(val);
+                    if (field === "prNumber") setCustomPrNumber(val);
+                    if (field === "approvedBudget") setApprovedBudget(val);
+                    if (field === "purposeOrItems") setPurposeOrItems(val);
+                    if (field === "entityName") setEntityName(val);
+                    if (field === "collegePresidentName") setCollegePresidentName(val);
+                    if (field === "collegePresidentDesignation") setCollegePresidentDesignation(val);
+                    if (field === "dateResolved") setDateResolved(val);
+                    if (field === "bacMembers") setBacMembers(val);
+                  }}
                 />
               </div>
             </div>
