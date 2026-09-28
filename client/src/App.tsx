@@ -14,10 +14,10 @@ import { ForecastPage, NoticesPage, SupplierEvaluationsPage, TransmittalsPage } 
 import { PrintBacResolutionPage, PrintNoticePage, PrintPreCanvassAbstractPage, PrintPurchaseOrderPage, PrintTransmittalPage } from "./pages/PrintPages";
 import PublicTrackingPage from "./pages/PublicTracking";
 import Landing from "./pages/Landing";
-import { AnalyticsPage, AuditTrailPage, BudgetPage, HistoricalPmrPage, PlansPage, RfqPage, SupplierRegistryPage } from "./pages/ManagementPages";
+import { AnalyticsPage, AuditTrailPage, BudgetPage, HistoricalPmrPage, PlansPage, PurchaseOrderPage, RfqPage, SupplierRegistryPage } from "./pages/ManagementPages";
 import { BestValuePolicySettingsPage } from "./pages/BestValuePolicySettingsPage";
 import { SupplierEvaluationFormPage } from "./pages/SupplierEvaluationFormPage";
-import { ExecutionPage, PreCanvassPage } from "./pages/WorkflowPages";
+import { PreCanvassPage } from "./pages/WorkflowPages";
 import SetupPage from "./pages/Setup";
 import TestRecordManagementPage from "./pages/TestRecordManagement";
 import FormTemplatesPage from "./pages/FormTemplates";
@@ -56,7 +56,7 @@ function Router() {
       <Route path={"/catalog"}>{protectedPage(<CatalogPage />)}</Route>
       <Route path={"/purchase-requests"}>{protectedPage(<PurchaseRequestsPage />)}</Route>
       <Route path={"/rfq"}>{protectedPage(<PreCanvassPage />)}</Route>
-      <Route path={"/purchase-orders"}>{protectedPage(<ExecutionPage />)}</Route>
+      <Route path={"/purchase-orders"}>{protectedPage(<PurchaseOrderPage />)}</Route>
       <Route path={"/documents"}>{protectedPage(<DocumentsPage />)}</Route>
       <Route path={"/notifications"}>{protectedPage(<NotificationsPage />)}</Route>
       <Route path={"/officer/notices"}>{protectedPage(<NoticesPage />)}</Route>
