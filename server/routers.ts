@@ -357,15 +357,22 @@ export const appRouter = router({
         return approveQuotationAbstract(input.rfqId, ctx.user);
       }),
       createPurchaseOrder: protectedProcedure.input(z.object({
-        rfqId: z.number().int().positive(),
+        rfqId: z.number().int().positive().optional(),
+        purchaseRequestId: z.number().int().positive().optional(),
+        supplierId: z.number().int().positive().optional(),
+        poNumber: z.string().max(80).optional(),
         placeOfDelivery: z.string().max(220).optional(),
         deliveryTerm: z.string().max(120).optional(),
         paymentTerm: z.string().max(160).optional(),
         modeOfProcurement: z.string().max(120).optional(),
         fundCluster: z.string().max(80).optional(),
-      })).mutation(({ ctx, input }) => {
+        totalAmount: z.number().positive().optional(),
+        chiefAccountantName: z.string().max(180).optional(),
+      })).mutation(async ({ ctx, input }) => {
         assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
-        return createPurchaseOrder(input.rfqId, ctx.user, undefined, input);
+        const result = await createPurchaseOrder(input, ctx.user);
+        void publishProcurementRealtimeUpdate("purchase_request");
+        return result;
       }),
       signContract: protectedProcedure.input(z.object({
         purchaseOrderId: z.number().int().positive(),

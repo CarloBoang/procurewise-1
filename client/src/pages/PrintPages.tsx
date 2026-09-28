@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { ArrowLeft, Printer } from "lucide-react";
 import { useLocation, useSearch } from "wouter";
 import { OfficialBacResolutionCanvas } from "@/components/OfficialBacResolutionCanvas";
+import { OfficialPurchaseOrderCanvas } from "@/components/OfficialPurchaseOrderCanvas";
 
 const BSC_HEADER_URL = "/header.png";
 const BSC_FOOTER_URL = "/footer.png";
@@ -129,3 +130,91 @@ export function PrintBacResolutionPage() {
     </div>
   );
 }
+
+export function PrintPurchaseOrderPage() {
+  const [, setLocation] = useLocation();
+  const search = new URLSearchParams(useSearch());
+  const poId = Number(search.get("id")) || 0;
+  const prId = Number(search.get("prId")) || 0;
+
+  const dashboard = trpc.procurement.dashboard.useQuery(undefined, { retry: false });
+  const setup = trpc.procurement.setup.details.useQuery(undefined, { retry: false });
+  const prQuery = trpc.procurement.purchaseRequests.detail.useQuery(
+    { purchaseRequestId: prId },
+    { enabled: Boolean(prId) && prId > 0, retry: false }
+  );
+
+  const po = dashboard.data?.purchaseOrders.find((p) => p.id === poId);
+  const supplier = setup.data?.suppliers.find((s) => s.id === po?.supplierId);
+  const items = prQuery.data?.items ?? [];
+
+  const formattedItems =
+    items.length > 0
+      ? items.map((it: any, idx: number) => ({
+          no: String(idx + 1).padStart(3, "0"),
+          unit: it.unit,
+          description: it.specification ? `${it.description} (${it.specification})` : it.description,
+          stockPropertyNo: it.stockPropertyNo || undefined,
+          quantity: Number(it.quantity),
+          estimatedUnitCost: Number(it.estimatedUnitCost),
+          totalCost: Number(it.totalCost) || Number(it.quantity) * Number(it.estimatedUnitCost),
+        }))
+      : undefined;
+
+  return (
+    <div className="mx-auto max-w-[900px] print:max-w-none print:m-0 print:p-0">
+      <div className="mb-6 flex items-center justify-between print:hidden no-print">
+        <Button
+          variant="outline"
+          onClick={() => window.history.back()}
+          className="rounded-[4px] border-[#d8d1c4] text-[#1f2933] hover:bg-[#f1f3f5]"
+        >
+          <ArrowLeft className="mr-1.5 h-4 w-4" />Back to workspace
+        </Button>
+        <Button
+          onClick={() => window.print()}
+          className="rounded-[4px] bg-[#7b1e1e] text-white hover:bg-[#641818]"
+        >
+          <Printer className="mr-1.5 h-4 w-4 text-white" />
+          Print Official Purchase Order (App. 61)
+        </Button>
+      </div>
+
+      <OfficialPurchaseOrderCanvas
+        entityName={setup.data?.settings?.entityName || "BATANES STATE COLLEGE"}
+        poNumber={po?.poNumber || search.get("poNo") || "2025-01-036"}
+        poDate={
+          po?.createdAt
+            ? new Date(po.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+            : undefined
+        }
+        supplierName={supplier?.companyName || search.get("supplier") || "0"}
+        supplierAddress={supplier?.address || "Basco, Batanes"}
+        supplierTin={supplier?.tin || "183-008-448"}
+        modeOfProcurement={po?.modeOfProcurement || search.get("mode") || "Small Value Procurement"}
+        placeOfDelivery={po?.placeOfDelivery || "Batanes State College"}
+        dateOfDelivery="30 days upon receipt of PO"
+        deliveryTerm={po?.deliveryTerm || "FOB Destination"}
+        paymentTerm={po?.paymentTerm || "15 days upon complete delivery"}
+        items={formattedItems}
+        totalAmount={
+          po?.totalAmount ? Number(po.totalAmount) : search.get("amount") ? Number(search.get("amount")) : 73130
+        }
+        purpose={
+          prQuery.data?.purchaseRequest?.purpose ||
+          search.get("purpose") ||
+          "for the program/activity of (IGP-Printing) supplies for IGP Printing Services (Testbooklet) to be charged to Fund 165"
+        }
+        authorizedOfficialName={po?.authorizedOfficialName || "DJOVI REGALA DURANTE"}
+        authorizedOfficialDesignation={po?.authorizedOfficialDesignation || "SUC President I"}
+        fundCluster={po?.fundCluster || search.get("fundCluster") || "Fund 165"}
+        orsBursNumber={po?.orsBursNumber || search.get("orsNo") || "2026-01-0089"}
+        chiefAccountantName={po?.chiefAccountantName || "RHEA ANGELLICA B. ADDATU, CPA"}
+        chiefAccountantTitle="Accountant I"
+        refNumber={search.get("refNo") || "2601-GAS2-009"}
+        showInstructions={false}
+      />
+    </div>
+  );
+}
+

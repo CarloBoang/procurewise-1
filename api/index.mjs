@@ -906,9 +906,6 @@ function hasRequiredSupplierQuotations(quoteCount) {
 function canReserveBudget(allottedAmount, committedAmount, requestAmount) {
   return Number(requestAmount) <= Number(allottedAmount) - Number(committedAmount);
 }
-function hasReservedBudgetCommitment(committedAmount, requestAmount) {
-  return Number(committedAmount) >= Number(requestAmount);
-}
 var EMPLOYEE_PR_STATUS_LABELS = {
   draft: "Draft",
   procurement_review: "In Progress \u2014 Procurement Review",
@@ -1041,10 +1038,6 @@ function detectMixedCategories(items) {
 function validatePrBudgetSubmission(input) {
   const allowed = canReserveBudget(input.allottedAmount, input.committedAmount, input.purchaseRequestAmount);
   return { allowed, availableAmount: Number(input.allottedAmount) - Number(input.committedAmount) };
-}
-function validatePoBudgetGeneration(input) {
-  const allowed = hasReservedBudgetCommitment(input.committedAmount, input.purchaseRequestAmount);
-  return { allowed };
 }
 
 // server/storage.ts
@@ -3378,41 +3371,110 @@ async function approveQuotationAbstract(rfqId, user) {
   await writeAuditEvent({ entityType: "quotation_abstract", entityId: abstract.id, action: "approved", performedById: user.id, performedByRole: normalizeProcurementRole(user.role) });
   return { ...abstract, status: "approved", approvedById: user.id };
 }
-async function createPurchaseOrder(rfqId, user, options, customDetails) {
+async function createPurchaseOrder(input, user, options, customDetails) {
   const db = options?.db ?? await requireDb();
   const recordAudit = options?.recordAudit ?? writeAuditEvent;
-  const [rfq] = await db.select().from(rfqs).where(eq(rfqs.id, rfqId)).limit(1);
-  const [abstract] = await db.select().from(quotationAbstracts).where(eq(quotationAbstracts.rfqId, rfqId)).limit(1);
-  if (!rfq || !abstract || abstract.status !== "approved") throw new Error("An approved quotation abstract is required before a Purchase Order can be generated.");
-  const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, rfq.purchaseRequestId)).limit(1);
-  if (!pr) throw new Error("The Purchase Request linked to this RFQ could not be found.");
-  const [allotment] = await db.select().from(budgetAllotments).where(and(eq(budgetAllotments.officeId, pr.officeId), eq(budgetAllotments.objectOfExpenditureId, pr.objectOfExpenditureId), eq(budgetAllotments.fiscalYear, (/* @__PURE__ */ new Date()).getFullYear()))).limit(1);
-  if (!allotment || !validatePoBudgetGeneration({ committedAmount: allotment.committedAmount, purchaseRequestAmount: pr.totalEstimate }).allowed) throw new Error("The Purchase Order cannot be generated because the linked PR does not have a valid office-level budget commitment.");
-  const [quote] = await db.select().from(supplierQuotations).where(and(eq(supplierQuotations.rfqId, rfqId), eq(supplierQuotations.supplierId, abstract.recommendedSupplierId))).limit(1);
-  if (!quote) throw new Error("The recommended supplier quotation could not be found.");
-  const poNumber = `PO-${(/* @__PURE__ */ new Date()).getFullYear()}-${Date.now().toString().slice(-7)}`;
-  await db.insert(purchaseOrders).values({
-    poNumber,
-    purchaseRequestId: rfq.purchaseRequestId,
-    rfqId,
-    supplierId: quote.supplierId,
-    totalAmount: quote.totalPrice,
-    generatedById: user.id,
-    status: "pending_approval",
-    placeOfDelivery: customDetails?.placeOfDelivery || "Batanes State College, San Antonio, Basco, Batanes",
-    deliveryTerm: customDetails?.deliveryTerm || `${quote.deliveryDays || 7} calendar days upon receipt of PO`,
-    paymentTerm: customDetails?.paymentTerm || "15 days upon complete delivery & inspection",
-    modeOfProcurement: customDetails?.modeOfProcurement || "Small Value Procurement (Sec. 53.9)",
-    fundCluster: customDetails?.fundCluster || "01 - Regular Agency Fund"
+  let rfqId;
+  let purchaseRequestId;
+  let supplierId;
+  let totalAmount;
+  let deliveryDays = 30;
+  if (typeof input === "number") {
+    rfqId = input;
+    const [rfq] = await db.select().from(rfqs).where(eq(rfqs.id, rfqId)).limit(1);
+    const [abstract] = await db.select().from(quotationAbstracts).where(eq(quotationAbstracts.rfqId, rfqId)).limit(1);
+    if (!rfq || !abstract || abstract.status !== "approved") {
+      throw new Error("An approved quotation abstract is required before a Purchase Order can be generated.");
+    }
+    const [quote] = await db.select().from(supplierQuotations).where(and(eq(supplierQuotations.rfqId, rfqId), eq(supplierQuotations.supplierId, abstract.recommendedSupplierId))).limit(1);
+    if (!quote) throw new Error("The recommended supplier quotation could not be found.");
+    purchaseRequestId = rfq.purchaseRequestId;
+    supplierId = quote.supplierId;
+    totalAmount = quote.totalPrice;
+    deliveryDays = quote.deliveryDays || 30;
+  } else {
+    rfqId = input.rfqId;
+    if (input.rfqId) {
+      const [rfq] = await db.select().from(rfqs).where(eq(rfqs.id, input.rfqId)).limit(1);
+      if (!rfq) throw new Error("Linked RFQ not found.");
+      purchaseRequestId = input.purchaseRequestId || rfq.purchaseRequestId;
+      const [abstract] = await db.select().from(quotationAbstracts).where(eq(quotationAbstracts.rfqId, input.rfqId)).limit(1);
+      supplierId = input.supplierId || (abstract ? abstract.recommendedSupplierId : 1);
+      const [quote] = await db.select().from(supplierQuotations).where(and(eq(supplierQuotations.rfqId, input.rfqId), eq(supplierQuotations.supplierId, supplierId))).limit(1);
+      totalAmount = input.totalAmount ? String(input.totalAmount) : quote?.totalPrice || "0.00";
+    } else if (input.purchaseRequestId) {
+      purchaseRequestId = input.purchaseRequestId;
+      const [pr2] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, purchaseRequestId)).limit(1);
+      if (!pr2) throw new Error("Purchase Request not found.");
+      supplierId = input.supplierId || 1;
+      totalAmount = input.totalAmount ? String(input.totalAmount) : pr2.totalEstimate || "0.00";
+    } else {
+      throw new Error("Either rfqId or purchaseRequestId is required to prepare a Purchase Order.");
+    }
+  }
+  const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, purchaseRequestId)).limit(1);
+  if (!pr) throw new Error("The Purchase Request linked to this Purchase Order could not be found.");
+  const poNumber = (typeof input === "object" ? input.poNumber?.trim() : void 0) || customDetails?.poNumber?.trim() || `${(/* @__PURE__ */ new Date()).getFullYear()}-${String((/* @__PURE__ */ new Date()).getMonth() + 1).padStart(2, "0")}-${Date.now().toString().slice(-3)}`;
+  const placeOfDelivery = (typeof input === "object" ? input.placeOfDelivery : void 0) || customDetails?.placeOfDelivery || "Batanes State College, San Antonio, Basco, Batanes";
+  const deliveryTerm = (typeof input === "object" ? input.deliveryTerm : void 0) || customDetails?.deliveryTerm || "FOB Destination";
+  const paymentTerm = (typeof input === "object" ? input.paymentTerm : void 0) || customDetails?.paymentTerm || "15 days upon complete delivery";
+  const modeOfProcurement = (typeof input === "object" ? input.modeOfProcurement : void 0) || customDetails?.modeOfProcurement || "Small Value Procurement (Sec. 53.9)";
+  const fundCluster = (typeof input === "object" ? input.fundCluster : void 0) || customDetails?.fundCluster || "Fund 165";
+  const chiefAccountantName = (typeof input === "object" ? input.chiefAccountantName : void 0) || customDetails?.chiefAccountantName || "RHEA ANGELLICA B. ADDATU, CPA";
+  const scheduledDeliveryDate = (typeof input === "object" ? input.scheduledDeliveryDate : void 0) || customDetails?.scheduledDeliveryDate || null;
+  const [existingPo] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.purchaseRequestId, purchaseRequestId)).limit(1);
+  let poId;
+  if (existingPo) {
+    poId = existingPo.id;
+    await db.update(purchaseOrders).set({
+      poNumber,
+      rfqId: rfqId || existingPo.rfqId,
+      supplierId,
+      totalAmount,
+      placeOfDelivery,
+      scheduledDeliveryDate,
+      deliveryTerm,
+      paymentTerm,
+      modeOfProcurement,
+      fundCluster,
+      chiefAccountantName,
+      updatedAt: /* @__PURE__ */ new Date()
+    }).where(eq(purchaseOrders.id, existingPo.id));
+  } else {
+    await db.insert(purchaseOrders).values({
+      poNumber,
+      purchaseRequestId,
+      rfqId: rfqId || null,
+      supplierId,
+      totalAmount,
+      generatedById: user.id,
+      status: "pending_approval",
+      placeOfDelivery,
+      scheduledDeliveryDate,
+      deliveryTerm,
+      paymentTerm,
+      modeOfProcurement,
+      fundCluster,
+      chiefAccountantName
+    });
+    const [inserted] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.poNumber, poNumber)).limit(1);
+    if (!inserted) throw new Error("Purchase Order could not be created.");
+    poId = inserted.id;
+  }
+  await db.update(purchaseRequests).set({ status: "po" }).where(eq(purchaseRequests.id, purchaseRequestId));
+  const [po] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.id, poId)).limit(1);
+  await recordAudit({
+    entityType: "purchase_order",
+    entityId: po.id,
+    action: "generated",
+    performedById: user.id,
+    performedByRole: normalizeProcurementRole(user.role),
+    details: { poNumber, totalAmount }
   });
-  await db.update(purchaseRequests).set({ status: "po" }).where(eq(purchaseRequests.id, rfq.purchaseRequestId));
-  const [po] = await db.select().from(purchaseOrders).where(eq(purchaseOrders.poNumber, poNumber)).limit(1);
-  if (!po) throw new Error("Purchase Order could not be created.");
-  await recordAudit({ entityType: "purchase_order", entityId: po.id, action: "generated", performedById: user.id, performedByRole: normalizeProcurementRole(user.role), details: { poNumber } });
   await notifyRoles(["budget_officer", "hope", "admin"], {
     kind: "action_required",
     title: `Purchase Order Prepared (${poNumber})`,
-    body: `Procurement Staff prepared Purchase Order ${poNumber}. Awaiting Contract Signing: Budget Officer certification and HoPE signature.`,
+    body: `Procurement Staff prepared official Purchase Order ${poNumber}. Awaiting Contract Signing: Budget Officer certification and HoPE signature.`,
     entityType: "purchase_order",
     entityId: po.id
   });
@@ -6017,15 +6079,22 @@ var appRouter = router({
         return approveQuotationAbstract(input.rfqId, ctx.user);
       }),
       createPurchaseOrder: protectedProcedure.input(z2.object({
-        rfqId: z2.number().int().positive(),
+        rfqId: z2.number().int().positive().optional(),
+        purchaseRequestId: z2.number().int().positive().optional(),
+        supplierId: z2.number().int().positive().optional(),
+        poNumber: z2.string().max(80).optional(),
         placeOfDelivery: z2.string().max(220).optional(),
         deliveryTerm: z2.string().max(120).optional(),
         paymentTerm: z2.string().max(160).optional(),
         modeOfProcurement: z2.string().max(120).optional(),
-        fundCluster: z2.string().max(80).optional()
-      })).mutation(({ ctx, input }) => {
+        fundCluster: z2.string().max(80).optional(),
+        totalAmount: z2.number().positive().optional(),
+        chiefAccountantName: z2.string().max(180).optional()
+      })).mutation(async ({ ctx, input }) => {
         assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
-        return createPurchaseOrder(input.rfqId, ctx.user, void 0, input);
+        const result = await createPurchaseOrder(input, ctx.user);
+        void publishProcurementRealtimeUpdate("purchase_request");
+        return result;
       }),
       signContract: protectedProcedure.input(z2.object({
         purchaseOrderId: z2.number().int().positive(),

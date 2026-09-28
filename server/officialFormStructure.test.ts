@@ -109,4 +109,20 @@ describe("official procurement form structure", () => {
     expect(pdf).toContain("VERSION");
     expect(pdf).toContain("CRITERION");
   });
+
+  it("presents the official Appendix 61 Purchase Order canvas, instructions, and procurement staff workflow", () => {
+    const canvas = readFileSync(new URL("../client/src/components/OfficialPurchaseOrderCanvas.tsx", import.meta.url), "utf8");
+    const management = readFileSync(new URL("../client/src/pages/ManagementPages.tsx", import.meta.url), "utf8");
+    const navigation = readFileSync(new URL("../client/src/components/DashboardLayout.tsx", import.meta.url), "utf8");
+
+    // Appendix 61 Structure and Clauses
+    ["Appendix 61", "PURCHASE ORDER", "BATANES STATE COLLEGE", "(Agency)", "Supplier:", "PO No.", "Mode of Procurement:", "Place of Delivery:", "Delivery Term:", "Payment Term:", "In case of failure to make the full delivery within the time specified above", "Very truly yours,", "DJOVI REGALA DURANTE", "SUC President I", "Funds Cluster:", "ORS/BURS No.", "RHEA ANGELLICA B. ADDATU", "Accountant I", "See PO instructions at the back"].forEach((label) => expect(canvas).toContain(label));
+
+    // Procurement Staff preparation navigation and workspace tabs
+    expect(navigation).toContain("Prepare Purchase Order");
+    expect(management).toContain("OfficialPurchaseOrderCanvas");
+    expect(management).toContain("Prepare Purchase Order (Staff)");
+    expect(management).toContain("PO Registry & Signing");
+  });
 });
+

@@ -160,7 +160,7 @@ const navigation: Array<{
     category: "processing",
   },
   {
-    label: "Abstracts, PO & PMR",
+    label: "Prepare Purchase Order (App. 61)",
     path: "/purchase-orders",
     icon: FileCheck2,
     roles: [
@@ -442,20 +442,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (item.path === "/officer/rfq-distribution") return "Forward to BAC for AOQ";
       if (item.path === "/officer/transmittals") return "BAC Transmittals Register";
       if (item.path === "/officer/notices") return "Letters of Notice";
-      if (item.path === "/purchase-orders") return "Abstract of Quotations & PO";
+      if (item.path === "/purchase-orders") return "Prepare Purchase Order";
       if (item.path === "/form-templates") return "Documents & Forms Hub";
     }
     if (currentRole === "hope") {
       if (item.path === "/dashboard") return "Overview (Executive metrics & sign-off)";
-      if (item.path === "/purchase-orders") return "Abstracts, PO & PMR (Award & contract signing)";
+      if (item.path === "/purchase-orders") return "Contract Signing (Purchase Orders)";
     }
     if (currentRole === "bac" || currentRole === "bac_secretariat") {
       if (item.path === "/officer/transmittals") return "BAC Resolutions & Transmittals (ABC & Endorsement)";
-      if (item.path === "/purchase-orders") return "Abstracts, PO & PMR (Quotation evaluation)";
+      if (item.path === "/purchase-orders") return "Purchase Orders & Quotation Abstracts";
     }
     if (currentRole === "budget_officer") {
       if (item.path === "/budgets") return "Budget Control (Allotment & funds certification)";
-      if (item.path === "/purchase-orders") return "Abstracts, PO & PMR (Funds clearance signing)";
+      if (item.path === "/purchase-orders") return "Funds Clearance & PO Signing";
     }
     return item.label;
   };

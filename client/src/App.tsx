@@ -11,7 +11,7 @@ import Access from "./pages/Access";
 import DocumentsPage from "./pages/Documents";
 import NotificationsPage from "./pages/Notifications";
 import { ForecastPage, NoticesPage, SupplierEvaluationsPage, TransmittalsPage } from "./pages/OfficerPages";
-import { PrintBacResolutionPage, PrintNoticePage, PrintPreCanvassAbstractPage, PrintTransmittalPage } from "./pages/PrintPages";
+import { PrintBacResolutionPage, PrintNoticePage, PrintPreCanvassAbstractPage, PrintPurchaseOrderPage, PrintTransmittalPage } from "./pages/PrintPages";
 import PublicTrackingPage from "./pages/PublicTracking";
 import Landing from "./pages/Landing";
 import { AnalyticsPage, AuditTrailPage, BudgetPage, HistoricalPmrPage, PlansPage, RfqPage, SupplierRegistryPage } from "./pages/ManagementPages";
@@ -67,6 +67,7 @@ function Router() {
       <Route path={"/print/notice"}>{protectedPage(<PrintNoticePage />)}</Route>
       <Route path={"/print/transmittal"}>{protectedPage(<PrintTransmittalPage />)}</Route>
       <Route path={"/print/bac-resolution"}>{protectedPage(<PrintBacResolutionPage />)}</Route>
+      <Route path={"/print/purchase-order"}>{protectedPage(<PrintPurchaseOrderPage />)}</Route>
       <Route path={"/print/pre-canvass-abstract"}>{protectedPage(<PrintPreCanvassAbstractPage />)}</Route>
       <Route path={"/plans"}>{protectedPage(<PlansPage />)}</Route>
       <Route path={"/suppliers"}>{protectedPage(<SupplierRegistryPage />)}</Route>
