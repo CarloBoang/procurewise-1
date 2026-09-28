@@ -2068,8 +2068,8 @@ async function listBacTransmittals() {
 async function listRfqDistributions(user) {
   const db = await requireDb();
   const actorRole = normalizeProcurementRole(user.role);
-  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
-    throw new Error("Access restricted to Procurement Officer.");
+  if (!roleCanAct(actorRole, ["procurement_officer", "procurement_staff", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer or Staff.");
   }
   const rfqList = await db.select().from(rfqs).orderBy(desc(rfqs.createdAt));
   const prIds = rfqList.map((r) => r.purchaseRequestId);
@@ -2104,8 +2104,8 @@ async function listRfqDistributions(user) {
 async function updateRfqDistribution(input, user) {
   const db = await requireDb();
   const actorRole = normalizeProcurementRole(user.role);
-  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
-    throw new Error("Access restricted to Procurement Officer.");
+  if (!roleCanAct(actorRole, ["procurement_officer", "procurement_staff", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer or Staff.");
   }
   const [rfq] = await db.select().from(rfqs).where(eq(rfqs.id, input.rfqId)).limit(1);
   if (!rfq) throw new Error("RFQ not found.");
@@ -2130,8 +2130,8 @@ async function transmitRfqToBac(input, user, options) {
   const db = options?.db ?? await requireDb();
   const auditWriter = options?.recordAudit ?? writeAuditEvent;
   const actorRole = normalizeProcurementRole(user.role);
-  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
-    throw new Error("Access restricted to Procurement Officer.");
+  if (!roleCanAct(actorRole, ["procurement_officer", "procurement_staff", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer or Staff.");
   }
   const [rfq] = await db.select().from(rfqs).where(eq(rfqs.id, input.rfqId)).limit(1);
   if (!rfq) throw new Error("RFQ not found.");
@@ -2184,8 +2184,8 @@ async function transmitRfqToBac(input, user, options) {
 async function listPhilgepsPostings(user) {
   const db = await requireDb();
   const actorRole = normalizeProcurementRole(user.role);
-  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
-    throw new Error("Access restricted to Procurement Officer.");
+  if (!roleCanAct(actorRole, ["procurement_officer", "procurement_staff", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer or Staff.");
   }
   const [rfqList, prList, audits] = await Promise.all([
     db.select().from(rfqs).orderBy(desc(rfqs.createdAt)),
@@ -2215,8 +2215,8 @@ async function listPhilgepsPostings(user) {
 async function recordPhilgepsPosting(input, user) {
   const db = await requireDb();
   const actorRole = normalizeProcurementRole(user.role);
-  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
-    throw new Error("Access restricted to Procurement Officer.");
+  if (!roleCanAct(actorRole, ["procurement_officer", "procurement_staff", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer or Staff.");
   }
   const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, input.purchaseRequestId)).limit(1);
   if (!pr) throw new Error("Purchase Request not found.");
@@ -5864,7 +5864,7 @@ var appRouter = router({
         return createQuotationAbstract(input.rfqId, ctx.user);
       }),
       approveAbstract: protectedProcedure.input(z2.object({ rfqId: z2.number().int().positive() })).mutation(({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["administrative_approver"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["administrative_approver", "bac", "bac_secretariat", "hope", "admin"]);
         return approveQuotationAbstract(input.rfqId, ctx.user);
       }),
       createPurchaseOrder: protectedProcedure.input(z2.object({ rfqId: z2.number().int().positive() })).mutation(({ ctx, input }) => {
@@ -6098,7 +6098,7 @@ var appRouter = router({
       }),
       rfqDistribution: router({
         list: protectedProcedure.query(({ ctx }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
           return listRfqDistributions(ctx.user);
         }),
         update: protectedProcedure.input(z2.object({
@@ -6109,7 +6109,7 @@ var appRouter = router({
           retrievalDate: z2.coerce.date().optional(),
           remarks: z2.string().max(1e3).optional()
         })).mutation(async ({ ctx, input }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
           const result = await updateRfqDistribution(input, ctx.user);
           void publishProcurementRealtimeUpdate("rfq");
           return result;
@@ -6120,7 +6120,7 @@ var appRouter = router({
           subject: z2.string().max(220).optional(),
           remarks: z2.string().max(1e3).optional()
         })).mutation(async ({ ctx, input }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
           const result = await transmitRfqToBac(input, ctx.user);
           void publishProcurementRealtimeUpdate("bac_transmittal");
           return result;
@@ -6128,7 +6128,7 @@ var appRouter = router({
       }),
       philgeps: router({
         list: protectedProcedure.query(({ ctx }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
           return listPhilgepsPostings(ctx.user);
         }),
         record: protectedProcedure.input(z2.object({
@@ -6139,7 +6139,7 @@ var appRouter = router({
           closingDate: z2.coerce.date().optional(),
           remarks: z2.string().max(1e3).optional()
         })).mutation(async ({ ctx, input }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
           const result = await recordPhilgepsPosting(input, ctx.user);
           void publishProcurementRealtimeUpdate("purchase_request");
           return result;

@@ -15,8 +15,9 @@ import { buildPpmpCsv, downloadCsv } from "@/lib/procurementExports";
 import { downloadPpmpPdf } from "@/lib/procurementPdf";
 import { trpc } from "@/lib/trpc";
 import { normalizeProcurementRole } from "../../../shared/procurementRules";
-import { AlertTriangle, ArrowUpDown, Ban, BarChart3, ChevronLeft, ChevronRight, Clock, Download, FileCheck2, FileSearch, LoaderCircle, Paperclip, Plus, ScrollText, Search, Star, TrendingUp, Truck, UsersRound } from "lucide-react";
+import { AlertTriangle, ArrowUpDown, Ban, BarChart3, ChevronLeft, ChevronRight, Clock, Download, FileCheck2, FileSearch, FileSpreadsheet, FileText, LoaderCircle, Paperclip, Plus, ScrollText, Search, Send, Star, TrendingUp, Truck, UsersRound } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Link } from "wouter";
 import { toast } from "sonner";
 
 function formatMoney(value: number | string) { return `₱${Number(value).toLocaleString("en-PH", { minimumFractionDigits: 2 })}`; }
@@ -160,7 +161,13 @@ export function RfqPage() {
   const refresh = () => { void utils.procurement.dashboard.invalidate(); };
   const createRfq = trpc.procurement.rfqs.createFromPurchaseRequest.useMutation({ onSuccess: () => { toast.success("RFQ created for canvassing."); setMode(null); refresh(); }, onError: (error) => toast.error(error.message) });
   const addQuotation = trpc.procurement.rfqs.addQuotation.useMutation({ onSuccess: () => { toast.success("Supplier quotation recorded."); setMode(null); refresh(); }, onError: (error) => toast.error(error.message) });
-  const generateAbstract = trpc.procurement.rfqs.generateAbstract.useMutation({ onSuccess: () => { toast.success("Abstract of Quotation generated."); refresh(); }, onError: (error) => toast.error(error.message) });
+  const generateAbstract = trpc.procurement.rfqs.generateAbstract.useMutation({
+    onSuccess: () => {
+      toast.success("Quotation package forwarded to BAC. Official Abstract of Quotations prepared.");
+      refresh();
+    },
+    onError: (error) => toast.error(error.message),
+  });
   // Existing RFQs that are active and linked to a PR
   const existingRfqPrIds = useMemo(() => {
     return new Set(
@@ -273,7 +280,140 @@ export function RfqPage() {
       </form>
     )}
     {mode === "quotation" && <QuotationForm rfqs={dashboard.data?.rfqs ?? []} suppliers={setup.data?.suppliers ?? []} isSaving={addQuotation.isPending} onCancel={() => setMode(null)} onCreate={(input) => addQuotation.mutate(input)} />}
-    <div className="mt-7">{dashboard.isLoading ? <LoadingPanel label="Loading RFQ records" /> : dashboard.data?.rfqs.length ? <RecordTable><RecordTableHeader><tr><th className="px-4 py-3 font-semibold">RFQ</th><th className="px-4 py-3 font-semibold">Linked PR</th><th className="px-4 py-3 font-semibold">Quotations</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-4 py-3 font-semibold">Action</th></tr></RecordTableHeader><tbody className="divide-y divide-[#efebe4]">{dashboard.data.rfqs.map((rfq) => { const quotations = quoteCount(rfq.id); const hasAbstract = dashboard.data.quotationAbstracts.some((abstract) => abstract.rfqId === rfq.id); return <tr key={rfq.id}><td className="px-4 py-3 font-semibold text-[#7b1e1e]">{rfq.rfqNumber}</td><td className="px-4 py-3 text-[#65717e]">PR #{rfq.purchaseRequestId}</td><td className="px-4 py-3"><StatusBadge tone={quotations >= 3 ? "approved" : "pending"}>{quotations}/3 SUPPLIERS</StatusBadge></td><td className="px-4 py-3"><StatusBadge tone={rfq.status === "approved" ? "approved" : "pending"}>{rfq.status.toUpperCase()}</StatusBadge></td><td className="px-4 py-3">{canSupply && !hasAbstract ? <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => setMode("quotation")} className="h-7 rounded-[4px] text-[10px]">Add quotation</Button><Button size="sm" disabled={quotations < 3 || generateAbstract.isPending} onClick={() => generateAbstract.mutate({ rfqId: rfq.id })} className="h-7 rounded-[4px] bg-[#7b1e1e] px-2 text-[10px] hover:bg-[#641818]">Abstract</Button></div> : <span className="text-[11px] text-[#7b8490]">{hasAbstract ? "Abstracted" : "Role-gated"}</span>}</td></tr>; })}</tbody></RecordTable> : <EmptyWorkspace eyebrow="Quotation management" title="No RFQ records are available for your role." description="A Supply Officer can convert an approved PR to an RFQ, then record the mandatory supplier quotations." />}</div>
+
+    {/* Procedure 5.7 Workflow Guidance Banner */}
+    <div className="mt-6 rounded-lg border border-[#d5cfc4] bg-[#fbf9f5] p-4 text-xs text-[#4b5563]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="rounded-md bg-[#7b1e1e]/10 p-2 text-[#7b1e1e] mt-0.5 shrink-0">
+            <FileSpreadsheet className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="font-semibold text-[#1f2937]">Procedure 5.7: Forward to BAC for Preparation of Abstract of Quotations</p>
+            <p className="mt-0.5 text-[11px] text-[#6b7280]">
+              Mandatory canvass requires at least three (3) supplier quotations per RFQ. Once completed, click <strong>"Forward to BAC for AOQ"</strong> to transmit the quotation package to the BAC Secretariat for official validation, Abstract generation, and BAC Resolution recommendation.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <Link href="/officer/rfq-distribution">
+            <Button size="sm" variant="outline" className="h-7 text-[11px] text-[#7b1e1e] border-[#7b1e1e] hover:bg-[#7b1e1e]/5">
+              <Send className="mr-1 h-3 w-3" />
+              Formal BAC Transmittal
+            </Button>
+          </Link>
+          <Link href="/purchase-orders">
+            <Button size="sm" variant="ghost" className="h-7 text-[11px] text-[#4b5563] hover:text-[#7b1e1e]">
+              View Abstract Registry →
+            </Button>
+          </Link>
+        </div>
+      </div>
+    </div>
+
+    <div className="mt-6">
+      {dashboard.isLoading ? (
+        <LoadingPanel label="Loading RFQ records" />
+      ) : dashboard.data?.rfqs.length ? (
+        <RecordTable>
+          <RecordTableHeader>
+            <tr>
+              <th className="px-4 py-3 font-semibold">RFQ</th>
+              <th className="px-4 py-3 font-semibold">Linked PR</th>
+              <th className="px-4 py-3 font-semibold">Quotations Canvassed</th>
+              <th className="px-4 py-3 font-semibold">Status</th>
+              <th className="px-4 py-3 font-semibold">Action (Procedure 5.7)</th>
+            </tr>
+          </RecordTableHeader>
+          <tbody className="divide-y divide-[#efebe4]">
+            {dashboard.data.rfqs.map((rfq) => {
+              const quotations = quoteCount(rfq.id);
+              const hasAbstract = dashboard.data.quotationAbstracts.some((abstract) => abstract.rfqId === rfq.id);
+              return (
+                <tr key={rfq.id}>
+                  <td className="px-4 py-3 font-semibold text-[#7b1e1e]">{rfq.rfqNumber}</td>
+                  <td className="px-4 py-3 text-[#65717e]">PR #{rfq.purchaseRequestId}</td>
+                  <td className="px-4 py-3">
+                    <StatusBadge tone={quotations >= 3 ? "approved" : "pending"}>
+                      {quotations}/3 SUPPLIERS
+                    </StatusBadge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <StatusBadge tone={rfq.status === "approved" ? "approved" : "pending"}>
+                      {rfq.status.toUpperCase()}
+                    </StatusBadge>
+                  </td>
+                  <td className="px-4 py-3">
+                    {canSupply && !hasAbstract ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setMode("quotation")}
+                          className="h-7 rounded-[4px] text-[11px]"
+                        >
+                          <Plus className="mr-1 h-3 w-3" />
+                          Add quotation
+                        </Button>
+                        <Button
+                          size="sm"
+                          disabled={quotations < 3 || generateAbstract.isPending}
+                          onClick={() => generateAbstract.mutate({ rfqId: rfq.id })}
+                          className="h-7 rounded-[4px] bg-[#7b1e1e] px-2.5 text-[11px] font-medium text-white hover:bg-[#641818]"
+                          title={
+                            quotations >= 3
+                              ? "Forward to BAC for preparation and validation of Abstract of Quotations (AOQ)"
+                              : `Mandatory canvass requirement: at least 3 supplier quotations required (currently ${quotations}/3)`
+                          }
+                        >
+                          {generateAbstract.isPending ? (
+                            <LoaderCircle className="mr-1 h-3 w-3 animate-spin" />
+                          ) : (
+                            <Send className="mr-1 h-3 w-3" />
+                          )}
+                          Forward to BAC for AOQ
+                        </Button>
+                        <Link href="/officer/rfq-distribution">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-[10px] text-[#7b8490] hover:text-[#7b1e1e]"
+                            title="Formal Document Transmittal to BAC"
+                          >
+                            Transmittal →
+                          </Button>
+                        </Link>
+                      </div>
+                    ) : hasAbstract ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusBadge tone="approved">FORWARDED TO BAC / AOQ READY</StatusBadge>
+                        <Link href="/purchase-orders">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 rounded-[4px] text-[10px] border-[#7b1e1e] text-[#7b1e1e] hover:bg-[#fffaf0]"
+                          >
+                            View AOQ & PO →
+                          </Button>
+                        </Link>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-[#7b8490]">Role-gated</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </RecordTable>
+      ) : (
+        <EmptyWorkspace
+          eyebrow="Quotation management"
+          title="No RFQ records are available for your role."
+          description="A Supply Officer or Procurement Staff can convert an approved PR to an RFQ, then record the mandatory supplier quotations."
+        />
+      )}
+    </div>
     {dashboard.data?.rfqs.length ? <QuotationComparison rfqs={dashboard.data.rfqs} quotations={dashboard.data.supplierQuotations} supplierMap={supplierMap} /> : null}
     {canSupply && dashboard.data?.rfqs.length ? <Button variant="outline" onClick={() => setMode("quotation")} className="mt-4 h-9 rounded-[4px] text-xs"><Plus className="mr-1.5 h-3.5 w-3.5" />Record supplier quotation</Button> : null}
   </div>;
@@ -424,11 +564,142 @@ function QuotationComparison({ rfqs, quotations, supplierMap }: { rfqs: Array<{ 
 }
 
 export function PurchaseOrderPage() {
-  const { user } = useAuth(); const role = user ? normalizeProcurementRole(user.role) : "end_user"; const canBac = role === "administrative_approver" || role === "admin"; const canSupply = role === "procurement_officer" || role === "procurement_staff" || role === "admin";
-  const dashboard = trpc.procurement.dashboard.useQuery(undefined, { retry: false }); const utils = trpc.useUtils(); const refresh = () => { void utils.procurement.dashboard.invalidate(); };
-  const approve = trpc.procurement.rfqs.approveAbstract.useMutation({ onSuccess: () => { toast.success("Quotation abstract approved by BAC."); refresh(); }, onError: (error) => toast.error(error.message) });
-  const createPo = trpc.procurement.rfqs.createPurchaseOrder.useMutation({ onSuccess: () => { toast.success("Purchase Order generated."); refresh(); }, onError: (error) => toast.error(error.message) });
-  return <div className="mx-auto max-w-[1240px]"><PageHeader eyebrow="Purchase execution" title="Abstracts & Purchase Orders" description="Review quotation abstracts and create a Purchase Order only after BAC approval of the recommended compliant supplier." /><div className="mt-7 grid gap-6 xl:grid-cols-2"><div className="flat-panel"><div className="border-b border-[#ece8df] px-5 py-4"><p className="text-sm font-semibold text-[#34404e]">Abstracts of Quotation</p><p className="mt-1 text-[11px] text-[#77818d]">Lowest compliant quote is proposed after the three-supplier canvass.</p></div>{dashboard.data?.quotationAbstracts.length ? <div className="divide-y divide-[#efebe4]">{dashboard.data.quotationAbstracts.map((abstract) => <div key={abstract.id} className="flex items-center justify-between gap-4 p-5"><div><p className="text-xs font-semibold text-[#3e4855]">RFQ #{abstract.rfqId}</p><p className="mt-1 text-[11px] text-[#72808c]">Supplier #{abstract.recommendedSupplierId}</p><StatusBadge tone={abstract.status === "approved" ? "approved" : "pending"}>{abstract.status.toUpperCase()}</StatusBadge></div><div className="flex gap-2">{canBac && abstract.status === "recommended" && <Button size="sm" onClick={() => approve.mutate({ rfqId: abstract.rfqId })} disabled={approve.isPending} className="h-7 rounded-[4px] bg-[#7b1e1e] text-[10px] hover:bg-[#641818]">BAC approve</Button>}{canSupply && abstract.status === "approved" && <Button size="sm" onClick={() => createPo.mutate({ rfqId: abstract.rfqId })} disabled={createPo.isPending} className="h-7 rounded-[4px] bg-[#7b1e1e] text-[10px] hover:bg-[#641818]">Generate PO</Button>}</div></div>)}</div> : <div className="p-8 text-center text-[11px] leading-5 text-[#72808c]">No abstracts are ready for review. Complete an RFQ canvass with at least three supplier quotations.</div>}</div><div className="flat-panel"><div className="border-b border-[#ece8df] px-5 py-4"><p className="text-sm font-semibold text-[#34404e]">Purchase Orders</p><p className="mt-1 text-[11px] text-[#77818d]">Generated POs remain traceable to their RFQ and linked Purchase Request.</p></div>{dashboard.data?.purchaseOrders.length ? <div className="divide-y divide-[#efebe4]">{dashboard.data.purchaseOrders.map((po) => <div key={po.id} className="flex items-center justify-between gap-4 p-5"><div><p className="text-xs font-semibold text-[#7b1e1e]">{po.poNumber}</p><p className="mt-1 text-[11px] text-[#72808c]">{formatMoney(po.totalAmount)} · Supplier #{po.supplierId}</p></div><StatusBadge tone={po.status === "approved" ? "approved" : "pending"}>{po.status.replaceAll("_", " ").toUpperCase()}</StatusBadge></div>)}</div> : <div className="p-8 text-center text-[11px] leading-5 text-[#72808c]">No Purchase Orders have been generated.</div>}</div></div></div>;
+  const { user } = useAuth();
+  const role = user ? normalizeProcurementRole(user.role) : "end_user";
+  const canBac =
+    role === "bac" ||
+    role === "bac_secretariat" ||
+    role === "administrative_approver" ||
+    role === "hope" ||
+    role === "admin";
+  const canSupply =
+    role === "procurement_officer" ||
+    role === "procurement_staff" ||
+    role === "admin";
+  const dashboard = trpc.procurement.dashboard.useQuery(undefined, { retry: false });
+  const utils = trpc.useUtils();
+  const refresh = () => {
+    void utils.procurement.dashboard.invalidate();
+  };
+  const approve = trpc.procurement.rfqs.approveAbstract.useMutation({
+    onSuccess: () => {
+      toast.success("Quotation abstract approved by BAC.");
+      refresh();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const createPo = trpc.procurement.rfqs.createPurchaseOrder.useMutation({
+    onSuccess: () => {
+      toast.success("Purchase Order generated.");
+      refresh();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+
+  return (
+    <div className="mx-auto max-w-[1240px]">
+      <PageHeader
+        eyebrow="Purchase execution"
+        title="Abstracts & Purchase Orders"
+        description="Review quotation abstracts and create a Purchase Order only after BAC approval of the recommended compliant supplier."
+      />
+      <div className="mt-7 grid gap-6 xl:grid-cols-2">
+        <div className="flat-panel">
+          <div className="border-b border-[#ece8df] px-5 py-4">
+            <p className="text-sm font-semibold text-[#34404e]">Abstracts of Quotation</p>
+            <p className="mt-1 text-[11px] text-[#77818d]">
+              Lowest compliant quote is proposed after the three-supplier canvass.
+            </p>
+          </div>
+          {dashboard.data?.quotationAbstracts.length ? (
+            <div className="divide-y divide-[#efebe4]">
+              {dashboard.data.quotationAbstracts.map((abstract) => (
+                <div key={abstract.id} className="flex flex-wrap items-center justify-between gap-4 p-5">
+                  <div>
+                    <p className="text-xs font-semibold text-[#3e4855]">RFQ #{abstract.rfqId}</p>
+                    <p className="mt-1 text-[11px] text-[#72808c]">
+                      Recommended Supplier #{abstract.recommendedSupplierId}
+                    </p>
+                    <div className="mt-1.5">
+                      <StatusBadge tone={abstract.status === "approved" ? "approved" : "pending"}>
+                        {abstract.status.toUpperCase()}
+                      </StatusBadge>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link href="/form-templates?form=abstract_of_quotations">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 rounded-[4px] text-[10px] text-[#34404e] hover:bg-[#fffaf0]"
+                        title="Open standardized Abstract of Quotations document"
+                      >
+                        <FileText className="mr-1 h-3 w-3 text-[#7b1e1e]" />
+                        Official AOQ Form
+                      </Button>
+                    </Link>
+                    {canBac && abstract.status === "recommended" && (
+                      <Button
+                        size="sm"
+                        onClick={() => approve.mutate({ rfqId: abstract.rfqId })}
+                        disabled={approve.isPending}
+                        className="h-7 rounded-[4px] bg-[#7b1e1e] text-[10px] hover:bg-[#641818]"
+                      >
+                        BAC approve
+                      </Button>
+                    )}
+                    {canSupply && abstract.status === "approved" && (
+                      <Button
+                        size="sm"
+                        onClick={() => createPo.mutate({ rfqId: abstract.rfqId })}
+                        disabled={createPo.isPending}
+                        className="h-7 rounded-[4px] bg-[#7b1e1e] text-[10px] hover:bg-[#641818]"
+                      >
+                        Generate PO
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 text-center text-[11px] leading-5 text-[#72808c]">
+              No abstracts are ready for review. Complete an RFQ canvass with at least three supplier quotations.
+            </div>
+          )}
+        </div>
+        <div className="flat-panel">
+          <div className="border-b border-[#ece8df] px-5 py-4">
+            <p className="text-sm font-semibold text-[#34404e]">Purchase Orders</p>
+            <p className="mt-1 text-[11px] text-[#77818d]">
+              Generated POs remain traceable to their RFQ and linked Purchase Request.
+            </p>
+          </div>
+          {dashboard.data?.purchaseOrders.length ? (
+            <div className="divide-y divide-[#efebe4]">
+              {dashboard.data.purchaseOrders.map((po) => (
+                <div key={po.id} className="flex items-center justify-between gap-4 p-5">
+                  <div>
+                    <p className="text-xs font-semibold text-[#7b1e1e]">{po.poNumber}</p>
+                    <p className="mt-1 text-[11px] text-[#72808c]">
+                      {formatMoney(po.totalAmount)} · Supplier #{po.supplierId}
+                    </p>
+                  </div>
+                  <StatusBadge tone={po.status === "approved" ? "approved" : "pending"}>
+                    {po.status.replaceAll("_", " ").toUpperCase()}
+                  </StatusBadge>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 text-center text-[11px] leading-5 text-[#72808c]">
+              No Purchase Orders have been generated.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function BudgetPage() {

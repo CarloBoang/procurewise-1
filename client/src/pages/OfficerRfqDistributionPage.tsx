@@ -46,7 +46,7 @@ export function OfficerRfqDistributionPage({
 } = {}) {
   const { user } = useAuth();
   const role = user ? normalizeProcurementRole(user.role) : "end_user";
-  const isOfficerOrAdmin = role === "procurement_officer" || role === "admin";
+  const isOfficerOrAdmin = role === "procurement_officer" || role === "procurement_staff" || role === "admin";
 
   const [activeTab, setActiveTab] = useState<"distribution" | "philgeps">(initialTab);
   const [searchQuery, setSearchQuery] = useState("");
@@ -206,7 +206,7 @@ export function OfficerRfqDistributionPage({
         <ShieldAlert className="mx-auto h-12 w-12 text-rose-500" />
         <h2 className="mt-4 text-xl font-bold text-slate-900 dark:text-white">Access Restricted</h2>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-          This workbench is strictly mandated for the Procurement Officer to distribute RFQs, transmit to BAC, and document PhilGEPS postings.
+          This workbench is mandated for Procurement Officer and Staff to distribute RFQs, transmit to BAC for AOQ preparation, and document PhilGEPS postings.
         </p>
       </div>
     );

@@ -46,7 +46,13 @@ export function TransmittalsPage() {
   const [, setLocation] = useLocation();
 
   // Active workspace tab
-  const [activeTab, setActiveTab] = useState<"resolution" | "transmittals">("resolution");
+  const [activeTab, setActiveTab] = useState<"resolution" | "transmittals">(() => {
+    if (typeof window !== "undefined") {
+      const search = new URLSearchParams(window.location.search);
+      if (search.get("tab") === "transmittals") return "transmittals";
+    }
+    return "resolution";
+  });
 
   // BAC Resolution State
   const [selectedPrId, setSelectedPrId] = useState<string>("");

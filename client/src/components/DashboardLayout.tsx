@@ -60,7 +60,7 @@ const navigation: Array<{
     label: "Distribute & Retrieve RFQ / Transmit to BAC",
     path: "/officer/rfq-distribution",
     icon: Send,
-    roles: ["procurement_officer", "procurement_officer_i", "procurement_officer_ii", "admin"],
+    roles: ["procurement_staff", "procurement_officer", "procurement_officer_i", "procurement_officer_ii", "admin"],
     category: "workspace",
   },
   {
@@ -373,6 +373,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         "/dashboard",
         "/pmr-registry",
         "/rfq-management",
+        "/officer/rfq-distribution",
         "/officer/transmittals",
         "/officer/notices",
         "/purchase-orders",
@@ -438,10 +439,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (currentRole === "procurement_staff") {
       if (item.path === "/dashboard") return "Overview";
       if (item.path === "/pmr-registry") return "PMR Registry";
-      if (item.path === "/rfq-management") return "RFQ Management";
-      if (item.path === "/officer/transmittals") return "BAC Forwarding / Transmittals";
+      if (item.path === "/rfq-management") return "RFQ & Supplier Quotations";
+      if (item.path === "/officer/rfq-distribution") return "Forward to BAC for AOQ";
+      if (item.path === "/officer/transmittals") return "BAC Transmittals Register";
       if (item.path === "/officer/notices") return "Letters of Notice";
-      if (item.path === "/purchase-orders") return "Purchase Orders";
+      if (item.path === "/purchase-orders") return "Abstract of Quotations & PO";
       if (item.path === "/form-templates") return "Documents & Forms Hub";
     }
     if (currentRole === "hope") {

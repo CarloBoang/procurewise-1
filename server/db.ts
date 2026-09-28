@@ -911,8 +911,8 @@ export async function listBacTransmittals() { const db = await requireDb(); retu
 export async function listRfqDistributions(user: User) {
   const db = await requireDb();
   const actorRole = normalizeProcurementRole(user.role);
-  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
-    throw new Error("Access restricted to Procurement Officer.");
+  if (!roleCanAct(actorRole, ["procurement_officer", "procurement_staff", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer or Staff.");
   }
   const rfqList = await db.select().from(rfqs).orderBy(desc(rfqs.createdAt));
   const prIds = rfqList.map((r) => r.purchaseRequestId);
@@ -965,8 +965,8 @@ export async function updateRfqDistribution(
 ) {
   const db = await requireDb();
   const actorRole = normalizeProcurementRole(user.role);
-  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
-    throw new Error("Access restricted to Procurement Officer.");
+  if (!roleCanAct(actorRole, ["procurement_officer", "procurement_staff", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer or Staff.");
   }
   const [rfq] = await db.select().from(rfqs).where(eq(rfqs.id, input.rfqId)).limit(1);
   if (!rfq) throw new Error("RFQ not found.");
@@ -1003,8 +1003,8 @@ export async function transmitRfqToBac(
   const db = options?.db ?? (await requireDb());
   const auditWriter = options?.recordAudit ?? writeAuditEvent;
   const actorRole = normalizeProcurementRole(user.role);
-  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
-    throw new Error("Access restricted to Procurement Officer.");
+  if (!roleCanAct(actorRole, ["procurement_officer", "procurement_staff", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer or Staff.");
   }
   const [rfq] = await db.select().from(rfqs).where(eq(rfqs.id, input.rfqId)).limit(1);
   if (!rfq) throw new Error("RFQ not found.");
@@ -1067,8 +1067,8 @@ export async function transmitRfqToBac(
 export async function listPhilgepsPostings(user: User) {
   const db = await requireDb();
   const actorRole = normalizeProcurementRole(user.role);
-  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
-    throw new Error("Access restricted to Procurement Officer.");
+  if (!roleCanAct(actorRole, ["procurement_officer", "procurement_staff", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer or Staff.");
   }
   const [rfqList, prList, audits] = await Promise.all([
     db.select().from(rfqs).orderBy(desc(rfqs.createdAt)),
@@ -1111,8 +1111,8 @@ export async function recordPhilgepsPosting(
 ) {
   const db = await requireDb();
   const actorRole = normalizeProcurementRole(user.role);
-  if (!roleCanAct(actorRole, ["procurement_officer", "admin"])) {
-    throw new Error("Access restricted to Procurement Officer.");
+  if (!roleCanAct(actorRole, ["procurement_officer", "procurement_staff", "admin"])) {
+    throw new Error("Access restricted to Procurement Officer or Staff.");
   }
   const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, input.purchaseRequestId)).limit(1);
   if (!pr) throw new Error("Purchase Request not found.");

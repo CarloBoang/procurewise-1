@@ -1100,7 +1100,7 @@ function PurchaseRequestForm({
 
               <div className="border-b border-[#e8e2d7] dark:border-[#46515c] pb-3">
                 <p id="pr-system-controls" className="text-xs font-semibold text-[#34404e] dark:text-[#f1f5f8]">
-                  Purchase Request Header & Details (Bound to PPMP)
+                  Purchase Request Header & Details (Bound to PPMP) — System controls — not part of Appendix 60
                 </p>
                 <p className="mt-1 text-[11px] leading-5 text-[#77818d] dark:text-[#aeb9c4]">
                   Office and budget allocations are automatically anchored to your verified PPMP project.
@@ -1251,7 +1251,7 @@ function PurchaseRequestForm({
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
                     <p className="text-xs font-semibold text-[#4c5664] dark:text-[#f1f5f8]">
-                      Requisition Line Items <span className="text-rose-600">*</span>
+                      Requisition Line Items — Item details — system entry workspace <span className="text-rose-600">*</span>
                     </p>
                     <p className="mt-1 text-[11px] text-[#77818d] dark:text-[#aeb9c4]">
                       Select a common-use catalog item to copy its specifications and reference price, or enter custom specifications.

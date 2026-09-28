@@ -353,7 +353,7 @@ export const appRouter = router({
         return createQuotationAbstract(input.rfqId, ctx.user);
       }),
       approveAbstract: protectedProcedure.input(z.object({ rfqId: z.number().int().positive() })).mutation(({ ctx, input }) => {
-        assertRole(normalizeProcurementRole(ctx.user.role), ["administrative_approver"]);
+        assertRole(normalizeProcurementRole(ctx.user.role), ["administrative_approver", "bac", "bac_secretariat", "hope", "admin"]);
         return approveQuotationAbstract(input.rfqId, ctx.user);
       }),
       createPurchaseOrder: protectedProcedure.input(z.object({ rfqId: z.number().int().positive() })).mutation(({ ctx, input }) => {
@@ -593,7 +593,7 @@ export const appRouter = router({
       }),
       rfqDistribution: router({
         list: protectedProcedure.query(({ ctx }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
           return listRfqDistributions(ctx.user);
         }),
         update: protectedProcedure.input(z.object({
@@ -604,7 +604,7 @@ export const appRouter = router({
           retrievalDate: z.coerce.date().optional(),
           remarks: z.string().max(1000).optional(),
         })).mutation(async ({ ctx, input }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
           const result = await updateRfqDistribution(input, ctx.user);
           void publishProcurementRealtimeUpdate("rfq");
           return result;
@@ -615,7 +615,7 @@ export const appRouter = router({
           subject: z.string().max(220).optional(),
           remarks: z.string().max(1000).optional(),
         })).mutation(async ({ ctx, input }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
           const result = await transmitRfqToBac(input, ctx.user);
           void publishProcurementRealtimeUpdate("bac_transmittal");
           return result;
@@ -623,7 +623,7 @@ export const appRouter = router({
       }),
       philgeps: router({
         list: protectedProcedure.query(({ ctx }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
           return listPhilgepsPostings(ctx.user);
         }),
         record: protectedProcedure.input(z.object({
@@ -634,7 +634,7 @@ export const appRouter = router({
           closingDate: z.coerce.date().optional(),
           remarks: z.string().max(1000).optional(),
         })).mutation(async ({ ctx, input }) => {
-          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "admin"]);
+          assertRole(normalizeProcurementRole(ctx.user.role), ["procurement_officer", "procurement_staff", "admin"]);
           const result = await recordPhilgepsPosting(input, ctx.user);
           void publishProcurementRealtimeUpdate("purchase_request");
           return result;

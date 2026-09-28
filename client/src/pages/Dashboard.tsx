@@ -1254,10 +1254,10 @@ function ProcurementStaffDashboard({
       number: "Duty 3",
       title: "Forward to BAC for AOQ Preparation",
       condition: "Transmit quotation package to BAC Secretariat for AOQ creation.",
-      href: "/officer/transmittals",
+      href: "/rfq-management",
       badge: `${transmittals.length} transmittals`,
       badgeTone: "pending",
-      buttonText: "Open Transmittals",
+      buttonText: "Forward to BAC / AOQ",
     },
     {
       id: "4",
