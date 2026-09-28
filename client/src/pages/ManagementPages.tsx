@@ -161,11 +161,117 @@ export function RfqPage() {
   const createRfq = trpc.procurement.rfqs.createFromPurchaseRequest.useMutation({ onSuccess: () => { toast.success("RFQ created for canvassing."); setMode(null); refresh(); }, onError: (error) => toast.error(error.message) });
   const addQuotation = trpc.procurement.rfqs.addQuotation.useMutation({ onSuccess: () => { toast.success("Supplier quotation recorded."); setMode(null); refresh(); }, onError: (error) => toast.error(error.message) });
   const generateAbstract = trpc.procurement.rfqs.generateAbstract.useMutation({ onSuccess: () => { toast.success("Abstract of Quotation generated."); refresh(); }, onError: (error) => toast.error(error.message) });
-  const approvedPrs = dashboard.data?.purchaseRequests.filter((pr) => pr.status === "approved") ?? [];
+  // Existing RFQs that are active and linked to a PR
+  const existingRfqPrIds = useMemo(() => {
+    return new Set(
+      (dashboard.data?.rfqs ?? [])
+        .filter((r) => r.status !== "cancelled" && r.purchaseRequestId)
+        .map((r) => r.purchaseRequestId)
+    );
+  }, [dashboard.data?.rfqs]);
+
+  // Eligible statuses: verified by PO/BAC, in PMR, budget approved, or approved
+  const eligibleStatuses = useMemo(
+    () =>
+      new Set([
+        "approved",
+        "approval_review",
+        "procurement_review",
+        "pmr_logged",
+        "budget_review",
+        "supply_review",
+        "bac_review",
+      ]),
+    []
+  );
+
+  const approvedPrs = useMemo(() => {
+    const rawPrs = dashboard.data?.purchaseRequests ?? [];
+    const filtered = rawPrs.filter((pr) => {
+      // Exclude PRs that already have an active RFQ
+      if (existingRfqPrIds.has(pr.id)) return false;
+      // Exclude terminal/rejected statuses
+      if (pr.status === "rejected" || pr.status === "returned" || pr.status === "closed") return false;
+      // Eligible if explicitly verified by PO/BAC or in an approved/verified/PMR status
+      const isVerified = Boolean(pr.procurementReviewedById);
+      const isStatusEligible = eligibleStatuses.has(pr.status);
+      return isVerified || isStatusEligible;
+    });
+
+    // Console logging for verification audit
+    console.log("Available PRs for RFQ:", filtered);
+    if (dashboard.error) {
+      console.error("Error loading dashboard PRs for RFQ:", dashboard.error);
+    }
+    return filtered;
+  }, [dashboard.data?.purchaseRequests, dashboard.error, existingRfqPrIds, eligibleStatuses]);
+
   const quoteCount = (rfqId: number) => dashboard.data?.supplierQuotations.filter((quote) => quote.rfqId === rfqId).length ?? 0;
   const supplierMap = new Map((setup.data?.suppliers ?? []).map((supplier) => [supplier.id, supplier]));
-  return <div className="mx-auto max-w-[1240px]"><PageHeader eyebrow="Quotation management" title="RFQs & quotation canvass" description="Create RFQs from approved PRs, record supplier quotations, and generate an abstract only after the mandatory three-supplier canvass." action={canSupply ? { label: "New RFQ", onClick: () => setMode(mode === "rfq" ? null : "rfq") } : undefined} />
-    {mode === "rfq" && <form className="flat-panel mt-7 p-5" onSubmit={(event) => { event.preventDefault(); const value = new FormData(event.currentTarget).get("purchaseRequestId"); if (!value) return toast.error("Select an approved Purchase Request."); createRfq.mutate({ purchaseRequestId: Number(value) }); }}><p className="text-sm font-semibold text-[#34404e]">Create RFQ from approved PR</p><div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end"><div className="w-full sm:max-w-md"><Label className="text-[11px] font-semibold">Approved Purchase Request</Label><Select name="purchaseRequestId"><SelectTrigger className="mt-1.5 h-9"><SelectValue placeholder="Select approved PR" /></SelectTrigger><SelectContent>{approvedPrs.map((pr) => <SelectItem key={pr.id} value={String(pr.id)}>{pr.prNumber} — {pr.purpose}</SelectItem>)}</SelectContent></Select></div><Button disabled={createRfq.isPending || !approvedPrs.length} className="h-9 rounded-[4px] bg-[#7b1e1e] text-xs hover:bg-[#641818]">{createRfq.isPending && <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" />}Start canvass</Button></div></form>}
+  return <div className="mx-auto max-w-[1240px]"><PageHeader eyebrow="Quotation management" title="RFQs & quotation canvass" description="Create RFQs from verified and approved PRs, record supplier quotations, and generate an abstract only after the mandatory three-supplier canvass." action={canSupply ? { label: "New RFQ", onClick: () => setMode(mode === "rfq" ? null : "rfq") } : undefined} />
+    {mode === "rfq" && (
+      <form
+        className="flat-panel mt-7 p-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const value = new FormData(event.currentTarget).get("purchaseRequestId");
+          if (!value) return toast.error("Select an eligible Purchase Request.");
+          createRfq.mutate({ purchaseRequestId: Number(value) });
+        }}
+      >
+        <div className="flex items-center justify-between border-b border-[#ece8df] pb-3">
+          <div>
+            <p className="text-sm font-semibold text-[#34404e]">Create RFQ from verified / approved PR</p>
+            <p className="mt-0.5 text-xs text-[#707c8a]">
+              Any Purchase Request that has completed Procurement Officer verification or BAC endorsement is eligible for quotation canvass.
+            </p>
+          </div>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setMode(null)} className="h-7 text-xs text-[#7b8490]">
+            Cancel
+          </Button>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="w-full sm:max-w-md">
+            <Label className="text-[11px] font-semibold text-[#34404e]">
+              Eligible Purchase Request ({approvedPrs.length} available)
+            </Label>
+            <Select name="purchaseRequestId" disabled={!approvedPrs.length}>
+              <SelectTrigger className="mt-1.5 h-9 text-xs">
+                <SelectValue
+                  placeholder={
+                    dashboard.isLoading
+                      ? "Loading Purchase Requests..."
+                      : approvedPrs.length
+                      ? "Select verified / approved PR"
+                      : "No verified PRs currently awaiting RFQ"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {approvedPrs.map((pr) => (
+                  <SelectItem key={pr.id} value={String(pr.id)} className="text-xs">
+                    {pr.prNumber} — {pr.purpose || "No description"} ({pr.procurementReviewedById ? "PO-Verified" : pr.status.toUpperCase()})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {!approvedPrs.length && !dashboard.isLoading && (
+              <p className="mt-1.5 text-[11px] text-[#9a6d19]">
+                No Purchase Requests are currently ready for RFQ canvassing. Make sure the PR is submitted by the End-User and verified by the Procurement Officer in the PR Verification screen.
+              </p>
+            )}
+          </div>
+          <Button
+            disabled={createRfq.isPending || !approvedPrs.length}
+            className="h-9 rounded-[4px] bg-[#7b1e1e] text-xs hover:bg-[#641818]"
+          >
+            {createRfq.isPending && <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+            Start canvass
+          </Button>
+        </div>
+      </form>
+    )}
     {mode === "quotation" && <QuotationForm rfqs={dashboard.data?.rfqs ?? []} suppliers={setup.data?.suppliers ?? []} isSaving={addQuotation.isPending} onCancel={() => setMode(null)} onCreate={(input) => addQuotation.mutate(input)} />}
     <div className="mt-7">{dashboard.isLoading ? <LoadingPanel label="Loading RFQ records" /> : dashboard.data?.rfqs.length ? <RecordTable><RecordTableHeader><tr><th className="px-4 py-3 font-semibold">RFQ</th><th className="px-4 py-3 font-semibold">Linked PR</th><th className="px-4 py-3 font-semibold">Quotations</th><th className="px-4 py-3 font-semibold">Status</th><th className="px-4 py-3 font-semibold">Action</th></tr></RecordTableHeader><tbody className="divide-y divide-[#efebe4]">{dashboard.data.rfqs.map((rfq) => { const quotations = quoteCount(rfq.id); const hasAbstract = dashboard.data.quotationAbstracts.some((abstract) => abstract.rfqId === rfq.id); return <tr key={rfq.id}><td className="px-4 py-3 font-semibold text-[#7b1e1e]">{rfq.rfqNumber}</td><td className="px-4 py-3 text-[#65717e]">PR #{rfq.purchaseRequestId}</td><td className="px-4 py-3"><StatusBadge tone={quotations >= 3 ? "approved" : "pending"}>{quotations}/3 SUPPLIERS</StatusBadge></td><td className="px-4 py-3"><StatusBadge tone={rfq.status === "approved" ? "approved" : "pending"}>{rfq.status.toUpperCase()}</StatusBadge></td><td className="px-4 py-3">{canSupply && !hasAbstract ? <div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => setMode("quotation")} className="h-7 rounded-[4px] text-[10px]">Add quotation</Button><Button size="sm" disabled={quotations < 3 || generateAbstract.isPending} onClick={() => generateAbstract.mutate({ rfqId: rfq.id })} className="h-7 rounded-[4px] bg-[#7b1e1e] px-2 text-[10px] hover:bg-[#641818]">Abstract</Button></div> : <span className="text-[11px] text-[#7b8490]">{hasAbstract ? "Abstracted" : "Role-gated"}</span>}</td></tr>; })}</tbody></RecordTable> : <EmptyWorkspace eyebrow="Quotation management" title="No RFQ records are available for your role." description="A Supply Officer can convert an approved PR to an RFQ, then record the mandatory supplier quotations." />}</div>
     {dashboard.data?.rfqs.length ? <QuotationComparison rfqs={dashboard.data.rfqs} quotations={dashboard.data.supplierQuotations} supplierMap={supplierMap} /> : null}

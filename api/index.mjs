@@ -3235,7 +3235,19 @@ async function logPmr(input, user, options) {
 async function createRfqFromPurchaseRequest(purchaseRequestId, user) {
   const db = await requireDb();
   const [pr] = await db.select().from(purchaseRequests).where(eq(purchaseRequests.id, purchaseRequestId)).limit(1);
-  if (!pr || pr.status !== "approved") throw new Error("Only an approved Purchase Request can be converted to an RFQ.");
+  if (!pr) throw new Error("Purchase Request not found.");
+  const isEligible = Boolean(pr.procurementReviewedById) || [
+    "approved",
+    "approval_review",
+    "procurement_review",
+    "pmr_logged",
+    "budget_review",
+    "supply_review",
+    "bac_review"
+  ].includes(pr.status);
+  if (!isEligible) {
+    throw new Error("Only a verified or approved Purchase Request can be converted to an RFQ.");
+  }
   const rfqNumber = `RFQ-${(/* @__PURE__ */ new Date()).getFullYear()}-${Date.now().toString().slice(-7)}`;
   await db.insert(rfqs).values({ rfqNumber, purchaseRequestId, status: "canvass", createdById: user.id });
   await db.update(purchaseRequests).set({ status: "rfq" }).where(eq(purchaseRequests.id, purchaseRequestId));
