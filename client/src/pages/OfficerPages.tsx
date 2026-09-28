@@ -129,16 +129,78 @@ export function TransmittalsPage() {
     onError: (error) => toast.error(error.message),
   });
 
+  // Auto-link matching PR if available
+  useEffect(() => {
+    if (!selectedPrId && dashboard.data?.purchaseRequests && dashboard.data.purchaseRequests.length > 0) {
+      const cleanCustom = (customPrNumber || "").trim().replace(/^PR-/, "");
+      const match = dashboard.data.purchaseRequests.find(
+        (p) =>
+          p.prNumber === customPrNumber ||
+          p.prNumber.replace(/^PR-/, "") === cleanCustom ||
+          p.prNumber.includes(cleanCustom)
+      );
+      if (match) {
+        setSelectedPrId(String(match.id));
+      } else if (dashboard.data.purchaseRequests.length === 1) {
+        setSelectedPrId(String(dashboard.data.purchaseRequests[0].id));
+      }
+    }
+  }, [dashboard.data?.purchaseRequests, customPrNumber, selectedPrId]);
+
   const directToPoMutation = trpc.procurement.officer.transmittals.directLetterToPo.useMutation({
     onSuccess: (data) => {
       toast.success(
-        `Letter of Approval for BAC Res. No. ${resolutionNumber} directed to PO. Notice of Award generated (${data.noticeNumber}).`
+        `Letter of Approval for BAC Res. No. ${resolutionNumber} directed to PO. Notice of Award generated (${data.noticeNumber}).`,
+        {
+          action: {
+            label: "Serve Notice Now →",
+            onClick: () => setLocation("/officer/notices-serving"),
+          },
+          duration: 9000,
+        }
       );
       void utils.procurement.officer.transmittals.list.invalidate();
       void utils.procurement.officer.notices.list.invalidate();
     },
     onError: (error) => toast.error(error.message),
   });
+
+  const handleDirectToPo = () => {
+    let prIdToUse = Number(selectedPrId);
+    if (!prIdToUse || isNaN(prIdToUse) || prIdToUse <= 0) {
+      const cleanCustom = (customPrNumber || "").trim().replace(/^PR-/, "");
+      const prs = dashboard.data?.purchaseRequests ?? [];
+      const match = prs.find(
+        (p) =>
+          p.prNumber === customPrNumber ||
+          p.prNumber.replace(/^PR-/, "") === cleanCustom ||
+          p.prNumber.includes(cleanCustom)
+      );
+      if (match) {
+        prIdToUse = match.id;
+        setSelectedPrId(String(match.id));
+      } else if (prs.length === 1) {
+        prIdToUse = prs[0].id;
+        setSelectedPrId(String(prIdToUse));
+      }
+    }
+
+    if (!prIdToUse || isNaN(prIdToUse) || prIdToUse <= 0) {
+      toast.error(
+        "Please select a Purchase Request from the 'Auto-fill from Purchase Request' dropdown above so the letter can be directed to the Procurement Officer.",
+        {
+          description: "A linked Purchase Request record is required to issue the formal Notice of Award / Letter of Approval.",
+        }
+      );
+      return;
+    }
+
+    directToPoMutation.mutate({
+      purchaseRequestId: prIdToUse,
+      resolutionNumber,
+      remarks,
+    });
+  };
 
   const acknowledge = trpc.procurement.officer.transmittals.acknowledge.useMutation({
     onSuccess: () => {
@@ -504,25 +566,15 @@ export function TransmittalsPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      disabled={directToPoMutation.isPending || !selectedPrId}
-                      onClick={() => {
-                        if (!selectedPrId) {
-                          toast.error("Select a linked Purchase Request first.");
-                          return;
-                        }
-                        directToPoMutation.mutate({
-                          purchaseRequestId: Number(selectedPrId),
-                          resolutionNumber,
-                          remarks,
-                        });
-                      }}
-                      className="w-full sm:w-auto h-9 text-xs border-emerald-700 text-emerald-800 hover:bg-emerald-50 px-3 py-2 flex items-center justify-center gap-1.5"
+                      disabled={directToPoMutation.isPending}
+                      onClick={handleDirectToPo}
+                      className="w-full sm:w-auto h-9 text-xs border-emerald-700 text-emerald-800 hover:bg-emerald-50 px-3.5 py-2 flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all"
                       title="Direct approved Letter of Approval to Procurement Officer (PO) for serving"
                     >
                       {directToPoMutation.isPending ? (
                         <LoaderCircle className="h-3.5 w-3.5 animate-spin shrink-0" />
                       ) : (
-                        <Send className="h-3.5 w-3.5 shrink-0" />
+                        <Send className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
                       )}
                       <span>Direct Letter to PO to Serve</span>
                     </Button>
@@ -664,20 +716,44 @@ export function TransmittalsPage() {
                           </Button>
                         )}
                         {isResolution ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              const resMatch = item.subject.match(/BAC Resolution No\.\s*([^-\s]+)/i);
-                              const resNum = resMatch ? resMatch[1] : "2601-GAS2-009";
-                              setLocation(`/print/bac-resolution?prId=${item.purchaseRequestId || 0}&resNo=${resNum}`);
-                            }}
-                            className="h-8 rounded-[4px] text-[11px] border-[#7b1e1e] text-[#7b1e1e]"
-                          >
-                            <Printer className="mr-1 h-3.5 w-3.5" />
-                            Print Resolution
-                          </Button>
+                          <>
+                            {item.purchaseRequestId && (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={directToPoMutation.isPending}
+                                onClick={() => {
+                                  const resMatch = item.subject.match(/BAC Resolution No\.\s*([^-\s]+)/i);
+                                  const resNum = resMatch ? resMatch[1] : "2601-GAS2-009";
+                                  directToPoMutation.mutate({
+                                    purchaseRequestId: item.purchaseRequestId!,
+                                    resolutionNumber: resNum,
+                                    remarks: item.remarks || undefined,
+                                  });
+                                }}
+                                className="h-8 rounded-[4px] text-[11px] border-emerald-700 text-emerald-800 hover:bg-emerald-50"
+                                title="Direct approved Letter of Approval to PO to serve"
+                              >
+                                <Send className="mr-1 h-3.5 w-3.5 text-emerald-700" />
+                                Direct to PO
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                const resMatch = item.subject.match(/BAC Resolution No\.\s*([^-\s]+)/i);
+                                const resNum = resMatch ? resMatch[1] : "2601-GAS2-009";
+                                setLocation(`/print/bac-resolution?prId=${item.purchaseRequestId || 0}&resNo=${resNum}`);
+                              }}
+                              className="h-8 rounded-[4px] text-[11px] border-[#7b1e1e] text-[#7b1e1e]"
+                            >
+                              <Printer className="mr-1 h-3.5 w-3.5" />
+                              Print Resolution
+                            </Button>
+                          </>
                         ) : (
                           <Button
                             type="button"
