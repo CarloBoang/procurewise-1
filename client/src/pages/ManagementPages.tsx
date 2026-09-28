@@ -575,19 +575,25 @@ export function PurchaseOrderPage() {
     role === "hope" ||
     role === "admin";
   const canSupply =
-    role === "procurement_officer" ||
+    user?.role === "procurement_staff" ||
     role === "procurement_staff" ||
+    user?.role === "procurement_officer" ||
+    user?.role === "procurement_officer_i" ||
+    role === "procurement_officer" ||
     role === "admin";
   const canBudget =
     user?.role === "budget_officer" ||
+    role === "budget_officer" ||
     role === "administrative_approver" ||
     role === "admin";
   const canHope =
     user?.role === "hope" ||
+    role === "hope" ||
     role === "administrative_approver" ||
     role === "admin";
   const canPoi =
     user?.role === "procurement_officer_i" ||
+    role === "procurement_officer_i" ||
     role === "procurement_officer" ||
     role === "admin";
 
@@ -704,24 +710,24 @@ export function PurchaseOrderPage() {
           </div>
           <div className="p-2.5 rounded-md border border-[#7b1e1e]/20 bg-white">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-[#7b1e1e]">2. Staff PO</span>
+              <span className="font-bold text-[#7b1e1e]">2. Prepare Purchase Order</span>
               <FileCheck2 className="h-3.5 w-3.5 text-[#7b1e1e]" />
             </div>
-            <p className="text-[#65717e] mt-1 text-[10px]">Procurement Staff prepares official PO (App. 61)</p>
+            <p className="text-[#65717e] mt-1 text-[10px]"><strong>Procurement Staff</strong> · Purchase Order (App. 61)</p>
           </div>
           <div className="p-2.5 rounded-md border border-amber-200 bg-white">
             <div className="flex items-center justify-between">
               <span className="font-bold text-amber-800">3. Contract Signing</span>
               <Clock className="h-3.5 w-3.5 text-amber-600" />
             </div>
-            <p className="text-[#65717e] mt-1 text-[10px]">Budget Officer (ORS/BURS) & HoPE signatures</p>
+            <p className="text-[#65717e] mt-1 text-[10px]"><strong>Budget Officer / HoPE</strong> · Purchase Order</p>
           </div>
           <div className="p-2.5 rounded-md border border-blue-200 bg-white">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-blue-800">4. PO Releasing</span>
+              <span className="font-bold text-blue-800">4. Purchase Order/Contract releasing</span>
               <Send className="h-3.5 w-3.5 text-blue-600" />
             </div>
-            <p className="text-[#65717e] mt-1 text-[10px]">Procurement Officer I releases PO to supplier</p>
+            <p className="text-[#65717e] mt-1 text-[10px]"><strong>Procurement Officer I</strong> · Purchase Order</p>
             <Link href="/officer/releasing" className="mt-1.5 text-[10px] text-blue-700 font-semibold block hover:underline">
               PO Releasing Desk →
             </Link>
