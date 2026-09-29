@@ -138,6 +138,36 @@ export function SupplierEvaluationDocumentSheet({
         {/* Metadata Fields Section */}
         {children ? (
           <div className="mt-4">{children}</div>
+        ) : data.audience === "end_user" ? (
+          <div className="mt-4 grid gap-x-8 gap-y-2.5 sm:grid-cols-2 text-xs">
+            <div className="flex items-baseline gap-2">
+              <span className="font-semibold text-[#3e4855] shrink-0">Name of Supplier:</span>
+              <span className="flex-1 border-b border-[#222] pb-0.5 font-medium text-[#1f2933]">
+                {data.supplierName || "—"}
+              </span>
+            </div>
+
+            <div className="flex items-baseline gap-2">
+              <span className="font-semibold text-[#3e4855] shrink-0">Type of Goods/Services Provided:</span>
+              <span className="flex-1 border-b border-[#222] pb-0.5 font-medium text-[#1f2933]">
+                {data.goodsServicesType || "—"}
+              </span>
+            </div>
+
+            <div className="flex items-baseline gap-2">
+              <span className="font-semibold text-[#3e4855] shrink-0">Office/Unit:</span>
+              <span className="flex-1 border-b border-[#222] pb-0.5 font-medium text-[#1f2933]">
+                {data.officeName || "—"}
+              </span>
+            </div>
+
+            <div className="flex items-baseline gap-2">
+              <span className="font-semibold text-[#3e4855] shrink-0">Purchase Order No.:</span>
+              <span className="flex-1 border-b border-[#222] pb-0.5 font-medium text-[#1f2933]">
+                {data.purchaseOrderNumber || "—"}
+              </span>
+            </div>
+          </div>
         ) : (
           <div className="mt-4 grid gap-x-8 gap-y-2.5 sm:grid-cols-2 text-xs">
             <div className="flex items-baseline gap-2">
@@ -148,35 +178,16 @@ export function SupplierEvaluationDocumentSheet({
             </div>
 
             <div className="flex items-baseline gap-2">
-              <span className="font-semibold text-[#3e4855] shrink-0">
-                {data.audience === "end_user" ? "Type of Goods/Services Provided:" : "Purchase Request No.:"}
-              </span>
+              <span className="font-semibold text-[#3e4855] shrink-0">Purchase Request No.:</span>
               <span className="flex-1 border-b border-[#222] pb-0.5 font-medium text-[#1f2933]">
-                {data.audience === "end_user"
-                  ? data.goodsServicesType || "—"
-                  : data.purchaseRequestNumber || "—"}
+                {data.purchaseRequestNumber || "—"}
               </span>
             </div>
 
             <div className="flex items-baseline gap-2">
-              <span className="font-semibold text-[#3e4855] shrink-0">
-                {data.audience === "end_user" ? "Office/Unit:" : "Purchase Order No.:"}
-              </span>
+              <span className="font-semibold text-[#3e4855] shrink-0">Purchase Order No.:</span>
               <span className="flex-1 border-b border-[#222] pb-0.5 font-medium text-[#1f2933]">
-                {data.audience === "end_user"
-                  ? data.officeName || "—"
-                  : data.purchaseOrderNumber || "—"}
-              </span>
-            </div>
-
-            <div className="flex items-baseline gap-2">
-              <span className="font-semibold text-[#3e4855] shrink-0">
-                {data.audience === "end_user" ? "Purchase Order No.:" : "Supplier Registry RN:"}
-              </span>
-              <span className="flex-1 border-b border-[#222] pb-0.5 font-medium text-[#1f2933]">
-                {data.audience === "end_user"
-                  ? data.purchaseOrderNumber || "—"
-                  : data.supplierRegistryReference || "—"}
+                {data.purchaseOrderNumber || "—"}
               </span>
             </div>
 

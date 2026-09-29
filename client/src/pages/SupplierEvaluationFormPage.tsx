@@ -64,9 +64,9 @@ export function SupplierEvaluationFormPage() {
   const selectedSupplier = useMemo(() => setup.data?.suppliers.find((supplier) => supplier.id === (audience === "end_user" ? selectedEndUserOrder?.order.supplierId : Number(supplierId))) ?? null, [audience, selectedEndUserOrder?.order.supplierId, setup.data?.suppliers, supplierId]);
   const selectedOfficeName = selectedEndUserOrder?.request?.officeId ? setup.data?.offices.find((office) => office.id === selectedEndUserOrder.request?.officeId)?.name || "" : "";
   const officialPrNumber = audience === "end_user" ? selectedEndUserOrder?.request?.prNumber || "" : selectedPrNumber;
-  const selectedPhilgepsNumber = audience === "end_user" ? selectedSupplier?.philgepsRegistrationNumber || "" : registryReference;
-  const selectedPhilgepsRegisteredAt = audience === "end_user" ? selectedSupplier?.philgepsRegistrationDate || null : (registryRegisteredAt ? new Date(`${registryRegisteredAt}T00:00:00`) : null);
-  const selectedPhilgepsExpiresAt = audience === "end_user" ? selectedSupplier?.philgepsExpirationDate || null : (registryExpiresAt ? new Date(`${registryExpiresAt}T00:00:00`) : null);
+  const selectedPhilgepsNumber = audience === "procurement_office" ? registryReference : "";
+  const selectedPhilgepsRegisteredAt = audience === "procurement_office" ? (registryRegisteredAt ? new Date(`${registryRegisteredAt}T00:00:00`) : null) : null;
+  const selectedPhilgepsExpiresAt = audience === "procurement_office" ? (registryExpiresAt ? new Date(`${registryExpiresAt}T00:00:00`) : null) : null;
   const shownPrNumber = audience === "procurement_office" ? reportedPurchaseRequestNumber || officialPrNumber : officialPrNumber;
   const isUrgentPrReference = audience === "procurement_office" && Boolean(shownPrNumber) && shownPrNumber !== officialPrNumber;
   const criteria = audience ? groupedCriteria(audience) : [];
@@ -79,9 +79,9 @@ export function SupplierEvaluationFormPage() {
     officeName: selectedOfficeName,
     purchaseRequestNumber: shownPrNumber || null,
     purchaseOrderNumber: audience === "end_user" ? selectedEndUserOrder?.order.poNumber || "" : selectedProcurementOrder?.poNumber || "",
-    supplierRegistryReference: selectedPhilgepsNumber,
-    supplierRegistryRegisteredAt: selectedPhilgepsRegisteredAt,
-    supplierRegistryExpiresAt: selectedPhilgepsExpiresAt,
+    supplierRegistryReference: audience === "end_user" ? null : selectedPhilgepsNumber,
+    supplierRegistryRegisteredAt: audience === "end_user" ? null : selectedPhilgepsRegisteredAt,
+    supplierRegistryExpiresAt: audience === "end_user" ? null : selectedPhilgepsExpiresAt,
     responseScores: { ...responses },
     remarks,
     respondentName,
@@ -96,9 +96,9 @@ export function SupplierEvaluationFormPage() {
       officeName: selectedOfficeName,
       purchaseRequestNumber: shownPrNumber || null,
       purchaseOrderNumber: audience === "end_user" ? selectedEndUserOrder?.order.poNumber || "PO-Pending" : selectedProcurementOrder?.poNumber || "PO-Pending",
-      supplierRegistryReference: selectedPhilgepsNumber,
-      supplierRegistryRegisteredAt: selectedPhilgepsRegisteredAt,
-      supplierRegistryExpiresAt: selectedPhilgepsExpiresAt,
+      supplierRegistryReference: audience === "end_user" ? null : selectedPhilgepsNumber,
+      supplierRegistryRegisteredAt: audience === "end_user" ? null : selectedPhilgepsRegisteredAt,
+      supplierRegistryExpiresAt: audience === "end_user" ? null : selectedPhilgepsExpiresAt,
       responseScores: { ...responses },
       remarks,
       respondentName,
@@ -118,9 +118,9 @@ export function SupplierEvaluationFormPage() {
       officeName: null,
       purchaseRequestNumber: ev.reportedPurchaseRequestNumber,
       purchaseOrderNumber: selectedPendingApproval.purchaseOrder?.poNumber || "PO",
-      supplierRegistryReference: ev.supplierRegistryReference,
-      supplierRegistryRegisteredAt: ev.supplierRegistryRegisteredAt,
-      supplierRegistryExpiresAt: ev.supplierRegistryExpiresAt,
+      supplierRegistryReference: ev.evaluationAudience === "end_user" ? null : ev.supplierRegistryReference,
+      supplierRegistryRegisteredAt: ev.evaluationAudience === "end_user" ? null : ev.supplierRegistryRegisteredAt,
+      supplierRegistryExpiresAt: ev.evaluationAudience === "end_user" ? null : ev.supplierRegistryExpiresAt,
       responseScores: (ev.responseScores as Record<string, number>) || {},
       remarks: ev.remarks,
       respondentName: ev.respondentName,
@@ -141,7 +141,7 @@ export function SupplierEvaluationFormPage() {
   const signApproval = trpc.procurement.officer.supplierEvaluations.signApproval.useMutation({
     onSuccess: (result) => {
       if (selectedPendingApproval) {
-        setSignedPdf({ audience: result.evaluation.evaluationAudience, supplierName: selectedPendingApproval.supplier?.companyName || "", goodsServicesType: result.evaluation.goodsServicesType, purchaseRequestNumber: result.evaluation.reportedPurchaseRequestNumber, purchaseOrderNumber: selectedPendingApproval.purchaseOrder?.poNumber || "", supplierRegistryReference: result.evaluation.supplierRegistryReference, supplierRegistryRegisteredAt: result.evaluation.supplierRegistryRegisteredAt, supplierRegistryExpiresAt: result.evaluation.supplierRegistryExpiresAt, responseScores: result.evaluation.responseScores || {}, remarks: result.evaluation.remarks, respondentName: result.evaluation.respondentName, evaluatedAt: result.evaluation.evaluatedAt, electronicApproval: result.approval });
+        setSignedPdf({ audience: result.evaluation.evaluationAudience, supplierName: selectedPendingApproval.supplier?.companyName || "", goodsServicesType: result.evaluation.goodsServicesType, purchaseRequestNumber: result.evaluation.reportedPurchaseRequestNumber, purchaseOrderNumber: selectedPendingApproval.purchaseOrder?.poNumber || "", supplierRegistryReference: result.evaluation.evaluationAudience === "end_user" ? null : result.evaluation.supplierRegistryReference, supplierRegistryRegisteredAt: result.evaluation.evaluationAudience === "end_user" ? null : result.evaluation.supplierRegistryRegisteredAt, supplierRegistryExpiresAt: result.evaluation.evaluationAudience === "end_user" ? null : result.evaluation.supplierRegistryExpiresAt, responseScores: result.evaluation.responseScores || {}, remarks: result.evaluation.remarks, respondentName: result.evaluation.respondentName, evaluatedAt: result.evaluation.evaluatedAt, electronicApproval: result.approval });
       }
       void utils.procurement.officer.supplierEvaluations.pendingApprovals.invalidate();
       setApprovalEvaluationId(""); setApproverDesignation(""); setApprovalConsent(false);
@@ -241,15 +241,6 @@ export function SupplierEvaluationFormPage() {
                     />
                     <FormField label="Office/Unit" value={selectedOfficeName} />
                     <FormField label="Purchase Order No." value={selectedEndUserOrder?.order.poNumber || ""} />
-                    <FormField label="PhilGEPS Registration" value={selectedPhilgepsNumber || "Not recorded in supplier registry"} />
-                    <FormField
-                      label="Registration Date"
-                      value={selectedPhilgepsRegisteredAt ? new Date(selectedPhilgepsRegisteredAt).toLocaleDateString("en-PH") : "Not recorded in supplier registry"}
-                    />
-                    <FormField
-                      label="PhilGEPS Expiration Date"
-                      value={selectedPhilgepsExpiresAt ? new Date(selectedPhilgepsExpiresAt).toLocaleDateString("en-PH") : "Not recorded in supplier registry"}
-                    />
                   </>
                 ) : (
                   <>
