@@ -178,8 +178,12 @@ describe("Automated End-to-End Procurement Lifecycle & Workflow Audit", () => {
         allottedAmount: "250000.00",
         committedAmount: "0.00",
       };
+      const requiredDocuments = [
+        { documentType: "Preliminary Abstract of Quotations" },
+        { documentType: "Canvass Form" },
+      ];
 
-      const fake = fakeDb([[pr], [preCanvass], quotes, [allotment]]);
+      const fake = fakeDb([[pr], [preCanvass], quotes, requiredDocuments, [allotment]]);
 
       const result = await advancePurchaseRequest(
         { purchaseRequestId: 501, nextStatus: "procurement_review" },
@@ -698,4 +702,3 @@ describe("Automated End-to-End Procurement Lifecycle & Workflow Audit", () => {
     });
   });
 });
-

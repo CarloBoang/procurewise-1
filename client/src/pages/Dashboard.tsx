@@ -1,10 +1,10 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { EmptyWorkspace } from "@/components/EmptyWorkspace";
 import { PageHeader } from "@/components/PageHeader";
-import { RecordTable, RecordTableHeader } from "@/components/RecordTable";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import {
   Dialog,
   DialogContent,
@@ -13,10 +13,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
 import {
-  EMPLOYEE_PR_STATUS_LABELS,
   getEmployeePrStatus,
   normalizeProcurementRole,
 } from "../../../shared/procurementRules";
@@ -40,21 +38,16 @@ import {
   FileSpreadsheet,
   FileText,
   Info,
-  Layers,
   PartyPopper,
   Plus,
   RotateCcw,
-  Search,
   Send,
   ShieldCheck,
-  Sparkles,
   Timer,
   X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useLocation } from "wouter";
-
-type PrFilterCategory = "all" | "active" | "returned" | "successful" | "rejected";
 
 function formatMoney(amount: number | string | null | undefined) {
   const numeric = typeof amount === "number" ? amount : Number(amount ?? 0);
@@ -62,6 +55,28 @@ function formatMoney(amount: number | string | null | undefined) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+}
+
+function getEndUserProgress(status: string) {
+  const progress: Record<string, { value: number; label: string; nextStep: string }> = {
+    draft: { value: 10, label: "Preparing request", nextStep: "Complete and submit your request." },
+    returned: { value: 20, label: "Needs your attention", nextStep: "Review the comments and update your request." },
+    procurement_review: { value: 35, label: "Being checked", nextStep: "The Procurement Office is reviewing your request." },
+    approval_review: { value: 55, label: "Waiting for approval", nextStep: "Your request is with the approver." },
+    budget_review: { value: 55, label: "Waiting for approval", nextStep: "Your request is with the approver." },
+    supply_review: { value: 55, label: "Waiting for approval", nextStep: "Your request is with the approver." },
+    bac_review: { value: 55, label: "Waiting for approval", nextStep: "Your request is with the approver." },
+    approved: { value: 65, label: "Approved", nextStep: "The Procurement Office is preparing the next step." },
+    rfq: { value: 75, label: "Supplier quotes being reviewed", nextStep: "The Procurement Office is comparing supplier quotes." },
+    po: { value: 82, label: "Purchase order being prepared", nextStep: "The Purchase Order is being prepared." },
+    po_issued: { value: 88, label: "Purchase order issued", nextStep: "The supplier is preparing your items." },
+    delivered: { value: 95, label: "Delivery recorded", nextStep: "The Procurement Office is completing the final record." },
+    pmr_logged: { value: 100, label: "Complete", nextStep: "Your request is complete." },
+    closed: { value: 100, label: "Complete", nextStep: "Your request is complete." },
+    rejected: { value: 0, label: "Not approved", nextStep: "Open the request to read the reason and guidance." },
+    cancelled: { value: 0, label: "Cancelled", nextStep: "Open the request for more information." },
+  };
+  return progress[status] ?? { value: 35, label: "In progress", nextStep: "The Procurement Office is processing your request." };
 }
 
 export default function Dashboard() {
@@ -90,7 +105,7 @@ export default function Dashboard() {
     return <AdminDashboard data={data} isLoading={dashboard.isLoading} userRole={procurementRole} />;
   }
 
-  // Dedicated End-User Personal Analytics & Status Overview
+  // Simple end-user request overview
   return <EndUserPersonalDashboard data={data} isLoading={dashboard.isLoading} user={user} setLocation={setLocation} />;
 }
 
@@ -108,11 +123,8 @@ function EndUserPersonalDashboard({
   user: any;
   setLocation: (path: string) => void;
 }) {
-  const [selectedCategory, setSelectedCategory] = useState<PrFilterCategory>("all");
-  const [searchQuery, setSearchQuery] = useState("");
   const [selectedPrForModal, setSelectedPrForModal] = useState<any | null>(null);
   const [dismissedBannerIds, setDismissedBannerIds] = useState<Record<number, boolean>>({});
-  const [bannerCategoryOverride, setBannerCategoryOverride] = useState<"returned" | "rejected" | "successful" | null>(null);
 
   // All PRs returned by the backend for this End-User account
   const userPrs = useMemo(() => {
@@ -134,10 +146,8 @@ function EndUserPersonalDashboard({
 
   // 1. Pursued / Active PRs: Total PRs currently ongoing in the procurement pipeline
   const activePrs = useMemo(() => {
-    return userPrs.filter((pr) =>
-      ["draft", "procurement_review", "approval_review", "budget_review", "supply_review", "bac_review", "rfq"].includes(
-        pr.status
-      )
+    return userPrs.filter(
+      (pr) => !["returned", "rejected", "cancelled", "pmr_logged", "closed"].includes(pr.status)
     );
   }, [userPrs]);
 
@@ -149,7 +159,7 @@ function EndUserPersonalDashboard({
   // 3. Successful / Completed PRs: Count of fully awarded/completed PRs
   const successfulPrs = useMemo(() => {
     return userPrs.filter((pr) =>
-      ["approved", "po", "po_issued", "delivered", "pmr_logged", "closed"].includes(pr.status)
+      ["pmr_logged", "closed"].includes(pr.status)
     );
   }, [userPrs]);
 
@@ -172,12 +182,11 @@ function EndUserPersonalDashboard({
 
   // Active banner resolution
   const activeBannerCategory = useMemo<"returned" | "rejected" | "successful" | null>(() => {
-    if (bannerCategoryOverride) return bannerCategoryOverride;
     if (latestReturned && !dismissedBannerIds[latestReturned.id]) return "returned";
     if (latestRejected && !dismissedBannerIds[latestRejected.id]) return "rejected";
     if (latestSuccessful && !dismissedBannerIds[latestSuccessful.id]) return "successful";
     return null;
-  }, [bannerCategoryOverride, latestReturned, latestRejected, latestSuccessful, dismissedBannerIds]);
+  }, [latestReturned, latestRejected, latestSuccessful, dismissedBannerIds]);
 
   const activeBannerPr =
     activeBannerCategory === "returned"
@@ -188,33 +197,15 @@ function EndUserPersonalDashboard({
       ? latestSuccessful
       : null;
 
-  // Filtered PR list for table view
-  const filteredPrs = useMemo(() => {
-    let list = userPrs;
-    if (selectedCategory === "active") list = activePrs;
-    else if (selectedCategory === "returned") list = returnedPrs;
-    else if (selectedCategory === "successful") list = successfulPrs;
-    else if (selectedCategory === "rejected") list = rejectedPrs;
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter(
-        (pr) =>
-          pr.prNumber?.toLowerCase().includes(q) ||
-          pr.purpose?.toLowerCase().includes(q) ||
-          pr.status?.toLowerCase().includes(q)
-      );
-    }
-    return sortByLatest(list);
-  }, [userPrs, activePrs, returnedPrs, successfulPrs, rejectedPrs, selectedCategory, searchQuery]);
+  const sortedPrs = useMemo(() => sortByLatest(userPrs), [userPrs]);
 
   return (
     <div className="content-shell pb-12">
       {/* Page Header */}
       <PageHeader
-        eyebrow="End-User Workspace"
-        title="Personal Analytics & Status Overview"
-        description="A dedicated overview of your personal Purchase Requests. Monitor active procurement pipeline stages, review constructive return feedback, and track completed awards."
+        eyebrow="My workspace"
+        title="My Purchase Requests"
+        description="See where your requests are and whether anything needs your attention."
         action={{
           label: "New Purchase Request",
           onClick: () => setLocation("/purchase-requests?create=1"),
@@ -223,57 +214,6 @@ function EndUserPersonalDashboard({
 
       {/* Contextual Feedback Banner Section */}
       <section className="mt-6">
-        {/* Banner Switcher Chips if user has multiple update types */}
-        {(returnedPrs.length > 0 || rejectedPrs.length > 0 || successfulPrs.length > 0) && (
-          <div className="mb-2.5 flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-[#7e8b9b] dark:text-[#aeb9c4]">
-              Recent Status Alerts:
-            </span>
-            {returnedPrs.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setBannerCategoryOverride("returned")}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition ${
-                  activeBannerCategory === "returned"
-                    ? "border-[#d4a029] bg-[#fff6df] text-[#845b14] shadow-xs dark:bg-[#342410] dark:text-[#f8d486]"
-                    : "border-[#e5dfd5] bg-white text-[#5e6977] hover:border-[#d4a029] dark:bg-[#1a232c] dark:border-[#384554] dark:text-[#d1dae2]"
-                }`}
-              >
-                <FileEdit className="h-3 w-3 text-[#b47a16]" />
-                <span>Revision Needed ({returnedPrs.length})</span>
-              </button>
-            )}
-            {rejectedPrs.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setBannerCategoryOverride("rejected")}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition ${
-                  activeBannerCategory === "rejected"
-                    ? "border-[#e07d7d] bg-[#fdf2f2] text-[#8e2424] shadow-xs dark:bg-[#341818] dark:text-[#fca5a5]"
-                    : "border-[#e5dfd5] bg-white text-[#5e6977] hover:border-[#e07d7d] dark:bg-[#1a232c] dark:border-[#384554] dark:text-[#d1dae2]"
-                }`}
-              >
-                <Ban className="h-3 w-3 text-[#b93232]" />
-                <span>Notice / Rejected ({rejectedPrs.length})</span>
-              </button>
-            )}
-            {successfulPrs.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setBannerCategoryOverride("successful")}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition ${
-                  activeBannerCategory === "successful"
-                    ? "border-[#85d0ad] bg-[#eefaf3] text-[#136a43] shadow-xs dark:bg-[#122e20] dark:text-[#86efac]"
-                    : "border-[#e5dfd5] bg-white text-[#5e6977] hover:border-[#85d0ad] dark:bg-[#1a232c] dark:border-[#384554] dark:text-[#d1dae2]"
-                }`}
-              >
-                <PartyPopper className="h-3 w-3 text-[#136a43]" />
-                <span>Completed / Awarded ({successfulPrs.length})</span>
-              </button>
-            )}
-          </div>
-        )}
-
         {/* Dynamic Contextual Banner Rendering */}
         {activeBannerCategory === "returned" && activeBannerPr && (
           <div className="relative rounded-lg border border-[#f1d28c] bg-gradient-to-r from-[#fffaf0] via-[#fffbf4] to-[#fffdf9] p-4 shadow-sm dark:border-[#5a431c] dark:from-[#251b0f] dark:to-[#1a232c]">
@@ -427,155 +367,65 @@ function EndUserPersonalDashboard({
           </div>
         )}
 
-        {/* Friendly guidance banner if no high-priority alert is active */}
-        {!activeBannerCategory && userPrs.length > 0 && (
-          <div className="rounded-lg border border-[#e4dfd5] bg-gradient-to-r from-[#fbf9f5] to-white p-4 shadow-xs dark:border-[#384554] dark:from-[#1b2229] dark:to-[#1a232c]">
-            <div className="flex items-center gap-3">
-              <div className="grid h-8 w-8 shrink-0 place-items-center rounded bg-[#f3ede1] text-[#7b1e1e] dark:bg-[#341f1f] dark:text-[#ff837a]">
-                <Sparkles className="h-4 w-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-[#2f3946] dark:text-[#f1f5f8]">
-                  Procurement pipeline is operating normally.
-                </p>
-                <p className="text-[11px] text-[#707c8a] dark:text-[#aeb9c4]">
-                  You have {activePrs.length} active request{activePrs.length === 1 ? "" : "s"} progressing through verification. Any revisions or BAC remarks will appear right here automatically.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setLocation("/purchase-requests?create=1")}
-                className="hidden sm:inline-flex h-7 text-xs font-medium shrink-0"
-              >
-                <Plus className="mr-1 h-3.5 w-3.5" />
-                New PR
-              </Button>
-            </div>
-          </div>
-        )}
       </section>
 
-      {/* 1. Metrics Cards (KPIs) Grid */}
-      <section className="mt-6">
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {/* 1. Pursued / Active PRs */}
-          <PersonalKpiCard
-            label="Pursued / Active PRs"
-            count={activePrs.length}
-            subtitle="Total PRs currently ongoing in the procurement pipeline"
-            detail="In review, RFQ canvassing, or PO preparation"
-            tone="blue"
-            icon={Layers}
-            isActive={selectedCategory === "active"}
-            onClick={() => setSelectedCategory(selectedCategory === "active" ? "all" : "active")}
-          />
-
-          {/* 2. Returned for Revision */}
-          <PersonalKpiCard
-            label="Returned for Revision"
-            count={returnedPrs.length}
-            subtitle="Count of PRs returned needing user correction"
-            detail="Reviewer comments attached for resubmission"
-            tone="amber"
-            icon={FileEdit}
-            highlightBadge={returnedPrs.length > 0 ? "ACTION NEEDED" : undefined}
-            isActive={selectedCategory === "returned"}
-            onClick={() => setSelectedCategory(selectedCategory === "returned" ? "all" : "returned")}
-          />
-
-          {/* 3. Successful / Completed PRs */}
-          <PersonalKpiCard
-            label="Successful / Completed PRs"
-            count={successfulPrs.length}
-            subtitle="Count of fully awarded/completed PRs"
-            detail="Passed all reviews, awarded or closed in PMR"
-            tone="emerald"
-            icon={CheckCircle2}
-            isActive={selectedCategory === "successful"}
-            onClick={() => setSelectedCategory(selectedCategory === "successful" ? "all" : "successful")}
-          />
-
-          {/* 4. Rejected / Cancelled */}
-          <PersonalKpiCard
-            label="Rejected / Cancelled"
-            count={rejectedPrs.length}
-            subtitle="Count of disapproved requests"
-            detail="Disapproved requests or committee terminations"
-            tone="rose"
-            icon={Ban}
-            isActive={selectedCategory === "rejected"}
-            onClick={() => setSelectedCategory(selectedCategory === "rejected" ? "all" : "rejected")}
-          />
-        </div>
+      <section className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Purchase request overview">
+        {[
+          {
+            label: "In Progress",
+            value: activePrs.length,
+            detail: "Requests being prepared or processed.",
+            icon: Activity,
+            tone: "text-blue-700 bg-blue-50 dark:text-blue-400 dark:bg-blue-950/40",
+          },
+          {
+            label: "Needs Your Attention",
+            value: returnedPrs.length,
+            detail: "Requests returned for your updates.",
+            icon: FileEdit,
+            tone: "text-amber-700 bg-amber-50 dark:text-amber-400 dark:bg-amber-950/40",
+          },
+          {
+            label: "Completed",
+            value: successfulPrs.length,
+            detail: "Requests with final records completed.",
+            icon: CheckCircle2,
+            tone: "text-emerald-700 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/40",
+          },
+          {
+            label: "Not Approved",
+            value: rejectedPrs.length,
+            detail: "Requests that were rejected or cancelled.",
+            icon: Ban,
+            tone: "text-rose-700 bg-rose-50 dark:text-rose-400 dark:bg-rose-950/40",
+          },
+        ].map((card) => (
+          <div key={card.label} className="flat-panel p-4">
+            <div className={`grid h-9 w-9 place-items-center rounded-md ${card.tone}`}>
+              <card.icon className="h-4 w-4" />
+            </div>
+            <p className="mt-4 font-display text-2xl font-semibold text-[#202833] dark:text-[#f1f5f8]">
+              {isLoading ? "—" : card.value}
+            </p>
+            <p className="mt-2 text-sm font-semibold text-[#3b4654] dark:text-[#f1f5f8]">{card.label}</p>
+            <p className="mt-2 text-sm leading-5 text-muted-foreground">{card.detail}</p>
+          </div>
+        ))}
       </section>
 
       {/* PR Register & Table Filter Section */}
-      <section className="flat-panel mt-6">
+      <section className="flat-panel mt-5">
         <div className="border-b border-[#ece8df] px-4 py-4 sm:px-6 dark:border-[#384554]">
-          <div className="flex flex-col gap-3.5 xl:flex-row xl:items-center xl:justify-between">
-            <div className="min-w-0 flex-1">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-base font-semibold text-[#2c3644] dark:text-[#f1f5f8]">
-                  My Purchase Requests Register
+                  Your requests
                 </h3>
-                <span className="rounded-[4px] border border-[#e2d5bd] bg-[#fffaf0] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#8a6520] dark:border-[#52411e] dark:bg-[#251d10] dark:text-[#f0c36a]">
-                  PERSONAL SCOPE
-                </span>
               </div>
-              <p className="mt-1 text-xs text-[#707c8a] dark:text-[#aeb9c4]">
-                Showing your submitted procurement packages. Click any row or feedback action to inspect reviewer comments and take immediate action.
+              <p className="mt-1 text-sm text-[#707c8a] dark:text-[#aeb9c4]">
+                Check the progress and open a request for details.
               </p>
-            </div>
-
-            {/* Filter Pills & Search Box */}
-            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center shrink-0">
-              {/* Category Filter Tabs — suppress zero-count unselected pills */}
-              <div className="flex flex-wrap items-center gap-1 rounded-md border border-border bg-card p-0.5 text-xs shadow-xs">
-                {(
-                  [
-                    { id: "all", label: "All", count: userPrs.length },
-                    { id: "active", label: "Active", count: activePrs.length },
-                    { id: "returned", label: "Returned", count: returnedPrs.length },
-                    { id: "successful", label: "Successful", count: successfulPrs.length },
-                    { id: "rejected", label: "Rejected", count: rejectedPrs.length },
-                  ] as const
-                ).filter((tab) => tab.id === "all" || tab.count > 0 || selectedCategory === tab.id).map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setSelectedCategory(tab.id)}
-                    className={`rounded px-2.5 py-1 text-xs font-semibold transition ${
-                      selectedCategory === tab.id
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {tab.label}{tab.count > 0 ? ` (${tab.count})` : ""}
-                  </button>
-                ))}
-              </div>
-
-              {/* Search Bar */}
-              <div className="relative w-full sm:w-60">
-                <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-[#8b95a1]" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search PR# or purpose..."
-                  className="h-8 w-full pl-8 text-xs"
-                />
-              </div>
-              {searchQuery && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSearchQuery("")}
-                  className="h-8 text-xs shrink-0"
-                >
-                  Reset
-                </Button>
-              )}
             </div>
           </div>
         </div>
@@ -585,31 +435,28 @@ function EndUserPersonalDashboard({
           <div className="p-12 text-center text-xs text-[#77818d] dark:text-[#aeb9c4]">
             Loading your personal purchase requests...
           </div>
-        ) : filteredPrs.length ? (
+        ) : sortedPrs.length ? (
           <div className="w-full overflow-x-auto">
             <table className="w-full min-w-[560px] text-left text-xs">
               <thead className="border-b border-border bg-muted/50 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="px-5 py-3.5">PR Number &amp; Date</th>
                   <th className="px-4 py-3.5">Purpose</th>
-                  <th className="px-4 py-3.5">Status &amp; Stage</th>
+                  <th className="px-4 py-3.5">Progress</th>
                   <th className="px-4 py-3.5 text-right">Date</th>
                   <th className="px-4 py-3.5 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filteredPrs.map((pr) => {
-                  const prStatusInfo = getEmployeePrStatus(pr.status);
+                {sortedPrs.map((pr) => {
+                  const progress = getEndUserProgress(pr.status);
                   const isReturned = pr.status === "returned";
                   const isRejected = pr.status === "rejected" || pr.status === "cancelled";
-                  const isSuccessful = ["approved", "po", "po_issued", "delivered", "pmr_logged", "closed"].includes(pr.status);
-                  const hasFeedback = isReturned || isRejected;
 
                   return (
                     <tr
                       key={pr.id}
-                      className="hover:bg-accent/40 transition-colors cursor-pointer"
-                      onClick={() => setSelectedPrForModal(pr)}
+                      className="hover:bg-accent/40 transition-colors"
                     >
                       {/* Column 1: PR Number + creation date subtitle */}
                       <td className="px-5 py-3">
@@ -626,43 +473,19 @@ function EndUserPersonalDashboard({
                         <p className="line-clamp-2 break-words font-medium leading-snug" title={pr.purpose}>{pr.purpose}</p>
                       </td>
 
-                      {/* Column 3: Status + inline feedback indicator */}
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col gap-1">
-                          <StatusBadge
-                            tone={
-                              isSuccessful ? "approved"
-                              : isReturned ? "pending"
-                              : isRejected ? "returned"
-                              : pr.status.includes("review") || ["rfq", "po"].includes(pr.status) ? "active"
-                              : "draft"
-                            }
-                          >
-                            {prStatusInfo.label.toUpperCase()}
-                          </StatusBadge>
-                          {/* Compact inline feedback indicator — clicking opens full modal */}
-                          {hasFeedback && (
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); setSelectedPrForModal(pr); }}
-                              className={`inline-flex items-center gap-1 text-[10px] font-medium leading-4 ${
-                                isReturned ? "text-[#9a6d19] dark:text-[#f0c36a]" : "text-[#a52a2a] dark:text-[#fca5a5]"
-                              }`}
-                              title={isReturned ? (pr.latestReturnReason || "Returned for revision") : (pr.latestRejectionReason || "Disapproved")}
-                            >
-                              {isReturned ? <FileEdit className="h-3 w-3 shrink-0" /> : <Ban className="h-3 w-3 shrink-0" />}
-                              <span className="truncate max-w-[120px]">
-                                {isReturned
-                                  ? (pr.latestReturnReason?.slice(0, 30) || "Needs revision") + (pr.latestReturnReason && pr.latestReturnReason.length > 30 ? "…" : "")
-                                  : (pr.latestRejectionReason?.slice(0, 30) || "Disapproved") + (pr.latestRejectionReason && pr.latestRejectionReason.length > 30 ? "…" : "")}
-                              </span>
-                            </button>
-                          )}
-                          {isSuccessful && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-[#0f766e] dark:text-[#86efac]">
-                              <CheckCircle2 className="h-3 w-3 shrink-0" />Approved &amp; Awarded
-                            </span>
-                          )}
+                      {/* Column 3: Plain-language progress and next step */}
+                      <td className="min-w-[240px] px-4 py-3">
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="font-semibold text-foreground">{progress.label}</span>
+                            <span className="shrink-0 text-xs text-muted-foreground">{progress.value}%</span>
+                          </div>
+                          <Progress
+                            value={progress.value}
+                            aria-label={`${progress.label}: ${progress.value}% complete`}
+                            className="h-2"
+                          />
+                          <p className="text-xs leading-snug text-muted-foreground">{progress.nextStep}</p>
                         </div>
                       </td>
 
@@ -672,7 +495,7 @@ function EndUserPersonalDashboard({
                       </td>
 
                       {/* Column 5: Action */}
-                      <td className="px-4 py-3 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         <Button
                           variant="outline"
                           size="sm"
@@ -703,19 +526,9 @@ function EndUserPersonalDashboard({
         ) : (
           <div className="p-8 text-center">
             <EmptyWorkspace
-              eyebrow="Filter results"
-              title={
-                selectedCategory === "all"
-                  ? "No Purchase Requests created yet"
-                  : `No ${selectedCategory} Purchase Requests found`
-              }
-              description={
-                searchQuery
-                  ? "No requests matched your search query. Try clearing the filter or searching by a different term."
-                  : "Start by planning your procurement and submitting your first itemized Purchase Request."
-              }
-              actionLabel="Create Purchase Request"
-              actionOnClick={() => setLocation("/purchase-requests?create=1")}
+              eyebrow="My requests"
+              title="No Purchase Requests yet"
+              description="Create your first request to track its progress here."
             />
           </div>
         )}
@@ -918,102 +731,6 @@ function EndUserPersonalDashboard({
           </DialogContent>
         </Dialog>
       )}
-    </div>
-  );
-}
-
-// ============================================================================
-// PERSONAL KPI CARD COMPONENT
-// ============================================================================
-function PersonalKpiCard({
-  label,
-  count,
-  subtitle,
-  detail,
-  tone,
-  icon: Icon,
-  highlightBadge,
-  isActive,
-  onClick,
-}: {
-  label: string;
-  count: number;
-  subtitle: string;
-  detail: string;
-  tone: "blue" | "amber" | "emerald" | "rose";
-  icon: any;
-  highlightBadge?: string;
-  isActive?: boolean;
-  onClick?: () => void;
-}) {
-  const styles = {
-    blue: {
-      bg: "hover:border-[#adcceb] dark:hover:border-[#2f5580]",
-      badge: "bg-[#eaf3fc] text-[#245b91] dark:bg-[#172c42] dark:text-[#93c5fd]",
-      icon: "text-[#245b91] dark:text-[#93c5fd]",
-      value: "text-[#1d4d7a] dark:text-[#bfdbfe]",
-      activeRing: "ring-2 ring-[#245b91]",
-    },
-    amber: {
-      bg: "hover:border-[#edd195] dark:hover:border-[#6b5220]",
-      badge: "bg-[#fdf5e2] text-[#936418] dark:bg-[#342410] dark:text-[#f8d486]",
-      icon: "text-[#936418] dark:text-[#f8d486]",
-      value: "text-[#855a15] dark:text-[#fcd34d]",
-      activeRing: "ring-2 ring-[#936418]",
-    },
-    emerald: {
-      bg: "hover:border-[#a3dfc0] dark:hover:border-[#225739]",
-      badge: "bg-[#eaf8f0] text-[#136a43] dark:bg-[#122e20] dark:text-[#86efac]",
-      icon: "text-[#136a43] dark:text-[#86efac]",
-      value: "text-[#0e5c38] dark:text-[#6ee7b7]",
-      activeRing: "ring-2 ring-[#136a43]",
-    },
-    rose: {
-      bg: "hover:border-[#f3baba] dark:hover:border-[#632727]",
-      badge: "bg-[#fdf0f0] text-[#9c2525] dark:bg-[#341818] dark:text-[#fca5a5]",
-      icon: "text-[#9c2525] dark:text-[#fca5a5]",
-      value: "text-[#8a1c1c] dark:text-[#f87171]",
-      activeRing: "ring-2 ring-[#9c2525]",
-    },
-  }[tone];
-
-  return (
-    <div
-      onClick={onClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onClick?.()}
-      className={`flat-panel min-w-0 cursor-pointer p-4.5 transition-all select-none hover:shadow-md ${styles.bg} ${
-        isActive ? styles.activeRing : ""
-      }`}
-    >
-      <div className="flex items-center justify-between gap-1">
-        <span
-          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider truncate ${styles.badge}`}
-        >
-          <Icon className="h-3 w-3 shrink-0" />
-          <span className="truncate">{label}</span>
-        </span>
-        {highlightBadge ? (
-          <span className="animate-pulse rounded bg-[#9a6d19] px-1.5 py-0.5 text-[9px] font-bold text-white shadow-xs">
-            {highlightBadge}
-          </span>
-        ) : (
-          <Icon className={`h-4 w-4 shrink-0 ${styles.icon}`} />
-        )}
-      </div>
-
-      <p className={`mt-3 truncate font-display text-2xl font-bold tracking-tight sm:text-3xl ${styles.value}`}>
-        {count.toLocaleString()}
-      </p>
-
-      <p className="mt-1 line-clamp-1 text-xs font-semibold text-[#485362] dark:text-[#f1f5f8]" title={subtitle}>
-        {subtitle}
-      </p>
-
-      <p className="mt-0.5 line-clamp-1 text-[11px] leading-4 text-[#798593] dark:text-[#aeb9c4]" title={detail}>
-        {detail}
-      </p>
     </div>
   );
 }
@@ -1812,4 +1529,3 @@ function ProcurementOfficerDashboard() {
     </div>
   );
 }
-

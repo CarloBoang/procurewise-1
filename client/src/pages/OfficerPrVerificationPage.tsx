@@ -461,96 +461,96 @@ export function OfficerPrVerificationPage() {
       {/* Review & Verification Modal */}
       {selectedVerificationItem && (
         <Dialog open={Boolean(selectedVerificationItem)} onOpenChange={(open) => !open && setSelectedVerificationItem(null)}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <div className="flex items-center gap-2">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#881337]/10 text-[#881337] dark:bg-[#881337]/20 dark:text-rose-300">
-                  <FileCheck2 className="h-4 w-4" />
+          <DialogContent className="flex max-h-[92vh] w-[96vw] max-w-6xl flex-col gap-0 overflow-hidden p-0 sm:max-w-6xl">
+            <DialogHeader className="shrink-0 border-b border-slate-200 px-5 py-4 pr-14 dark:border-slate-800 sm:px-7 sm:py-5">
+              <div className="flex items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#881337]/10 text-[#881337] dark:bg-[#881337]/20 dark:text-rose-300">
+                  <FileCheck2 className="h-5 w-5" />
                 </span>
-                <div>
-                  <DialogTitle className="text-base font-bold text-slate-900 dark:text-white">
+                <div className="min-w-0">
+                  <DialogTitle className="text-lg font-bold leading-snug text-slate-900 dark:text-white sm:text-xl">
                     PR & PPMP Package Review — {selectedVerificationItem.purchaseRequest.prNumber}
                   </DialogTitle>
-                  <DialogDescription className="text-xs">
-                    Administrative clearance step before handoff to Staff for PMR recording.
+                  <DialogDescription className="mt-1 text-sm">
+                    Review the request, PPMP, and item categories before clearing it for PMR recording.
                   </DialogDescription>
                 </div>
               </div>
             </DialogHeader>
 
-            <div className="space-y-4 pt-2">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4 sm:space-y-5 sm:px-7 sm:py-5">
               {/* Package Summary */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-lg border border-slate-200/80 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-800/40 text-xs">
+              <div className="grid grid-cols-2 gap-4 rounded-lg border border-slate-200/80 bg-slate-50/60 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/40 sm:grid-cols-4 sm:gap-5">
                 <div>
-                  <span className="text-[11px] text-slate-500">PR Number:</span>
-                  <div className="font-semibold text-slate-900 dark:text-white">{selectedVerificationItem.purchaseRequest.prNumber}</div>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">PR Number</span>
+                  <div className="mt-1 break-words font-semibold text-slate-900 dark:text-white">{selectedVerificationItem.purchaseRequest.prNumber}</div>
                 </div>
                 <div>
-                  <span className="text-[11px] text-slate-500">Fund Cluster:</span>
-                  <div className="font-semibold text-slate-900 dark:text-white">{selectedVerificationItem.purchaseRequest.fundCluster}</div>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Fund Cluster</span>
+                  <div className="mt-1 font-semibold text-slate-900 dark:text-white">{selectedVerificationItem.purchaseRequest.fundCluster}</div>
                 </div>
                 <div>
-                  <span className="text-[11px] text-slate-500">Total Estimate:</span>
-                  <div className="font-semibold text-slate-900 dark:text-white">{formatMoney(selectedVerificationItem.purchaseRequest.totalEstimate)}</div>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Total Estimate</span>
+                  <div className="mt-1 font-semibold text-slate-900 dark:text-white">{formatMoney(selectedVerificationItem.purchaseRequest.totalEstimate)}</div>
                 </div>
                 <div>
-                  <span className="text-[11px] text-slate-500">Tracking Slip Token:</span>
-                  <div className="font-mono text-[10px] text-slate-600 dark:text-slate-300 truncate" title={selectedVerificationItem.purchaseRequest.trackingToken}>
-                    {selectedVerificationItem.purchaseRequest.trackingToken?.slice(0, 16)}…
+                  <span className="text-xs text-slate-500 dark:text-slate-400">Tracking Slip Token</span>
+                  <div className="mt-1 break-all font-mono text-xs text-slate-600 dark:text-slate-300" title={selectedVerificationItem.purchaseRequest.trackingToken}>
+                    {selectedVerificationItem.purchaseRequest.trackingToken || "Not available"}
                   </div>
                 </div>
               </div>
 
               {/* Linked PPMP Validation Box */}
-              <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
-                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                    <BookOpenCheck className="h-4 w-4 text-[#881337]" />
+              <div className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 dark:border-slate-800">
+                  <span className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
+                    <BookOpenCheck className="h-5 w-5 text-[#881337]" />
                     Linked PPMP Verification
                   </span>
                   {selectedVerificationItem.linkedPpmp || (selectedVerificationItem as any).uploadedPpmpDoc ? (
-                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
+                    <Badge variant="outline" className="border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs text-emerald-700">
                       PPMP Verified {(selectedVerificationItem as any).uploadedPpmpDoc ? "(Attached File)" : ""}
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 text-[10px]">
+                    <Badge variant="outline" className="border-rose-200 bg-rose-50 px-2.5 py-1 text-xs text-rose-700">
                       Missing PPMP Reference
                     </Badge>
                   )}
                 </div>
                 {selectedVerificationItem.linkedPpmp ? (
-                  <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                  <div className="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3 sm:gap-5">
                     <div>
-                      <span className="text-[10px] text-slate-500">Planned Item:</span>
-                      <div className="font-medium text-slate-800 dark:text-slate-200">{selectedVerificationItem.linkedPpmp.description}</div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Planned Item</span>
+                      <div className="mt-1 break-words font-medium text-slate-800 dark:text-slate-200">{selectedVerificationItem.linkedPpmp.description}</div>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500">Planned Amount:</span>
-                      <div className="font-medium text-slate-800 dark:text-slate-200">{formatMoney(selectedVerificationItem.linkedPpmp.plannedAmount)}</div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Planned Amount</span>
+                      <div className="mt-1 font-medium text-slate-800 dark:text-slate-200">{formatMoney(selectedVerificationItem.linkedPpmp.plannedAmount)}</div>
                     </div>
                     <div>
-                      <span className="text-[10px] text-slate-500">Procurement Modality:</span>
-                      <div className="font-medium text-slate-800 dark:text-slate-200">{selectedVerificationItem.linkedPpmp.modeOfProcurement || "SVP"}</div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">Procurement Modality</span>
+                      <div className="mt-1 break-words font-medium text-slate-800 dark:text-slate-200">{selectedVerificationItem.linkedPpmp.modeOfProcurement || "SVP"}</div>
                     </div>
                   </div>
                 ) : (selectedVerificationItem as any).uploadedPpmpDoc ? (
-                  <div className="mt-2.5 text-xs text-slate-700 dark:text-slate-300">
+                  <div className="mt-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                     The End-User provided and attached an authorized department PPMP document to this package.
                   </div>
                 ) : (
-                  <p className="mt-2 text-xs text-rose-600">The End-User has not attached a valid PPMP entry to this Purchase Request.</p>
+                  <p className="mt-3 text-sm text-rose-600">The End-User has not attached a valid PPMP entry to this Purchase Request.</p>
                 )}
                 {(selectedVerificationItem as any).uploadedPpmpDoc && (
-                  <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300">
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+                    <div className="flex min-w-0 items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                       <FileText className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
-                      <span className="truncate max-w-xs">Attached PPMP: <strong className="font-medium">{(selectedVerificationItem as any).uploadedPpmpDoc.originalFileName}</strong></span>
+                      <span className="break-all">Attached PPMP: <strong className="font-medium">{(selectedVerificationItem as any).uploadedPpmpDoc.originalFileName}</strong></span>
                     </div>
                     <a
                       href={(selectedVerificationItem as any).uploadedPpmpDoc.storageUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#881337] hover:underline dark:text-rose-400 shrink-0 ml-2"
+                      className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-md px-3 text-sm font-semibold text-[#881337] hover:bg-rose-50 hover:underline dark:text-rose-400 dark:hover:bg-rose-950/30"
                     >
                       <ExternalLink className="h-3 w-3" /> View / Download PPMP
                     </a>
@@ -559,20 +559,27 @@ export function OfficerPrVerificationPage() {
               </div>
 
               {/* Items Breakdown Table */}
-              <div className="rounded-lg border border-slate-200 bg-white overflow-hidden dark:border-slate-800 dark:bg-slate-900">
-                <div className="bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-800 dark:bg-slate-800/60 dark:text-slate-200 flex justify-between items-center">
+              <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex flex-col gap-1 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 dark:bg-slate-800/60 dark:text-slate-200 sm:flex-row sm:items-center sm:justify-between">
                   <span>Line Items & Commodity Category Analysis ({selectedVerificationItem.items.length} items)</span>
-                  <span className="text-[10px] text-slate-500">Mandated 5 Categories: Office, Hardware, ICT, Printing, Food</span>
+                  <span className="text-xs font-normal text-slate-500 dark:text-slate-400">5 mandated categories: Office, Hardware, ICT, Printing, Food</span>
                 </div>
-                <div className="max-h-56 overflow-y-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="border-b border-slate-200 bg-slate-50/50 dark:border-slate-800 text-[11px] text-slate-500">
+                <div className="max-h-[min(48vh,32rem)] overflow-y-auto">
+                  <table className="w-full table-fixed text-left text-sm">
+                    <colgroup>
+                      <col className="w-[31%]" />
+                      <col className="w-[24%]" />
+                      <col className="w-[12%]" />
+                      <col className="w-[16%]" />
+                      <col className="w-[17%]" />
+                    </colgroup>
+                    <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-300">
                       <tr>
-                        <th className="px-3 py-2">Item Description & Spec</th>
-                        <th className="px-3 py-2">Detected Category</th>
-                        <th className="px-3 py-2">Qty</th>
-                        <th className="px-3 py-2">Est. Unit Cost</th>
-                        <th className="px-3 py-2 text-right">Total</th>
+                        <th className="break-words px-2 py-3 sm:px-4">Item description & specification</th>
+                        <th className="break-words px-2 py-3 sm:px-4">Detected category</th>
+                        <th className="break-words px-2 py-3 sm:px-4">Quantity</th>
+                        <th className="break-words px-2 py-3 sm:px-4">Est. unit cost</th>
+                        <th className="break-words px-2 py-3 text-right sm:px-4">Total</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -582,13 +589,13 @@ export function OfficerPrVerificationPage() {
                         const catLabel = classification?.categoryLabel ?? "Unclassified";
 
                         return (
-                          <tr key={item.id ?? idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                            <td className="px-3 py-2">
-                              <div className="font-medium text-slate-800 dark:text-slate-200">{item.description}</div>
-                              {item.specification && <div className="text-[10px] text-slate-500">{item.specification}</div>}
+                          <tr key={item.id ?? idx} className="align-top hover:bg-slate-50/70 dark:hover:bg-slate-800/30">
+                            <td className="break-words px-2 py-3 sm:px-4">
+                              <div className="font-medium leading-snug text-slate-800 dark:text-slate-200">{item.description}</div>
+                              {item.specification && <div className="mt-1 break-words text-xs leading-relaxed text-slate-500 dark:text-slate-400">{item.specification}</div>}
                             </td>
-                            <td className="px-3 py-2">
-                              <Badge variant="outline" className={`text-[10px] ${
+                            <td className="break-words px-2 py-3 sm:px-4">
+                              <Badge variant="outline" className={`whitespace-normal text-left text-xs leading-snug ${
                                 catId === "office_supplies" ? "border-blue-300 bg-blue-50 text-blue-700" :
                                 catId === "hardware_supplies" ? "border-orange-300 bg-orange-50 text-orange-700" :
                                 catId === "ict_supplies" ? "border-purple-300 bg-purple-50 text-purple-700" :
@@ -599,9 +606,9 @@ export function OfficerPrVerificationPage() {
                                 {catLabel}
                               </Badge>
                             </td>
-                            <td className="px-3 py-2">{item.quantity} {item.unit}</td>
-                            <td className="px-3 py-2">{formatMoney(item.estimatedUnitCost)}</td>
-                            <td className="px-3 py-2 text-right font-medium">{formatMoney(item.totalCost)}</td>
+                            <td className="break-words px-2 py-3 tabular-nums sm:px-4">{item.quantity} {item.unit}</td>
+                            <td className="break-words px-2 py-3 tabular-nums sm:px-4">{formatMoney(item.estimatedUnitCost)}</td>
+                            <td className="break-words px-2 py-3 text-right font-semibold tabular-nums sm:px-4">{formatMoney(item.totalCost)}</td>
                           </tr>
                         );
                       })}
@@ -612,15 +619,15 @@ export function OfficerPrVerificationPage() {
 
               {/* Section 5.1.1 Mixed Category Warning Banner */}
               {selectedVerificationItem.segregationAnalysis?.isMixed && (
-                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3.5 dark:border-amber-800 dark:bg-amber-950/30">
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
                   <div className="flex items-start gap-2.5">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                    <div className="text-xs text-amber-900 dark:text-amber-200">
+                    <div className="text-sm leading-relaxed text-amber-900 dark:text-amber-200">
                       <div className="font-bold">Warning (Section 5.1.1): Line items appear mixed across multiple categories.</div>
                       <div className="mt-1">
                         Ensure distinct commodity types are submitted on separate PRs. Detected commodities: <span className="font-semibold">{selectedVerificationItem.segregationAnalysis.categoryLabels.join(", ")}</span>.
                       </div>
-                      <div className="mt-2 text-[11px] text-amber-800 dark:text-amber-300">
+                      <div className="mt-2 text-xs text-amber-800 dark:text-amber-300">
                         Recommendation: Click <span className="font-semibold underline">Return to End-User for Revision</span> to instruct the requester to split this request per Section 5.1.1 rules.
                       </div>
                     </div>
@@ -629,41 +636,41 @@ export function OfficerPrVerificationPage() {
               )}
 
               {/* Category Segregation Checklist Toggle */}
-              <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
-                <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 mb-2">
+              <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-800 dark:bg-slate-800/40">
+                <div className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-200">
                   Category Segregation Checklist
                 </div>
-                <label className="flex items-start gap-3 cursor-pointer">
+                <label className="flex min-h-11 cursor-pointer items-start gap-3">
                   <input
                     type="checkbox"
                     checked={categorySegregationConfirmed}
                     onChange={(e) => setCategorySegregationConfirmed(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#881337] focus:ring-[#881337]"
+                    className="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-300 text-[#881337] focus:ring-2 focus:ring-[#881337]"
                   />
-                  <span className="text-xs text-slate-700 dark:text-slate-300">
+                  <span className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
                     <span className="font-semibold">Item Category Segregation Verified</span> (Items are segregated into: Office Supplies, Hardware Supplies, ICT Supplies, Printing Services, or Food Ingredients).
                   </span>
                 </label>
               </div>
             </div>
 
-            <DialogFooter className="mt-4 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-2 border-t border-slate-200 dark:border-slate-800 pt-3">
+            <DialogFooter className="shrink-0 flex-col-reverse gap-2 border-t border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between sm:px-7">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={() => setSelectedVerificationItem(null)}
-                className="text-xs"
+                className="h-10 px-4 text-sm"
               >
                 Close
               </Button>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={handleOpenReturnModal}
-                  className="text-xs border-rose-300 text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/40"
+                  className="h-10 border-rose-300 px-4 text-sm text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/40"
                 >
                   <Undo2 className="mr-1.5 h-3.5 w-3.5" />
                   Return to End-User for Revision
@@ -673,7 +680,7 @@ export function OfficerPrVerificationPage() {
                   size="sm"
                   disabled={!categorySegregationConfirmed || verifyMutation.isPending}
                   onClick={handleProceedVerification}
-                  className="text-xs bg-[#881337] hover:bg-[#70102e] text-white disabled:opacity-50"
+                  className="h-10 bg-[#881337] px-4 text-sm text-white hover:bg-[#70102e] disabled:opacity-50"
                 >
                   {verifyMutation.isPending && <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
                   <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />

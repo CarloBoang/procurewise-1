@@ -30,11 +30,15 @@ export function PmrRegistryPage() {
   const { user } = useAuth();
   const role = user ? normalizeProcurementRole(user.role) : "end_user";
   const isOfficerOrAdmin = role === "procurement_officer" || role === "admin";
-  const isStaffOrOfficer = role === "procurement_staff" || role === "procurement_officer" || role === "admin";
+  const canRecordPrToPmr = role === "procurement_staff" || role === "admin";
+  const canRecordDeliveryPmr = role === "procurement_staff" || role === "procurement_officer" || role === "admin";
 
-  const [activeTab, setActiveTab] = useState<"pending" | "register">("pending");
+  const [activeTab, setActiveTab] = useState<"pending" | "closeout" | "register">("pending");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFiscalYear, setSelectedFiscalYear] = useState<number>(new Date().getFullYear());
+  const [closeoutTarget, setCloseoutTarget] = useState<{ id: number; poNumber: string; prNumber: string } | null>(null);
+  const [closeoutPmrNumber, setCloseoutPmrNumber] = useState("");
+  const [closeoutRemarks, setCloseoutRemarks] = useState("");
 
   // Dialog states
   const [selectedPrId, setSelectedPrId] = useState<number | null>(null);
@@ -62,6 +66,23 @@ export function PmrRegistryPage() {
     { fiscalYear: selectedFiscalYear },
     { retry: false }
   );
+
+  const closeoutDashboardQuery = trpc.procurement.dashboard.useQuery(undefined, {
+    retry: false,
+    enabled: canRecordDeliveryPmr,
+  });
+
+  const logDeliveryPmrMutation = trpc.procurement.preCanvasses.logPmr.useMutation({
+    onSuccess: () => {
+      toast.success("PMR logged and Purchase Order closed.");
+      setCloseoutTarget(null);
+      setCloseoutPmrNumber("");
+      setCloseoutRemarks("");
+      void utils.procurement.dashboard.invalidate();
+      void utils.procurement.purchaseRequests.list.invalidate();
+    },
+    onError: (err) => toast.error(err.message),
+  });
 
   const verifyMutation = trpc.procurement.purchaseRequests.verifyPackage.useMutation({
     onSuccess: (data) => {
@@ -101,6 +122,9 @@ export function PmrRegistryPage() {
 
   const pendingRecording = filteredPrs.filter((pr) => !recordedPrIds.has(pr.id) && pr.status !== "pmr_logged" && pr.status !== "closed");
   const alreadyRecorded = filteredPrs.filter((pr) => recordedPrIds.has(pr.id) || pr.status === "pmr_logged" || pr.status === "closed");
+  const deliveredPurchaseOrders = (closeoutDashboardQuery.data?.purchaseOrders ?? []).filter((po) => po.status === "delivered");
+  const purchaseRequestById = new Map((closeoutDashboardQuery.data?.purchaseRequests ?? []).map((pr) => [pr.id, pr]));
+  const purchaseOrderById = new Map((closeoutDashboardQuery.data?.purchaseOrders ?? []).map((po) => [po.id, po]));
 
   const formatCurrency = (amount: number | string | null | undefined) => {
     const val = Number(amount || 0);
@@ -125,8 +149,7 @@ export function PmrRegistryPage() {
             PMR Registry &amp; Recording
           </h1>
           <p className="mt-1 text-sm text-muted-foreground max-w-3xl">
-            Record verified Purchase Requests into the official Procurement Monitoring Report (PMR).
-            Recording is strictly permitted <span className="font-semibold text-foreground">only after</span> the Procurement Officer has received and verified the PR &amp; PPMP.
+            Record verified PRs and close delivered Purchase Orders with their PMR reference. Use the delivery closeout tab for the final PMR step that completes the workflow.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -138,6 +161,7 @@ export function PmrRegistryPage() {
               void utils.procurement.audit.list.invalidate({ action: "recorded_to_pmr" });
               void utils.procurement.historicalPmr.list.invalidate();
               void utils.procurement.historicalPmr.summary.invalidate();
+              if (canRecordDeliveryPmr) void utils.procurement.dashboard.invalidate();
             }}
             className="gap-1.5"
           >
@@ -175,7 +199,112 @@ export function PmrRegistryPage() {
             Official PMR Register
           </span>
         </button>
+        {canRecordDeliveryPmr && (
+          <button
+            onClick={() => setActiveTab("closeout")}
+            className={`relative pb-3 text-sm font-medium transition-colors ${
+              activeTab === "closeout"
+                ? "text-rose-700 dark:text-rose-400 font-semibold border-b-2 border-rose-700 dark:border-rose-400 -mb-px"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" />
+              Delivery PMR Closeout ({deliveredPurchaseOrders.length})
+            </span>
+          </button>
+        )}
       </div>
+
+      {activeTab === "closeout" && canRecordDeliveryPmr && (
+        <div className="space-y-6">
+          <section className="rounded-xl border border-border bg-card shadow-sm">
+            <div className="border-b border-border p-4">
+              <h2 className="font-semibold text-foreground">Delivered Purchase Orders awaiting PMR</h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Log the final PMR reference after delivery. This closes the Purchase Order and marks its Purchase Request complete.
+              </p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-border bg-muted/40 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Purchase Order</th>
+                    <th className="px-4 py-3 font-semibold">Purchase Request</th>
+                    <th className="px-4 py-3 font-semibold">Amount</th>
+                    <th className="px-4 py-3 text-right font-semibold">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {closeoutDashboardQuery.isLoading ? (
+                    <tr><td colSpan={4} className="py-10 text-center text-muted-foreground">Loading delivered Purchase Orders…</td></tr>
+                  ) : deliveredPurchaseOrders.length === 0 ? (
+                    <tr><td colSpan={4} className="py-10 text-center text-muted-foreground">No delivered Purchase Orders are awaiting PMR closeout.</td></tr>
+                  ) : deliveredPurchaseOrders.map((po) => {
+                    const pr = purchaseRequestById.get(po.purchaseRequestId);
+                    return (
+                      <tr key={po.id} className="hover:bg-muted/20">
+                        <td className="px-4 py-3 font-mono font-semibold text-rose-700 dark:text-rose-400">{po.poNumber}</td>
+                        <td className="px-4 py-3">
+                          <span className="font-mono text-xs font-medium">{pr?.prNumber ?? "PR unavailable"}</span>
+                          {pr?.purpose && <p className="mt-0.5 max-w-md truncate text-xs text-muted-foreground">{pr.purpose}</p>}
+                        </td>
+                        <td className="px-4 py-3 font-medium">{formatCurrency(po.totalAmount)}</td>
+                        <td className="px-4 py-3 text-right">
+                          <Button
+                            size="sm"
+                            className="bg-rose-700 text-white hover:bg-rose-800"
+                            onClick={() => {
+                              setCloseoutTarget({ id: po.id, poNumber: po.poNumber, prNumber: pr?.prNumber ?? "PR unavailable" });
+                              setCloseoutPmrNumber(`PMR-${new Date().getFullYear()}-${String(po.id).padStart(5, "0")}`);
+                            }}
+                          >
+                            Log PMR &amp; Close PO
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-border bg-card shadow-sm">
+            <div className="border-b border-border p-4">
+              <h2 className="font-semibold text-foreground">Recently logged delivery PMRs</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-border bg-muted/40 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">PMR Reference</th>
+                    <th className="px-4 py-3 font-semibold">Purchase Order</th>
+                    <th className="px-4 py-3 font-semibold">Purchase Request</th>
+                    <th className="px-4 py-3 font-semibold">Logged</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {(closeoutDashboardQuery.data?.pmrLogs ?? []).length === 0 ? (
+                    <tr><td colSpan={4} className="py-10 text-center text-muted-foreground">No delivery PMRs have been logged yet.</td></tr>
+                  ) : (closeoutDashboardQuery.data?.pmrLogs ?? []).map((entry) => {
+                    const po = purchaseOrderById.get(entry.purchaseOrderId);
+                    const pr = po ? purchaseRequestById.get(po.purchaseRequestId) : undefined;
+                    return (
+                      <tr key={entry.id}>
+                        <td className="px-4 py-3 font-mono font-semibold">{entry.pmrNumber}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{po?.poNumber ?? "PO unavailable"}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{pr?.prNumber ?? "PR unavailable"}</td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(entry.loggedAt).toLocaleDateString("en-PH")}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      )}
 
       {activeTab === "pending" && (
         <div className="space-y-6">
@@ -331,7 +460,7 @@ export function PmrRegistryPage() {
                                 Tracking Slip
                               </Button>
 
-                              {isStaffOrOfficer && (
+                              {canRecordPrToPmr && (
                                 <Button
                                   size="sm"
                                   disabled={!isVerified}
@@ -675,7 +804,7 @@ export function PmrRegistryPage() {
                 </Button>
               )}
 
-              {isStaffOrOfficer && prDetailQuery.data && (
+              {canRecordPrToPmr && prDetailQuery.data && (
                 <Button
                   size="sm"
                   disabled={prDetailQuery.data.purchaseRequest.procurementReviewedById === null}
@@ -771,6 +900,66 @@ export function PmrRegistryPage() {
             >
               {recordPmrMutation.isPending && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
               Confirm PMR Entry
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(closeoutTarget)} onOpenChange={(open) => !open && setCloseoutTarget(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Log final PMR and close Purchase Order</DialogTitle>
+            <DialogDescription>
+              Record the PMR reference for the delivered Purchase Order. This will mark {closeoutTarget?.prNumber} complete.
+            </DialogDescription>
+          </DialogHeader>
+          {closeoutTarget && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                <p><span className="text-muted-foreground">Purchase Order: </span><span className="font-mono font-semibold">{closeoutTarget.poNumber}</span></p>
+                <p className="mt-1"><span className="text-muted-foreground">Purchase Request: </span><span className="font-mono font-semibold">{closeoutTarget.prNumber}</span></p>
+              </div>
+              <div>
+                <Label htmlFor="delivery-pmr-reference">PMR reference</Label>
+                <Input
+                  id="delivery-pmr-reference"
+                  value={closeoutPmrNumber}
+                  onChange={(event) => setCloseoutPmrNumber(event.target.value)}
+                  minLength={3}
+                  maxLength={40}
+                  required
+                  className="mt-1 font-mono"
+                />
+              </div>
+              <div>
+                <Label htmlFor="delivery-pmr-remarks">Remarks (optional)</Label>
+                <Textarea
+                  id="delivery-pmr-remarks"
+                  value={closeoutRemarks}
+                  onChange={(event) => setCloseoutRemarks(event.target.value)}
+                  maxLength={1000}
+                  placeholder="Optional closeout notes"
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCloseoutTarget(null)}>Cancel</Button>
+            <Button
+              disabled={!closeoutTarget || closeoutPmrNumber.trim().length < 3 || logDeliveryPmrMutation.isPending}
+              onClick={() => {
+                if (!closeoutTarget) return;
+                logDeliveryPmrMutation.mutate({
+                  purchaseOrderId: closeoutTarget.id,
+                  pmrNumber: closeoutPmrNumber.trim(),
+                  remarks: closeoutRemarks.trim() || undefined,
+                });
+              }}
+              className="bg-rose-700 text-white hover:bg-rose-800"
+            >
+              {logDeliveryPmrMutation.isPending && <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />}
+              Confirm PMR Closeout
             </Button>
           </DialogFooter>
         </DialogContent>

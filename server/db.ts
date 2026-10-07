@@ -1759,6 +1759,9 @@ export async function advancePurchaseRequest(input: { purchaseRequestId: number;
     if (!hasRequiredSupplierQuotations(validQuotes.length)) {
       throw new Error("Submit a complete three-supplier Pre-Canvass before forwarding the procurement package.");
     }
+    if (!(await hasRequiredPreCanvassDocuments(preCanvass.id, db))) {
+      throw new Error("Upload both the Preliminary Abstract of Quotations and Canvass Form before forwarding the procurement package.");
+    }
 
     if (preCanvass.status === "draft") {
       await db.update(preCanvasses).set({ status: "submitted", updatedAt: new Date() }).where(eq(preCanvasses.id, preCanvass.id));
@@ -2340,6 +2343,16 @@ export async function addPreCanvassQuote(input: { preCanvassId: number; supplier
   await writeAuditEvent({ entityType: "pre_canvass", entityId: input.preCanvassId, action: "supplier_quote_added", performedById: user.id, performedByRole: normalizeProcurementRole(user.role), details: { supplierId: input.supplierId } });
 }
 
+async function hasRequiredPreCanvassDocuments(preCanvassId: number, db: ReturnType<typeof drizzle>) {
+  const documents = await db.select().from(procurementDocuments).where(and(
+    eq(procurementDocuments.entityType, "pre_canvass"),
+    eq(procurementDocuments.entityId, preCanvassId),
+    inArray(procurementDocuments.documentType, ["Preliminary Abstract of Quotations", "Canvass Form"]),
+  ));
+  const documentTypes = new Set(documents.map((document) => document.documentType));
+  return documentTypes.has("Preliminary Abstract of Quotations") && documentTypes.has("Canvass Form");
+}
+
 export async function submitPreCanvass(preCanvassId: number, user: User, options?: ProcurementWorkflowOptions) {
   const db = options?.db ?? await requireDb();
   const recordAudit = options?.recordAudit ?? writeAuditEvent;
@@ -2348,8 +2361,11 @@ export async function submitPreCanvass(preCanvassId: number, user: User, options
   const quotes = await db.select().from(preCanvassQuotes).where(eq(preCanvassQuotes.preCanvassId, preCanvassId));
   const validQuotes = getValidPreCanvassQuotes(quotes);
   if (!hasRequiredSupplierQuotations(validQuotes.length)) throw new Error("Three supplier quotes are required before forwarding the Pre-Canvass to the Procurement Officer.");
+  if (!(await hasRequiredPreCanvassDocuments(preCanvassId, db))) {
+    throw new Error("Upload both the Preliminary Abstract of Quotations and Canvass Form before submitting this Pre-Canvass.");
+  }
   await db.update(preCanvasses).set({ status: "submitted" }).where(eq(preCanvasses.id, preCanvassId));
-  await recordAudit({ entityType: "pre_canvass", entityId: preCanvassId, action: "submitted_to_procurement", performedById: user.id, performedByRole: normalizeProcurementRole(user.role), details: { quoteCount: validQuotes.length } });
+  await recordAudit({ entityType: "pre_canvass", entityId: preCanvassId, action: "submitted_to_procurement", performedById: user.id, performedByRole: normalizeProcurementRole(user.role), details: { quoteCount: validQuotes.length, requiredDocuments: ["Preliminary Abstract of Quotations", "Canvass Form"] } });
 }
 
 export async function createAbstractOfCanvass(preCanvassId: number, user: User) {
@@ -3899,4 +3915,3 @@ export async function getEndUserPerformanceAnalytics(input?: {
     totals,
   };
 }
-
